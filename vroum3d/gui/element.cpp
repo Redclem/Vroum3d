@@ -1,24 +1,22 @@
 #include "element.h"
 #include "../core/vkutil.h"
+#include "base.h"
+#include <vulkan/vulkan_core.h>
 
 using namespace Vroum3d::Gui;
 
 VkDeviceSize Menu::get_buffer_size() const
 {
-	VkDeviceSize size(0);
-	for(auto& elem : m_children)
-		size += elem->get_buffer_size();
-
-	return size;
+	return 0;
 }
 
-void Menu::set_buffer_offset(VkDeviceSize offset)
+void Element::init()
 {
-	for(auto& elem : m_children)
-	{
-		elem->set_buffer_offset(offset);
-		offset += elem->get_buffer_size();
-	}
+	m_base->register_element(this);
+}
+
+void Element::record_upl_commands(VkCommandBuffer)
+{
 }
 
 

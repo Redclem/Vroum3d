@@ -429,3 +429,8 @@ void Instance::create_transfer_pool()
 
 	vk_check(vkCreateCommandPool(m_dev, &pi, nullptr, &m_transfer_pool))
 }
+
+void Instance::quick_submit(VkCommandBuffer cmd_buf)
+{
+	VkCommandBuffer
+}

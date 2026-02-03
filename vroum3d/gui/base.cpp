@@ -14,31 +14,39 @@ using namespace Vroum3d::Gui;
 
 void Base::destroy()
 {
-	m_buffer.destroy_with([&](auto buf){vkDestroyBuffer(m_dev, buf, nullptr);});
+	m_buffer.destroy_with([&](auto buf){vkDestroyBuffer(m_device, buf, nullptr);});
 
 	for(auto& [_, tex] : m_textures)
 	{
-		if(tex.view != VK_NULL_HANDLE)
-			vkDestroyImageView(m_dev, tex.view, nullptr);
-		if(tex.img != VK_NULL_HANDLE)
-			vkDestroyImage(m_dev, tex.img, nullptr);
+		tex.view.destroy_with([&](auto v){vkDestroyImageView(m_device, v, nullptr);});
+		tex.img.destroy_with([&](auto im){vkDestroyImage(m_device, im, nullptr);});
 	}
 
 	m_textures.clear();
 
-	m_mem.destroy_with([&](auto mem) {vkFreeMemory(m_dev, mem, nullptr);});
+	m_mem.destroy_with([&](auto mem) {vkFreeMemory(m_device, mem, nullptr);});
 }
 
 void Base::init()
 {
+	m_root_elem->register_element();
+
+	VkDeviceSize buffer_size(0); // Accumulate buffer size, use as current offset
 	for(auto * elem = m_first_elem; elem; elem = elem->m_next_element)
+	{
 		elem->init();
 
+		elem->set_buffer_offset(buffer_size);
+		buffer_size += elem->get_buffer_size();
+	}
+
 	struct Tptr {
-		char* ptr;
+		unsigned char* ptr;
 
 		~Tptr() {if(ptr) std::free(ptr);}
 	};
+
+	/** Gather texture and buffer memory requirements */
 
 	std::vector<std::pair<Tptr, VkMemoryRequirements>> textures;
 	textures.reserve(m_textures.size());
@@ -50,13 +58,19 @@ void Base::init()
 	m_rgb = rgb_supported();
 	int chan = m_rgb ? 3 : 4;
 
+	m_first_elem->init();
+
 	VkFormat format = m_rgb ? VK_FORMAT_R8G8B8_SRGB : VK_FORMAT_R8G8B8A8_SRGB;
 
 	for(auto& [name, tex] : m_textures)
 	{
 		int channels;
-		// TODO : add check to see if RGB8 supported and use if supported
-		textures.emplace_back(stbi_load(name.c_str(), &tex.w, &tex.h, &channels, chan), VkMemoryRequirements{});
+		int w, h;
+		textures.emplace_back(
+			Tptr{stbi_load(name.c_str(), &w, &h, &channels, chan)}, 
+			VkMemoryRequirements{});
+		tex.w = w;
+		tex.h = h;
 
 		buffer_upl_size += tex.w * tex.h * chan;
 
@@ -79,43 +93,35 @@ void Base::init()
 			VK_IMAGE_LAYOUT_UNDEFINED
 		};
 
-		vk_check(vkCreateImage(m_dev, &imnfo, nullptr, &tex.img))
+		vk_check(vkCreateImage(m_device, &imnfo, nullptr, &tex.img))
 
 		VkMemoryRequirements imr;
-		vkGetImageMemoryRequirements(m_dev, tex.img, &imr);
+		vkGetImageMemoryRequirements(m_device, tex.img, &imr);
 
 		vkutil::add_mem_reqs(mr, imr);
 	}
-	
-	std::vector<VkDeviceSize> buffer_sizes;
-	VkDeviceSize buf_tot_size = 0;
-	
-	for(auto iter = m_first_elem; iter; iter = iter->m_next_element)
-	{
-		auto size = iter->get_buffer_size();
-		buffer_sizes.push_back(size);
-		buf_tot_size += size;
-	}
 
-	buffer_upl_size += buf_tot_size;
+	buffer_upl_size += buffer_size;
 
 	VkBufferCreateInfo bnfo{
 		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		nullptr,
 		0,
-		buf_tot_size,
+		buffer_size,
 		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 		VK_SHARING_MODE_EXCLUSIVE,
 		0,
 		nullptr
 	};
 
-	vk_check(vkCreateBuffer(m_dev, &bnfo, nullptr, &m_buffer))
+	vk_check(vkCreateBuffer(m_device, &bnfo, nullptr, &m_buffer))
 	
 	VkMemoryRequirements bmr;
-	vkGetBufferMemoryRequirements(m_dev, m_buffer, &bmr);
+	vkGetBufferMemoryRequirements(m_device, m_buffer, &bmr);
 
 	vkutil::add_mem_reqs(mr, bmr);
+
+	/** Allocate */
 
 	VkMemoryAllocateInfo anfo{
 		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -124,11 +130,13 @@ void Base::init()
 		vkutil::find_mem_index(m_instance->pdev(), mr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 	};
 
-	vk_check(vkAllocateMemory(m_dev, &anfo, nullptr, &m_mem))
+	vk_check(vkAllocateMemory(m_device, &anfo, nullptr, &m_mem))
 
 	Buffer buf(*m_instance, buffer_upl_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
 	char* dt = reinterpret_cast<decltype(dt)>(buf.map());
+
+	/** Bind and upload data */
 
 	VkDeviceSize ofs(0), upl_ofs(0);
 	CommandBuffer upl_cmd(*m_instance);
@@ -181,7 +189,7 @@ void Base::init()
 		{
 			ofs = vkutil::match_offset(ofs, mri->second.alignment);
 
-			vk_check(vkBindImageMemory(m_dev, tex.img, m_mem, ofs))
+			vk_check(vkBindImageMemory(m_device, tex.img, m_mem, ofs))
 
 			VkImageViewCreateInfo vnfo{
 				VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -194,7 +202,7 @@ void Base::init()
 				vkutil::color_subres_plain
 			};
 
-			vk_check(vkCreateImageView(m_dev, &vnfo, nullptr, &tex.view))
+			vk_check(vkCreateImageView(m_device, &vnfo, nullptr, &tex.view))
 			
 			ofs += mri->second.size;
 
@@ -224,14 +232,29 @@ void Base::init()
 	}
 
 	ofs = vkutil::match_offset(ofs, bmr.alignment);
-	vk_check(vkBindBufferMemory(m_dev, m_buffer, m_mem, ofs))
+	vk_check(vkBindBufferMemory(m_device, m_buffer, m_mem, ofs))
 
 	for(auto elem = m_first_elem; elem; elem = elem->m_next_element)
 		elem->record_upl_commands(upl_cmd);
 
 	upl_cmd.end();
 
+	VkSubmitInfo si{
+		VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		nullptr,
+		0,
+		nullptr,
+		nullptr,
+		1,
+		&upl_cmd.cmd_buf(),
+		0,
+		nullptr
+	};
 
+	Fence fnc(*m_instance);
+
+	vk_check(vkQueueSubmit(m_instance->queues().tranfer, 1, &si, fnc.fence()))
+	fnc.wait();
 }
 
 bool Base::rgb_supported()

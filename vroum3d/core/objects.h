@@ -55,7 +55,7 @@ public:
 
 	~Buffer() {destroy();}
 
-	VkBuffer buffer() const {return m_buffer;}
+	const VkBuffer& buffer() const {return m_buffer;}
 	operator VkBuffer() const {return buffer();}
 private:
 	void create_buffer(VkPhysicalDevice pdev, VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags memprops);
@@ -91,7 +91,7 @@ public:
 		cmdfun(m_cmd_buf, std::forward<Args>(ags)...);
 	}
 
-	VkCommandBuffer cmd_buf() const {return m_cmd_buf;}
+	const VkCommandBuffer & cmd_buf() const {return m_cmd_buf;}
 	operator VkCommandBuffer() const {return cmd_buf();}
 private:
 
@@ -105,6 +105,39 @@ private:
 	{
 		m_cmd_buf.destroy_with([&](auto buf){vkFreeCommandBuffers(m_dev, m_cmd_pool, 1, &buf);});
 	}
+};
+
+class Fence : public AssignDestroy<Fence>
+{
+public:
+	Fence(const Instance& inst) : m_device(inst.device())
+	{
+		VkFenceCreateInfo fi{
+			VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+			nullptr,
+			0
+		};
+
+		vk_check(vkCreateFence(m_device, &fi, nullptr, &m_fence))
+	}
+
+	const VkFence& fence() const {return m_fence;}
+
+	auto wait()
+	{
+		vk_check(vkWaitForFences(m_device, 1, &m_fence, VK_TRUE, ~(0)))
+	}
+
+	~Fence() {destroy();}
+
+	void destroy()
+	{
+		m_fence.destroy_with([&](auto fnc){vkDestroyFence(m_device, fnc, nullptr);});
+	}
+
+private:
+	VkDevice m_device;
+	VkHandle<VkFence> m_fence;
 };
 
 }

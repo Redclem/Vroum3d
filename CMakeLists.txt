@@ -8,6 +8,9 @@ set(CMAKE_CXX_STANDARD 20)
 add_library(vroum3d STATIC
 	vroum3d/core/instance.cpp
 	vroum3d/core/vkutil.cpp
+	vroum3d/core/objects.cpp
+	vroum3d/gui/base.cpp
+	vroum3d/gui/element.cpp
 	ext/stb_impl.cpp
 )
 

@@ -2,6 +2,7 @@
 #define VROUM3D_GUI_BASE_H_INCLUDED
 
 #include "../core/instance.h"
+#include "element.h"
 
 #include <map>
 #include <vulkan/vulkan_core.h>
@@ -15,37 +16,37 @@ using namespace Core;
 
 class Base : public AssignDestroy<Base>
 {
-	friend class Element;
+public:
 
+	using init_elements_t = std::vector<Element*>;
+
+
+private:
 	struct Texture
 	{
-		VkImage img;
-		VkImageView view;
+		VkHandle<VkImage> img;
+		VkHandle<VkImageView> view;
 
 		std::uint32_t w, h;
-		bool alpha = false;
 	};
 	
 	using texture_container_t = std::map<std::string, Texture>;
 	bool rgb_supported();
 
-private:
 
-	void set_first_elem(Element* elem) {
-		m_first_elem = elem;
+	void set_root_elem(Element* elem) {
+		m_root_elem = elem;
 	}
 
-	Element* m_first_elem = nullptr;
+	Element* m_first_elem = nullptr, *m_root_elem = nullptr;
 
 	const Instance* m_instance;
-	VkDevice m_dev;
+	VkDevice m_device;
 
 	VkHandle<VkBuffer> m_buffer;
 	VkHandle<VkDeviceMemory> m_mem;
 	texture_container_t m_textures;
 	bool m_rgb;
-
-
 
 public:
 
@@ -60,6 +61,12 @@ public:
 	VkDevice device() const {return m_device;}
 
 	void init();
+
+	void register_element(Element* elem)
+	{
+		elem->m_next_element = m_first_elem;
+		m_first_elem = elem;
+	}
 };
 
 }

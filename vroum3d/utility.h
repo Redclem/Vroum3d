@@ -46,9 +46,9 @@ public:
 		return *this;
 	}
 	
-	constexpr auto get() const {return m_hdl;}
+	constexpr const T& get() const {return m_hdl;}
 
-	constexpr operator T() const {return get();}
+	constexpr operator const T&() const {return get();}
 	constexpr auto operator&() {return &m_hdl;} /** Not really useful according to C++ standard */
 	constexpr auto operator&() const {return &m_hdl;} /** Not really useful according to C++ standard */
 

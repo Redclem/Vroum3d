@@ -105,6 +105,8 @@ public:
 	VkPhysicalDevice pdev() const {return m_pdev;}
 	VkCommandPool transfer_pool() const {return m_transfer_pool;}
 
+	void quick_submit(VkCommandBuffer cmd_buf);
+
 private:
 
 	void find_sw_info();
