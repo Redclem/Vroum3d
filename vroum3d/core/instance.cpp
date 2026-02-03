@@ -18,6 +18,8 @@ using namespace Vroum3d::Core;
 
 void Instance::destroy()
 {
+	m_transfer_pool.destroy_with([&](auto pl){vkDestroyCommandPool(m_dev, pl, nullptr);});
+
 	m_depth_view.destroy_with([&](auto dv){vkDestroyImageView(m_dev, dv, nullptr);});
 	m_depth_image.destroy_with([&](auto di){vkDestroyImage(m_dev, di, nullptr);});
 	m_depth_mem.destroy_with([&](auto mem) {vkFreeMemory(m_dev, mem, nullptr);});
