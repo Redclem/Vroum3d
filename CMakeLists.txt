@@ -16,6 +16,11 @@ add_library(vroum3d STATIC
 	ext/stb_impl.cpp
 )
 
+set(SHADERS_BINARY_DIR "${CMAKE_BINARY_DIR}/shaders/")
+set(SHADERS_SOURCE_DIR "${CMAKE_SOURCE_DIR}/shaders/")
+
+make_directory("${SHADERS_BINARY_DIR}")
+
 target_compile_options(vroum3d PRIVATE -Werror -Wall -Wextra)
 
 file(GLOB examples "examples/*.cpp")
@@ -44,13 +49,13 @@ foreach(sh ${shaders})
 		continue()
 	endif()
 	
-	add_custom_command(OUTPUT "shaders/${sh_name}.spv"
-		COMMAND "glslc" "--target-env=vulkan1.4" "shaders/${sh_name}" "-o" "shaders/${sh_name}.spv"
-		DEPENDS "shaders/${sh_name}"
+	add_custom_command(OUTPUT "${SHADERS_BINARY_DIR}/${sh_name}.spv"
+		COMMAND "glslc" "--target-env=vulkan1.4" "${SHADERS_SOURCE_DIR}/${sh_name}" "-o" "${SHADERS_BINARY_DIR}/${sh_name}.spv"
+		DEPENDS "${SHADERS_SOURCE_DIR}/${sh_name}"
 	)
 
 	add_custom_target(shader_${sh_name} ALL
-		DEPENDS "shaders/${sh_name}.spv"
+		DEPENDS "${SHADERS_BINARY_DIR}/${sh_name}.spv"
 	)
 
 	message("Adding target and command for shader : ${sh_name}")
