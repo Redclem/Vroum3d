@@ -140,7 +140,7 @@ void Base::init()
 
 	VkDeviceSize ofs(0), upl_ofs(0);
 	CommandBuffer upl_cmd(*m_instance);
-	upl_cmd.begin();
+	upl_cmd.begin_primary();
 
 	std::array<VkImageMemoryBarrier2, 2> imb{{{
 		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,

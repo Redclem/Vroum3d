@@ -71,14 +71,17 @@ public:
 
 	~CommandBuffer() {destroy();}
 
-	CommandBuffer(const Instance& inst, VkCommandPool cmd_pool) : m_dev(inst.device()), m_cmd_pool(cmd_pool)
+	CommandBuffer(const Instance& inst, VkCommandPool cmd_pool, bool primary = true) : m_dev(inst.device()), m_cmd_pool(cmd_pool)
 	{
-		allocate_command_buffer();
+		allocate_command_buffer(primary);
 	}
 
-	CommandBuffer(const Instance& inst) : CommandBuffer(inst, inst.transfer_pool()) {}
+	CommandBuffer(const Instance& inst, bool primary = true) : CommandBuffer(inst, inst.transfer_pool(), primary) {}
 
-	void begin();
+	void begin_primary();
+
+	void begin_secondary_rendering(Instance& inst);
+
 	void end()
 	{
 		vkEndCommandBuffer(m_cmd_buf);
@@ -101,7 +104,18 @@ public:
 	}
 private:
 
-	void allocate_command_buffer();
+	void allocate_command_buffer(bool primary = true)
+	{
+		VkCommandBufferAllocateInfo ai{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		nullptr,
+		m_cmd_pool,
+		primary ? VK_COMMAND_BUFFER_LEVEL_PRIMARY : VK_COMMAND_BUFFER_LEVEL_SECONDARY,
+		1
+	};
+
+	vk_check(vkAllocateCommandBuffers(m_dev, &ai, &m_cmd_buf));
+}
 
 	VkDevice m_dev;
 	VkCommandPool m_cmd_pool;

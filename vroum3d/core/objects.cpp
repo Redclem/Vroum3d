@@ -35,20 +35,7 @@ void Buffer::create_buffer(VkPhysicalDevice pdev, VkDeviceSize bs, VkBufferUsage
 	vk_check(vkBindBufferMemory(m_dev, m_buffer, m_mem, 0));
 }
 
-void CommandBuffer::allocate_command_buffer()
-{
-	VkCommandBufferAllocateInfo ai{
-		VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-		nullptr,
-		m_cmd_pool,
-		VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-		1
-	};
-
-	vk_check(vkAllocateCommandBuffers(m_dev, &ai, &m_cmd_buf));
-}
-
-void CommandBuffer::begin()
+void CommandBuffer::begin_primary()
 {
 	VkCommandBufferBeginInfo bi{
 		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -73,7 +60,7 @@ void CommandBuffer::begin_rendering(Instance& inst, std::uint32_t idx)
 		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		VK_ATTACHMENT_STORE_OP_STORE,
-		{.depthStencil = {1.0, 1}}
+		{.color = {{0}}}
 	};
 
 	VkRenderingAttachmentInfo
@@ -87,7 +74,7 @@ void CommandBuffer::begin_rendering(Instance& inst, std::uint32_t idx)
 		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_ATTACHMENT_LOAD_OP_CLEAR,
 		VK_ATTACHMENT_STORE_OP_STORE,
-		{.color = {{0}}}
+		{.depthStencil = {1.0, 1}}
 	};
 	
 	VkRenderingInfo ri{
@@ -104,4 +91,41 @@ void CommandBuffer::begin_rendering(Instance& inst, std::uint32_t idx)
 	};
 
 	vkCmdBeginRendering(m_cmd_buf, &ri);
+}
+
+void CommandBuffer::begin_secondary_rendering(Instance& inst)
+{
+
+	VkCommandBufferInheritanceRenderingInfo inhri{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDERING_INFO,
+		nullptr,
+		0,
+		0,
+		1,
+		&inst.color_format(),
+		inst.depth_format(),
+		VK_FORMAT_UNDEFINED,
+		VK_SAMPLE_COUNT_1_BIT
+	};
+
+	VkCommandBufferInheritanceInfo inhi{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,
+		&inhri,
+		VK_NULL_HANDLE,
+		0,
+		VK_NULL_HANDLE,
+		VK_FALSE,
+		0,
+		0
+	};
+
+	VkCommandBufferBeginInfo bi{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		nullptr,
+		VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT
+		| VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+		&inhi	
+	};
+
+	vk_check(vkBeginCommandBuffer(m_cmd_buf, &bi));
 }

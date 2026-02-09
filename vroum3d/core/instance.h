@@ -30,7 +30,7 @@ class InstanceDebugData<true>
 {
 public:
 	VkHandle<VkDebugUtilsMessengerEXT> m_dbg_messenger;
-
+html
 	void destroy(VkInstance inst)
 	{
 
@@ -76,8 +76,8 @@ public:
 
 	VkImageView depth_view() const {return m_depth_view;}
 
-	VkFormat color_format() const {return m_sw_format.format;}
-	VkFormat depth_format() const {return m_depth_format;}
+	const VkFormat& color_format() const {return m_sw_format.format;}
+	const VkFormat& depth_format() const {return m_depth_format;}
 
 	~Instance() {destroy();}
 
