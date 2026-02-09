@@ -12,4 +12,8 @@
 #include "gui/element.h"
 #include "gui/common.h"
 
+#include "debug.h"
+#include "utility"
+#include "version.h"
+
 #endif

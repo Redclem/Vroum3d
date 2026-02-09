@@ -69,6 +69,9 @@ class Instance : public AssignDestroy<Instance>, private InstanceDebugData<debug
 
 public:
 
+	auto graphic_queue_index() const {return m_gi;}
+	auto transfer_queue_index() const {return m_ti;}
+
 	auto w() const {return m_w;}
 	auto h() const {return m_h;}
 
