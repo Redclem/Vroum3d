@@ -10,11 +10,11 @@ void BasicPipelineInformation::build_input_attachments(
 		const std::vector<AttributeDescription> &atts)
 {
 	std::uint32_t cnt;
-	spvr_check(spvReflectEnumerateInputVariables(&m_vs.spv_module, &cnt, nullptr))
+	spvr_check(spvReflectEnumerateInputVariables(&m_vs.spv_module, &cnt, nullptr));
 
 	if(!cnt) return;
 	std::vector<SpvReflectInterfaceVariable*> variables(cnt);
-	spvr_check(spvReflectEnumerateInputVariables(&m_vs.spv_module, &cnt, variables.data()))
+	spvr_check(spvReflectEnumerateInputVariables(&m_vs.spv_module, &cnt, variables.data()));
 
 	{
 		std::uint32_t binding(0);

@@ -33,7 +33,7 @@ public:
 	void* map()
 	{
 		void* ptr;
-		vk_check(vkMapMemory(m_dev, m_mem, 0, VK_WHOLE_SIZE, 0, &ptr))
+		vk_check(vkMapMemory(m_dev, m_mem, 0, VK_WHOLE_SIZE, 0, &ptr));
 		return ptr;
 	}
 
@@ -48,7 +48,7 @@ public:
 			VK_WHOLE_SIZE
 		};
 
-		vk_check(vkFlushMappedMemoryRanges(m_dev, 1, &mr))
+		vk_check(vkFlushMappedMemoryRanges(m_dev, 1, &mr));
 
 		vkUnmapMemory(m_dev, m_mem);
 	}
@@ -124,14 +124,14 @@ public:
 			0
 		};
 
-		vk_check(vkCreateFence(m_device, &fi, nullptr, &m_fence))
+		vk_check(vkCreateFence(m_device, &fi, nullptr, &m_fence));
 	}
 
 	const VkFence& fence() const {return m_fence;}
 
 	auto wait()
 	{
-		vk_check(vkWaitForFences(m_device, 1, &m_fence, VK_TRUE, ~(0)))
+		vk_check(vkWaitForFences(m_device, 1, &m_fence, VK_TRUE, ~(0)));
 	}
 
 	~Fence() {destroy();}

@@ -232,13 +232,13 @@ VkPipelineLayout PipelineResource::get_shader_layouts(Shaders&& ... shaders)
 	for(const ShaderModule* smod : shad_array)
 	{
 		std::uint32_t n_ds;
-		spvr_check(spvReflectEnumerateDescriptorSets(&smod->spv_module, &n_ds, nullptr))
+		spvr_check(spvReflectEnumerateDescriptorSets(&smod->spv_module, &n_ds, nullptr));
 		VkShaderStageFlags stage = static_cast<VkShaderStageFlags>(smod->spv_module.shader_stage);
 
 		if(n_ds != 0)
 		{
 			std::vector<SpvReflectDescriptorSet*> ds(n_ds);
-			spvr_check(spvReflectEnumerateDescriptorSets(&smod->spv_module, &n_ds, ds.data()))
+			spvr_check(spvReflectEnumerateDescriptorSets(&smod->spv_module, &n_ds, ds.data()));
 
 			std::uint32_t max_set(0);
 
@@ -295,7 +295,7 @@ VkPipelineLayout PipelineResource::get_shader_layouts(Shaders&& ... shaders)
 		iter->first.pranges.data()
 	};
 
-	vk_check(vkCreatePipelineLayout(m_device, &pli, nullptr, &iter->second))
+	vk_check(vkCreatePipelineLayout(m_device, &pli, nullptr, &iter->second));
 
 	return iter->second;
 }
@@ -453,7 +453,7 @@ void Pipeline::create_pipeline(PipelineResource& pr, PipelineInformation& pi)
 
 	gpi.pNext = &pri;
 
-	vk_check(vkCreateGraphicsPipelines(m_device, pr.cache(), 1, &gpi, nullptr, &m_pipeline))
+	vk_check(vkCreateGraphicsPipelines(m_device, pr.cache(), 1, &gpi, nullptr, &m_pipeline));
 }	
 
 #endif

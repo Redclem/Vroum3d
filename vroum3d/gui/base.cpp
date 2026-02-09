@@ -93,7 +93,7 @@ void Base::init()
 			VK_IMAGE_LAYOUT_UNDEFINED
 		};
 
-		vk_check(vkCreateImage(m_device, &imnfo, nullptr, &tex.img))
+		vk_check(vkCreateImage(m_device, &imnfo, nullptr, &tex.img));
 
 		VkMemoryRequirements imr;
 		vkGetImageMemoryRequirements(m_device, tex.img, &imr);
@@ -114,7 +114,7 @@ void Base::init()
 		nullptr
 	};
 
-	vk_check(vkCreateBuffer(m_device, &bnfo, nullptr, &m_buffer))
+	vk_check(vkCreateBuffer(m_device, &bnfo, nullptr, &m_buffer));
 	
 	VkMemoryRequirements bmr;
 	vkGetBufferMemoryRequirements(m_device, m_buffer, &bmr);
@@ -130,7 +130,7 @@ void Base::init()
 		vkutil::find_mem_index(m_instance->pdev(), mr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 	};
 
-	vk_check(vkAllocateMemory(m_device, &anfo, nullptr, &m_mem))
+	vk_check(vkAllocateMemory(m_device, &anfo, nullptr, &m_mem));
 
 	Buffer buf(*m_instance, buffer_upl_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
@@ -189,7 +189,7 @@ void Base::init()
 		{
 			ofs = vkutil::match_offset(ofs, mri->second.alignment);
 
-			vk_check(vkBindImageMemory(m_device, tex.img, m_mem, ofs))
+			vk_check(vkBindImageMemory(m_device, tex.img, m_mem, ofs));
 
 			VkImageViewCreateInfo vnfo{
 				VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -202,7 +202,7 @@ void Base::init()
 				vkutil::color_subres_plain
 			};
 
-			vk_check(vkCreateImageView(m_device, &vnfo, nullptr, &tex.view))
+			vk_check(vkCreateImageView(m_device, &vnfo, nullptr, &tex.view));
 			
 			ofs += mri->second.size;
 
@@ -232,7 +232,7 @@ void Base::init()
 	}
 
 	ofs = vkutil::match_offset(ofs, bmr.alignment);
-	vk_check(vkBindBufferMemory(m_device, m_buffer, m_mem, ofs))
+	vk_check(vkBindBufferMemory(m_device, m_buffer, m_mem, ofs));
 
 	for(auto elem = m_first_elem; elem; elem = elem->m_next_element)
 		elem->record_upl_commands(upl_cmd);
@@ -253,7 +253,7 @@ void Base::init()
 
 	Fence fnc(*m_instance);
 
-	vk_check(vkQueueSubmit(m_instance->queues().tranfer, 1, &si, fnc.fence()))
+	vk_check(vkQueueSubmit(m_instance->queues().tranfer, 1, &si, fnc.fence()));
 	fnc.wait();
 }
 

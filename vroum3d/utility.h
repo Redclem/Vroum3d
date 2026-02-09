@@ -96,14 +96,16 @@ namespace enumerate
 	struct res<R(*)(Args...)>
 	{
 		constexpr static bool is_enum_fun = true;
+		constexpr static bool void_res = std::is_void_v<R>;
 		using result_t = std::remove_pointer_t<typename std::tuple_element<sizeof...(Args) - 1, std::tuple<Args...>>::type>;
 	};
 }
 
-template<auto Func, typename ... Args>
+template<auto Func, typename ... Args,
+	std::enable_if_t<!enumerate::res<decltype(Func)>::void_res, bool> = true>
 std::vector<typename enumerate::res<decltype(Func)>::result_t> wrap_enumerate(Args&&...ags)
 {
-	static_assert(enumerate::res<decltype(Func)>::is_enum_fun, "This function must be called wirth a Vulkan enumerator function");
+	static_assert(enumerate::res<decltype(Func)>::is_enum_fun, "This function must be called with a Vulkan enumerator function");
 
 	using res = enumerate::res<decltype(Func)>::result_t;
 	std::uint32_t size;
@@ -113,6 +115,26 @@ std::vector<typename enumerate::res<decltype(Func)>::result_t> wrap_enumerate(Ar
 	std::vector<res> vec(size);
 
 	auto_check(Func(ags..., &size, vec.data()));
+
+	return vec;
+
+}
+
+
+template<auto Func, typename ... Args,
+	std::enable_if_t<enumerate::res<decltype(Func)>::void_res, bool> = true>
+std::vector<typename enumerate::res<decltype(Func)>::result_t> wrap_enumerate(Args&&...ags)
+{
+	static_assert(enumerate::res<decltype(Func)>::is_enum_fun, "This function must be called with a Vulkan enumerator function");
+
+	using res = enumerate::res<decltype(Func)>::result_t;
+	std::uint32_t size;
+	
+	Func(ags..., &size, nullptr);
+
+	std::vector<res> vec(size);
+
+	Func(ags..., &size, vec.data());
 
 	return vec;
 

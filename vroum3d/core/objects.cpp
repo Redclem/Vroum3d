@@ -18,7 +18,7 @@ void Buffer::create_buffer(VkPhysicalDevice pdev, VkDeviceSize bs, VkBufferUsage
 		nullptr
 	};
 
-	vk_check(vkCreateBuffer(m_dev, &bi, nullptr, &m_buffer))
+	vk_check(vkCreateBuffer(m_dev, &bi, nullptr, &m_buffer));
 	
 	VkMemoryRequirements mr;
 	vkGetBufferMemoryRequirements(m_dev, m_buffer, &mr);
@@ -30,9 +30,9 @@ void Buffer::create_buffer(VkPhysicalDevice pdev, VkDeviceSize bs, VkBufferUsage
 		vkutil::find_mem_index(pdev, mr, memprops)
 	};
 
-	vk_check(vkAllocateMemory(m_dev, &mai, nullptr, &m_mem))
+	vk_check(vkAllocateMemory(m_dev, &mai, nullptr, &m_mem));
 
-	vk_check(vkBindBufferMemory(m_dev, m_buffer, m_mem, 0))
+	vk_check(vkBindBufferMemory(m_dev, m_buffer, m_mem, 0));
 }
 
 void CommandBuffer::allocate_command_buffer()
@@ -45,7 +45,7 @@ void CommandBuffer::allocate_command_buffer()
 		1
 	};
 
-	vk_check(vkAllocateCommandBuffers(m_dev, &ai, &m_cmd_buf))
+	vk_check(vkAllocateCommandBuffers(m_dev, &ai, &m_cmd_buf));
 }
 
 void CommandBuffer::begin()
@@ -57,7 +57,7 @@ void CommandBuffer::begin()
 		nullptr
 	};
 
-	vk_check(vkBeginCommandBuffer(m_cmd_buf, &bi))
+	vk_check(vkBeginCommandBuffer(m_cmd_buf, &bi));
 }
 
 void CommandBuffer::begin_rendering(Instance& inst, std::uint32_t idx)

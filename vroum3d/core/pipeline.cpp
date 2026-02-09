@@ -32,7 +32,7 @@ void PipelineResource::init_cache()
 		cache_data.data()
 	};
 
-	vk_check(vkCreatePipelineCache(m_device, &ci, nullptr, &m_cache))
+	vk_check(vkCreatePipelineCache(m_device, &ci, nullptr, &m_cache));
 }
 
 void PipelineResource::write_cache()
@@ -84,9 +84,9 @@ const PipelineResource::ShaderModule& PipelineResource::require_shader(std::stri
 		shader_data.data()
 	};
 
-	vk_check(vkCreateShaderModule(m_device, &smi, nullptr, &iter->second.vk_mod))
+	vk_check(vkCreateShaderModule(m_device, &smi, nullptr, &iter->second.vk_mod));
 
-	spvr_check(spvReflectCreateShaderModule(shader_data.size() * sizeof(uint32_t), shader_data.data(), &iter->second.spv_module))
+	spvr_check(spvReflectCreateShaderModule(shader_data.size() * sizeof(uint32_t), shader_data.data(), &iter->second.spv_module));
 
 	return iter->second;
 }
@@ -120,7 +120,7 @@ VkDescriptorSetLayout PipelineResource::get_descriptor_set_layout(DescriptorSetD
 		binds.data()
 	};
 
-	vk_check(vkCreateDescriptorSetLayout(m_device, &dsi, nullptr, &iter->second))
+	vk_check(vkCreateDescriptorSetLayout(m_device, &dsi, nullptr, &iter->second));
 
 	return iter->second;
 }

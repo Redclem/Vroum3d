@@ -2,6 +2,7 @@
 #define VROUM3D_DEBUG_H_INCLUDED
 
 #include <iostream>
+#include <source_location>
 #include <stdexcept>
 #include <type_traits>
 
@@ -11,6 +12,7 @@
 #include <vulkan/vk_enum_string_helper.h>
 
 #include <SPIRV-Reflect/spirv_reflect.h>
+#include <vulkan/vulkan_core.h>
 
 namespace Vroum3d
 {
@@ -34,44 +36,62 @@ void log(Ag1 && ag, Args && ... args)
 	}
 }
 
+inline void spvr_check(SpvReflectResult res, std::source_location loc = std::source_location::current())
+{
+	if(res != SPV_REFLECT_RESULT_SUCCESS)
+	{
+		log("spvr_check failed at ", loc.file_name(), ":", loc.line(), " col ", loc.column());
+		log("In function ", loc.function_name());
+		log("Value : ", res);
+		throw std::runtime_error("SpvReflect error");
+	}
 }
 
-#define spvr_check(expr) if(SpvReflectResult res = expr;res != SPV_REFLECT_RESULT_SUCCESS)\
-	{\
-		log("spvr_check failed at ", __FILE__, ":", __LINE__);\
-		log(#expr);\
-		log("Value : ", res);\
-		throw std::runtime_error("Vulkan error");\
+inline void vk_check(VkResult res, std::source_location loc = std::source_location::current())
+{
+	if(res != VK_SUCCESS)
+	{
+		log("vk_check failed at ", loc.file_name(), ":", loc.line(), " col ", loc.column());
+		log("In function ", loc.function_name());
+		log("Value : ", string_VkResult(res));
+		throw std::runtime_error("Vulkan error");
 	}
+}
 
-#define vk_check(expr) if(VkResult res = expr;res != VK_SUCCESS)\
-	{\
-		log("vk_check failed at ", __FILE__, ":", __LINE__);\
-		log(#expr);\
-		log("Value : ", string_VkResult(res));\
-		throw std::runtime_error("Vulkan error");\
+inline void sdl_check(int res, std::source_location loc = std::source_location::current())
+{
+	if(res != 0)
+	{
+		log("sdl_check failed at ", loc.file_name(), ":", loc.line(), " col ", loc.column());
+		log("In function ", loc.function_name());
+		log(SDL_GetError());
+		throw std::runtime_error("check error");
 	}
+}
 
-#define sdl_check(expr) if((expr) != 0)\
-	{\
-		log("sdl_check failed at ", __FILE__, ":", __LINE__);\
-		log(#expr);\
-		log(SDL_GetError());\
-		throw std::runtime_error("check error");\
+
+inline void check(bool res, std::source_location loc = std::source_location::current())
+{
+	if(!res)
+	{
+		log("check failed at ", loc.file_name(), ":", loc.line(), " col ", loc.column());
+		log("In function ", loc.function_name());
+		throw std::runtime_error("check error");
 	}
+}
 
-#define check(expr) if(!(expr))\
-	{\
-		log("check failed at ", __FILE__, ":", __LINE__);\
-		log(#expr);\
-		throw std::runtime_error("check error");\
-	}
+template<typename Res>
+inline void auto_check(Res res, std::source_location loc = std::source_location::current())
+{
+	check(res, loc);
+}
 
-#define auto_check(expr) if constexpr(std::is_same_v<decltype(expr), VkResult>)\
-{vk_check(expr)}\
-else if constexpr(std::is_void_v<decltype(expr)>)\
-{expr;}\
-else\
-{check(expr)}
+template<>
+inline void auto_check<VkResult>(VkResult res, std::source_location loc)
+{
+	vk_check(res, loc);
+}
+
+}
 
 #endif

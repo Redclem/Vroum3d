@@ -104,16 +104,16 @@ void Instance::create_instance(const ExtensionsLayers& el)
 
 		nfo.pNext = &dbi;
 
-		vk_check(vkCreateInstance(&nfo, nullptr, &m_inst))
+		vk_check(vkCreateInstance(&nfo, nullptr, &m_inst));
 
 		PFN_vkCreateDebugUtilsMessengerEXT fn = reinterpret_cast<decltype(fn)>(vkGetInstanceProcAddr(m_inst, "vkCreateDebugUtilsMessengerEXT"));
 
 		check(fn);
 
-		vk_check(fn(m_inst, &dbi, nullptr, &m_dbg_messenger))
+		vk_check(fn(m_inst, &dbi, nullptr, &m_dbg_messenger));
 	}
 	else
-		vk_check(vkCreateInstance(&nfo, nullptr, &m_inst))
+		vk_check(vkCreateInstance(&nfo, nullptr, &m_inst));
 }
 
 void Instance::choose_pdev()
@@ -201,7 +201,7 @@ void Instance::create_device(const std::vector<std::string>& exts)
 			ig = idx;
 		
 		VkBool32 supp;
-		vk_check(vkGetPhysicalDeviceSurfaceSupportKHR(m_pdev, idx, m_surf, &supp))
+		vk_check(vkGetPhysicalDeviceSurfaceSupportKHR(m_pdev, idx, m_surf, &supp));
 	
 		if(supp && ip == -1)
 			ip = idx;
@@ -270,7 +270,7 @@ void Instance::create_device(const std::vector<std::string>& exts)
 
 	di.pNext = &vk13feats;
 
-	vk_check(vkCreateDevice(m_pdev, &di, nullptr, &m_dev))
+	vk_check(vkCreateDevice(m_pdev, &di, nullptr, &m_dev));
 
 	vkGetDeviceQueue(m_dev, it, 0, &m_tq);
 	vkGetDeviceQueue(m_dev, ip, 0, &m_pq);
@@ -279,7 +279,7 @@ void Instance::create_device(const std::vector<std::string>& exts)
 
 void Instance::create_surf(SDL_Window* wind)
 {
-	check(SDL_Vulkan_CreateSurface(wind, m_inst, &m_surf) == SDL_TRUE)
+	check(SDL_Vulkan_CreateSurface(wind, m_inst, &m_surf) == SDL_TRUE);
 	int w, h;
 	SDL_GetWindowSize(wind, &w, &h);
 	m_w = w, m_h = h;
@@ -313,7 +313,7 @@ void Instance::create_sw()
 		VK_NULL_HANDLE
 	};
 
-	vk_check(vkCreateSwapchainKHR(m_dev, &swi, nullptr, &m_sw))
+	vk_check(vkCreateSwapchainKHR(m_dev, &swi, nullptr, &m_sw));
 }
 
 void Instance::find_sw_info()
@@ -352,7 +352,7 @@ void Instance::create_sw_views()
 		};
 
 		m_sw_views.emplace_back(VK_NULL_HANDLE);
-		vk_check(vkCreateImageView(m_dev, &vi, nullptr, &m_sw_views.back()))
+		vk_check(vkCreateImageView(m_dev, &vi, nullptr, &m_sw_views.back()));
 	}
 }
 
@@ -377,7 +377,7 @@ void Instance::create_depth_image()
 		VK_IMAGE_LAYOUT_UNDEFINED
 	};
 
-	vk_check(vkCreateImage(m_dev, &ii, nullptr, &m_depth_image))
+	vk_check(vkCreateImage(m_dev, &ii, nullptr, &m_depth_image));
 
 	VkMemoryRequirements mr;
 	vkGetImageMemoryRequirements(m_dev, m_depth_image, &mr);
@@ -389,8 +389,8 @@ void Instance::create_depth_image()
 		vkutil::find_mem_index(m_pdev, mr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 	};
 
-	vk_check(vkAllocateMemory(m_dev, &mai, nullptr, &m_depth_mem))
-	vk_check(vkBindImageMemory(m_dev, m_depth_image, m_depth_mem, 0))
+	vk_check(vkAllocateMemory(m_dev, &mai, nullptr, &m_depth_mem));
+	vk_check(vkBindImageMemory(m_dev, m_depth_image, m_depth_mem, 0));
 
 	VkImageViewCreateInfo vi{
 		VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -409,7 +409,7 @@ void Instance::create_depth_image()
 		}
 	};
 
-	vk_check(vkCreateImageView(m_dev, &vi, nullptr, &m_depth_view))
+	vk_check(vkCreateImageView(m_dev, &vi, nullptr, &m_depth_view));
 
 }
 
@@ -435,7 +435,7 @@ void Instance::create_transfer_pool()
 		m_ti
 	};
 
-	vk_check(vkCreateCommandPool(m_dev, &pi, nullptr, &m_transfer_pool))
+	vk_check(vkCreateCommandPool(m_dev, &pi, nullptr, &m_transfer_pool));
 }
 
 void Instance::create_semaphores()
@@ -446,5 +446,5 @@ void Instance::create_semaphores()
 		0
 	};
 
-	vk_check(vkCreateSemaphore(m_dev, &si, nullptr, &m_image_avail_sem))
+	vk_check(vkCreateSemaphore(m_dev, &si, nullptr, &m_image_avail_sem));
 }

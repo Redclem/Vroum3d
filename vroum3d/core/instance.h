@@ -127,7 +127,7 @@ public:
 		
 		if(res == VK_TIMEOUT) return false;
 		
-		vk_check(res)
+		vk_check(res);
 
 		return true;
 	}
