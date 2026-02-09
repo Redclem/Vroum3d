@@ -18,6 +18,7 @@ using namespace Vroum3d::Core;
 
 void Instance::destroy()
 {
+	m_image_avail_sem.destroy_with([&](auto sem){vkDestroySemaphore(m_dev, sem, nullptr);});
 	m_transfer_pool.destroy_with([&](auto pl){vkDestroyCommandPool(m_dev, pl, nullptr);});
 
 	m_depth_view.destroy_with([&](auto dv){vkDestroyImageView(m_dev, dv, nullptr);});
@@ -37,6 +38,7 @@ void Instance::destroy()
 
 	m_surf.destroy_with([&](auto surf){vkDestroySurfaceKHR(m_inst, surf, nullptr);});
 	m_inst.destroy_with([&](auto inst){vkDestroyInstance(inst, nullptr);});
+
 }
 
 void Instance::create_instance(const ExtensionsLayers& el)
@@ -262,6 +264,12 @@ void Instance::create_device(const std::vector<std::string>& exts)
 		nullptr
 	};
 
+	VkPhysicalDeviceVulkan13Features vk13feats{};
+	vk13feats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+	vk13feats.dynamicRendering = VK_TRUE;
+
+	di.pNext = &vk13feats;
+
 	vk_check(vkCreateDevice(m_pdev, &di, nullptr, &m_dev))
 
 	vkGetDeviceQueue(m_dev, it, 0, &m_tq);
@@ -430,7 +438,13 @@ void Instance::create_transfer_pool()
 	vk_check(vkCreateCommandPool(m_dev, &pi, nullptr, &m_transfer_pool))
 }
 
-void Instance::quick_submit(VkCommandBuffer cmd_buf)
+void Instance::create_semaphores()
 {
-	VkCommandBuffer
+	VkSemaphoreCreateInfo si{
+		VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+		nullptr,
+		0
+	};
+
+	vk_check(vkCreateSemaphore(m_dev, &si, nullptr, &m_image_avail_sem))
 }

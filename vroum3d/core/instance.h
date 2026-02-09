@@ -58,6 +58,7 @@ class Instance : public AssignDestroy<Instance>, private InstanceDebugData<debug
 	VkHandle<VkDeviceMemory> m_depth_mem;
 	VkHandle<VkCommandPool> m_transfer_pool;
 	VkFormat m_depth_format;
+	VkHandle<VkSemaphore> m_image_avail_sem;
 
 	struct
 	{
@@ -67,6 +68,16 @@ class Instance : public AssignDestroy<Instance>, private InstanceDebugData<debug
 	using debug_data_t = InstanceDebugData<debug>;
 
 public:
+
+	auto w() const {return m_w;}
+	auto h() const {return m_h;}
+
+	VkImageView sw_view(std::uint32_t idx) const {return m_sw_views[idx].get();}
+
+	VkImageView depth_view() const {return m_depth_view;}
+
+	VkFormat color_format() const {return m_sw_format.format;}
+	VkFormat depth_format() const {return m_depth_format;}
 
 	~Instance() {destroy();}
 
@@ -93,6 +104,7 @@ public:
 		create_depth_image();
 
 		create_transfer_pool();
+		create_semaphores();
 	}
 
 	auto& queues() const {return m_queues;}
@@ -106,6 +118,19 @@ public:
 	VkCommandPool transfer_pool() const {return m_transfer_pool;}
 
 	void quick_submit(VkCommandBuffer cmd_buf);
+
+	VkSemaphore image_available_semaphore() const {return m_image_avail_sem;}
+
+	bool acquire_next_image(std::uint32_t* index)
+	{
+		auto res = vkAcquireNextImageKHR(m_dev, m_sw, 0, m_image_avail_sem, VK_NULL_HANDLE, index);
+		
+		if(res == VK_TIMEOUT) return false;
+		
+		vk_check(res)
+
+		return true;
+	}
 
 private:
 
@@ -126,6 +151,8 @@ private:
 
 	/** Takes needed extensions and layers as arg and adds extensions required by layers and by the SDL_Window of display */
 	void fill_exts_lays(ExtensionsLayers& el, SDL_Window* wind);
+
+	void create_semaphores();
 };
 
 struct DefaultInstanceInfo

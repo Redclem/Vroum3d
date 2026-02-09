@@ -60,10 +60,9 @@ public:
 private:
 	void create_buffer(VkPhysicalDevice pdev, VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags memprops);
 
-
+	VkDevice m_dev;
 	VkHandle<VkBuffer> m_buffer;
 	VkHandle<VkDeviceMemory> m_mem;
-	VkDevice m_dev;
 };
 
 class CommandBuffer : public AssignDestroy<CommandBuffer>
@@ -93,6 +92,13 @@ public:
 
 	const VkCommandBuffer & cmd_buf() const {return m_cmd_buf;}
 	operator VkCommandBuffer() const {return cmd_buf();}
+
+	void begin_rendering(Instance& inst, std::uint32_t idx);
+
+	void end_rendering()
+	{
+		vkCmdEndRendering(m_cmd_buf);
+	}
 private:
 
 	void allocate_command_buffer();

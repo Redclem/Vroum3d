@@ -10,6 +10,8 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vk_enum_string_helper.h>
 
+#include <SPIRV-Reflect/spirv_reflect.h>
+
 namespace Vroum3d
 {
 #ifdef NDEBUG
@@ -33,6 +35,14 @@ void log(Ag1 && ag, Args && ... args)
 }
 
 }
+
+#define spvr_check(expr) if(SpvReflectResult res = expr;res != SPV_REFLECT_RESULT_SUCCESS)\
+	{\
+		log("spvr_check failed at ", __FILE__, ":", __LINE__);\
+		log(#expr);\
+		log("Value : ", res);\
+		throw std::runtime_error("Vulkan error");\
+	}
 
 #define vk_check(expr) if(VkResult res = expr;res != VK_SUCCESS)\
 	{\

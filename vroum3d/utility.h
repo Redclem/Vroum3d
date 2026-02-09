@@ -23,6 +23,20 @@ public:
 	constexpr NonCopyable& operator=(const NonCopyable& rhs) = delete;
 };
 
+template<typename T>
+struct AssignDestroy : public NonCopyable
+{
+	constexpr AssignDestroy() = default;
+
+	constexpr AssignDestroy(AssignDestroy&& from) = default;
+
+	constexpr AssignDestroy& operator=(AssignDestroy&&)
+	{
+		static_cast<T*>(this)->destroy();
+		return *this;
+	}
+};
+
 template<typename T, T Def = 0>
 class Handle : public NonCopyable
 {
@@ -69,20 +83,6 @@ public:
 
 template<typename T>
 using VkHandle = Handle<T, VK_NULL_HANDLE>;
-
-template<typename T>
-struct AssignDestroy : public NonCopyable
-{
-	constexpr AssignDestroy() = default;
-
-	constexpr AssignDestroy(AssignDestroy&& from) = default;
-
-	constexpr AssignDestroy& operator=(AssignDestroy&&)
-	{
-		static_cast<T*>(this)->destroy();
-		return *this;
-	}
-};
 
 namespace enumerate
 {

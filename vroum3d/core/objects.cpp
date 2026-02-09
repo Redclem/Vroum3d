@@ -1,4 +1,5 @@
 #include "objects.h"
+#include "instance.h"
 #include "vkutil.h"
 #include <vulkan/vulkan_core.h>
 
@@ -57,4 +58,50 @@ void CommandBuffer::begin()
 	};
 
 	vk_check(vkBeginCommandBuffer(m_cmd_buf, &bi))
+}
+
+void CommandBuffer::begin_rendering(Instance& inst, std::uint32_t idx)
+{
+	VkRenderingAttachmentInfo
+	catt{
+		VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+		nullptr,
+		inst.sw_view(idx),
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_RESOLVE_MODE_NONE,
+		VK_NULL_HANDLE,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		VK_ATTACHMENT_STORE_OP_STORE,
+		{.depthStencil = {1.0, 1}}
+	};
+
+	VkRenderingAttachmentInfo
+	datt{
+		VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+		nullptr,
+		inst.sw_view(idx),
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_RESOLVE_MODE_NONE,
+		VK_NULL_HANDLE,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_ATTACHMENT_LOAD_OP_CLEAR,
+		VK_ATTACHMENT_STORE_OP_STORE,
+		{.color = {{0}}}
+	};
+	
+	VkRenderingInfo ri{
+		VK_STRUCTURE_TYPE_RENDERING_INFO,
+		nullptr,
+		0,
+		{{0, 0}, {inst.w(), inst.h()}},
+		1,
+		0,
+		1,
+		&catt,
+		&datt,
+		nullptr
+	};
+
+	vkCmdBeginRendering(m_cmd_buf, &ri);
 }

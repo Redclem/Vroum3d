@@ -7,5 +7,9 @@ int main()
 	Display disp;
 	Instance inst(disp);
 
+	PipelineResource pr(inst);
+
+	Pipeline pipe(pr, BasicPipelineInformation(pr, "empty.vert.spv", "empty.frag.spv", {}, {}));
+
 	return 0;
 }

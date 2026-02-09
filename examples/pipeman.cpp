@@ -7,5 +7,7 @@ int main()
 	Display disp;
 	Instance inst(disp);
 
+	PipelineResource pm(inst);
+
 	return 0;
 }
