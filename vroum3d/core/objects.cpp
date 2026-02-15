@@ -67,8 +67,8 @@ void CommandBuffer::begin_rendering(Instance& inst, std::uint32_t idx)
 	datt{
 		VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
 		nullptr,
-		inst.sw_view(idx),
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		inst.depth_view(),
+		VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL_KHR,
 		VK_RESOLVE_MODE_NONE,
 		VK_NULL_HANDLE,
 		VK_IMAGE_LAYOUT_UNDEFINED,

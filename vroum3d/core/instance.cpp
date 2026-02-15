@@ -18,7 +18,13 @@ using namespace Vroum3d::Core;
 
 void Instance::destroy()
 {
+	vkDeviceWaitIdle(m_dev);
+
+	m_render_done_fence.destroy_with([&](auto fnc){vkDestroyFence(m_dev, fnc, nullptr);});
+
 	m_image_avail_sem.destroy_with([&](auto sem){vkDestroySemaphore(m_dev, sem, nullptr);});
+	m_render_finished_semaphore.destroy_with([&](auto sem){vkDestroySemaphore(m_dev, sem, nullptr);});
+
 	m_transfer_pool.destroy_with([&](auto pl){vkDestroyCommandPool(m_dev, pl, nullptr);});
 
 	m_depth_view.destroy_with([&](auto dv){vkDestroyImageView(m_dev, dv, nullptr);});
@@ -447,4 +453,73 @@ void Instance::create_semaphores()
 	};
 
 	vk_check(vkCreateSemaphore(m_dev, &si, nullptr, &m_image_avail_sem));
+	vk_check(vkCreateSemaphore(m_dev, &si, nullptr, &m_render_finished_semaphore));
+}
+
+void Instance::submit_render_present(VkCommandBuffer cmd_buf, uint32_t idx)
+{	
+	vk_check(vkResetFences(m_dev, 1, &m_render_done_fence));
+
+	VkCommandBufferSubmitInfo cbi{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+		nullptr,
+		cmd_buf,
+		0
+	};
+
+	VkSemaphoreSubmitInfo ssiw{
+		VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+		nullptr,
+		m_image_avail_sem,
+		0,
+		VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+		0
+	};
+
+	VkSemaphoreSubmitInfo ssis{
+		VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+		nullptr,
+		m_render_finished_semaphore,
+		0,
+		VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+		0
+	};
+
+	VkSubmitInfo2 si{
+		VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+		nullptr,
+		0,
+		1,
+		&ssiw,
+		1,
+		&cbi,
+		1,
+		&ssis
+	};
+
+	vk_check(vkQueueSubmit2(m_gq, 1, &si, m_render_done_fence));
+
+	VkPresentInfoKHR pi{
+		VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+		nullptr,
+		1,
+		&m_render_finished_semaphore,
+		1,
+		&m_sw,
+		&idx,
+		nullptr
+	};
+
+	vk_check(vkQueuePresentKHR(m_pq, &pi));
+}
+
+void Instance::create_fence()
+{
+	VkFenceCreateInfo fi{
+		VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+		nullptr,
+		VK_FENCE_CREATE_SIGNALED_BIT
+	};
+
+	vk_check(vkCreateFence(m_dev, &fi, nullptr, &m_render_done_fence));
 }

@@ -1,6 +1,8 @@
 #include "pipeline_info.h"
 #include "pipeline.h"
 #include <algorithm>
+#include <cstdint>
+#include <limits>
 #include <vulkan/vulkan_core.h>
 
 using namespace Vroum3d::Core;
@@ -49,6 +51,7 @@ void BasicPipelineInformation::build_input_attachments(
 
 	for(auto* itf_var : variables)
 	{
+		if(itf_var->location == std::numeric_limits<decltype(itf_var->location)>::max()) continue;
 		m_attributes[itf_var->location].format = static_cast<VkFormat>(itf_var->format);
 	}
 }

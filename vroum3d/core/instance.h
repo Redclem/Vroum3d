@@ -30,7 +30,6 @@ class InstanceDebugData<true>
 {
 public:
 	VkHandle<VkDebugUtilsMessengerEXT> m_dbg_messenger;
-html
 	void destroy(VkInstance inst)
 	{
 
@@ -58,7 +57,8 @@ class Instance : public AssignDestroy<Instance>, private InstanceDebugData<debug
 	VkHandle<VkDeviceMemory> m_depth_mem;
 	VkHandle<VkCommandPool> m_transfer_pool;
 	VkFormat m_depth_format;
-	VkHandle<VkSemaphore> m_image_avail_sem;
+	VkHandle<VkSemaphore> m_image_avail_sem, m_render_finished_semaphore;
+	VkHandle<VkFence> m_render_done_fence;
 
 	struct
 	{
@@ -108,6 +108,7 @@ public:
 
 		create_transfer_pool();
 		create_semaphores();
+		create_fence();
 	}
 
 	auto& queues() const {return m_queues;}
@@ -128,7 +129,20 @@ public:
 	{
 		auto res = vkAcquireNextImageKHR(m_dev, m_sw, 0, m_image_avail_sem, VK_NULL_HANDLE, index);
 		
-		if(res == VK_TIMEOUT) return false;
+		if(res > 0) return false;
+		
+		vk_check(res);
+
+		return true;
+	}
+
+	void submit_render_present(VkCommandBuffer cmd_buf, uint32_t img_idx);
+
+	bool render_done() const
+	{
+		auto res = vkWaitForFences(m_dev, 1, &m_render_done_fence, VK_TRUE, 0);
+
+		if(res > 0) return false;
 		
 		vk_check(res);
 
@@ -152,10 +166,12 @@ private:
 	void find_depth_format();
 	void create_transfer_pool();
 
+
 	/** Takes needed extensions and layers as arg and adds extensions required by layers and by the SDL_Window of display */
 	void fill_exts_lays(ExtensionsLayers& el, SDL_Window* wind);
 
 	void create_semaphores();
+	void create_fence();
 };
 
 struct DefaultInstanceInfo

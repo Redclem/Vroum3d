@@ -1,5 +1,8 @@
 
 #include "../vroum3d/vroum3d.h"
+#include <SDL2/SDL_events.h>
+#include <chrono>
+#include <thread>
 #include <vulkan/vulkan_core.h>
 
 using namespace Vroum3d::Core;
@@ -18,11 +21,42 @@ int main()
 	VkCommandPoolCreateInfo cpi{
 		VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 		nullptr,
-		0,
+		VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
 		inst.graphic_queue_index()
 	};
 
 	vk_check(vkCreateCommandPool(inst.device(), &cpi, nullptr, &pool));
+
+	bool run = true;
+	CommandBuffer cmd_buf(inst, pool);
+
+	while(run)
+	{
+		uint32_t image_idx;
+		if(inst.render_done() && inst.acquire_next_image(&image_idx))
+		{
+			cmd_buf.reset();
+			cmd_buf.begin_primary();
+			cmd_buf.begin_rendering(inst, image_idx);
+
+			cmd_buf.end_rendering();
+			cmd_buf.end();
+
+			inst.submit_render_present(cmd_buf, image_idx);
+		}
+		else
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+		SDL_Event evnt;
+		while(SDL_PollEvent(&evnt))
+			if(evnt.type == SDL_QUIT)
+			{
+				run = false;
+				break;
+			}
+	}
+
+	vkDestroyCommandPool(inst.device(), pool, nullptr);
 
 	return 0;
 }

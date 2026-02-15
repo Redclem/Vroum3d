@@ -102,6 +102,11 @@ public:
 	{
 		vkCmdEndRendering(m_cmd_buf);
 	}
+
+	void reset()
+	{
+		vkResetCommandBuffer(m_cmd_buf, 0);
+	}
 private:
 
 	void allocate_command_buffer(bool primary = true)
