@@ -11,7 +11,7 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vk_enum_string_helper.h>
 
-#include <SPIRV-Reflect/spirv_reflect.h>
+#include <spirv_reflect.h>
 #include <vulkan/vulkan_core.h>
 
 namespace Vroum3d

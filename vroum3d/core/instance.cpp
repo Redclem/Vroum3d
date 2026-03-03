@@ -281,6 +281,9 @@ void Instance::create_device(const std::vector<std::string>& exts)
 	vkGetDeviceQueue(m_dev, it, 0, &m_tq);
 	vkGetDeviceQueue(m_dev, ip, 0, &m_pq);
 	vkGetDeviceQueue(m_dev, ig, 0, &m_gq);
+
+	m_ti = it;
+	m_gi = ig;
 }
 
 void Instance::create_surf(SDL_Window* wind)

@@ -1,6 +1,6 @@
 
 #include "../vroum3d/vroum3d.h"
-#include <SDL2/SDL_events.h>
+#include <SDL2/SDL.h>
 #include <chrono>
 #include <thread>
 #include <vulkan/vulkan_core.h>
@@ -8,7 +8,8 @@
 using namespace Vroum3d::Core;
 using namespace Vroum3d;
 
-int main()
+
+int VROUM3D_MAIN()
 {
 	Display disp;
 	Instance inst(disp);

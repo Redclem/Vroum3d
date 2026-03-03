@@ -15,5 +15,6 @@
 #include "debug.h"
 #include "utility"
 #include "version.h"
+#include "main.h"
 
 #endif

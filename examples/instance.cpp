@@ -2,7 +2,7 @@
 
 using namespace Vroum3d::Core;
 
-int main()
+int VROUM3D_MAIN()
 {
 	Display disp;
 	Instance inst(disp);

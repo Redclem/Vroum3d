@@ -1,5 +1,5 @@
 #include "pipeline.h"
-#include <SPIRV-Reflect/spirv_reflect.h>
+#include <spirv_reflect.h>
 #include <cstdint>
 #include <fstream>
 #include <stdexcept>
@@ -63,7 +63,7 @@ const PipelineResource::ShaderModule& PipelineResource::require_shader(std::stri
 	std::string pth("shaders/");
 	pth += path;
 
-	std::ifstream sh_file(pth.c_str(), std::ios::ate);
+	std::ifstream sh_file(pth.c_str(), std::ios::ate | std::ios::binary);
 	if(!sh_file.is_open())
 		throw std::runtime_error("Could not open shader file : " + pth);
 
