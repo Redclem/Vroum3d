@@ -98,14 +98,19 @@ public:
 
 	void begin_rendering(Instance& inst, std::uint32_t idx);
 
-	void end_rendering()
-	{
-		vkCmdEndRendering(m_cmd_buf);
-	}
+	void end_rendering(Instance& inst, std::uint32_t idx);
+
+	void bind_graphics_pipeline(Instance& inst, VkPipeline pipe);
 
 	void reset()
 	{
+
 		vkResetCommandBuffer(m_cmd_buf, 0);
+	}
+
+	void destroy()
+	{
+		m_cmd_buf.destroy_with([&](auto buf){vkFreeCommandBuffers(m_dev, m_cmd_pool, 1, &buf);});
 	}
 private:
 
@@ -125,11 +130,6 @@ private:
 	VkDevice m_dev;
 	VkCommandPool m_cmd_pool;
 	VkHandle<VkCommandBuffer> m_cmd_buf;
-
-	void destroy()
-	{
-		m_cmd_buf.destroy_with([&](auto buf){vkFreeCommandBuffers(m_dev, m_cmd_pool, 1, &buf);});
-	}
 };
 
 class Fence : public AssignDestroy<Fence>

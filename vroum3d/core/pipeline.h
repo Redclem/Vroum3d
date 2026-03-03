@@ -205,6 +205,8 @@ public:
 	{
 		destroy();
 	}
+
+	VkPipeline pipeline() const {return m_pipeline;}
 private:
 	VkDevice m_device;
 	VkHandle<VkPipeline> m_pipeline;
@@ -409,8 +411,12 @@ void Pipeline::create_pipeline(PipelineResource& pr, PipelineInformation& pi)
 
 	gpi.pDepthStencilState = &dssi;
 
-	VkPipelineColorBlendAttachmentState cbas{};
+	VkPipelineColorBlendAttachmentState cbas;
 	cbas.blendEnable = VK_FALSE;
+	cbas.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | 
+		VK_COLOR_COMPONENT_G_BIT | 
+		VK_COLOR_COMPONENT_B_BIT | 
+		VK_COLOR_COMPONENT_A_BIT;
 
 	VkPipelineColorBlendStateCreateInfo cbsi{
 		VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
