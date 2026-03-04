@@ -13,7 +13,7 @@ set(SPIRV_REFLECT_STATIC_LIB ON)
 FetchContent_Declare(
   spirv_reflect
   GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Reflect
-mingw-w64-ucrt-x86_64-neovim
+mingw-w64-ucrt-x86_64-neovim
   GIT_TAG main
 )
 
