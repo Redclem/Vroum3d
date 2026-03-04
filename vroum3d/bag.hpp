@@ -2,7 +2,7 @@
 #define VROUM3D_BAG_HPP_INCLUDED
 
 /** Bag container class, just contains a variable amount of elements.
- * Access through pointer only. Insertion / Removal in O(1)
+ * Access through pointer only. Insertion / Removal in O(1).
 */
 
 #include "utility.h"
@@ -18,9 +18,9 @@ public:
 	using element_t = T;
 	using allocator_t = Allocator;
 	using allocator_traits_t = std::allocator_traits<allocator_t>;
+	static constexpr std::size_t c_subbag_size = 1024;
 private:
 
-	static constexpr std::size_t subbag_size = 1024;
 
 
 	union SubbagElement
@@ -33,21 +33,26 @@ private:
 
 	struct Subbag
 	{
-		std::array<element_t, subbag_size> sb_elems;
+		std::array<SubbagElement, c_subbag_size> sb_elems;
 		Subbag* next;
 	};
 
 	Handle<Subbag*, nullptr> m_subbag;
 	SubbagElement * m_next_free = nullptr;
-	//allocator_t m_allocator;
+  std::size_t m_idx_new_in_subbag = c_subbag_size;
+
 public:
 
 	Bag(allocator_t&& all = {}) : allocator_t(all) {}
 
 	void destroy()
 	{
-		for(auto sb = m_subbag; sb; sb = sb->next)
+		for(auto sb = m_subbag; sb;)
+    {
+     auto tmp = sb->next;
 			delete sb;
+      sb = tmp;
+    }
 	}
 
 	template<typename PtrType>
@@ -55,13 +60,15 @@ public:
 	{
 	protected:
 		using ptr_t = PtrType;
+
 		ptr_t tget;
 
 		friend class Bag;
 		ConstPtr(ptr_t t) : tget(t) {}
 	public:
-		const auto& operator*() const {return *tget;}
-		const auto* operator->() const {return tget;}
+    ConstPtr(std::nullptr_t = nullptr) {}
+		const auto& operator*() const {return tget->element;}
+		const auto* operator->() const {return &tget->element;}
 	};
 
 	template<typename PtrType>
@@ -71,14 +78,15 @@ public:
 		using base_t::base_t, typename base_t::ptr_t;
 
 		friend class Bag;
-		Ptr(ptr_t t) : base_t::base_t(t) {}
+		Ptr(ptr_t t) : base_t(t) {}
 	public:
-		auto& operator*() const {return *base_t::tget;}
-		auto* operator->() const {return base_t::tget;}
+    Ptr(std::nullptr_t = nullptr) {}
+		auto& operator*() const {return base_t::tget->element;}
+		auto* operator->() const {return &base_t::tget->element;}
 	};
 
-	using const_ptr_t = ConstPtr<const element_t*>;
-	using ptr_t = Ptr<element_t*> ;
+	using const_ptr_t = ConstPtr<const SubbagElement*>;
+	using ptr_t = Ptr<SubbagElement*> ;
 
 private:
 
@@ -90,34 +98,55 @@ private:
 		Subbag* new_subb = new Subbag();
 		new_subb->next = m_subbag;
 		m_subbag = new_subb;
+	  m_idx_new_in_subbag = 0;
+  }
 
-		for(auto iter = m_subbag->sb_elems.begin(), end = std::prev(m_subbag->sb_elems.end());
-      			iter != end;)
-		{
-			iter->next = &*(++iter);
-		}
-		m_subbag->sb_elems.back().next = nullptr;
-		m_next_free = m_subbag->sb_elems.front();
-	}
+  SubbagElement* allocate_free()
+  {
+    auto newelem = m_next_free;
+    m_next_free = m_next_free->next;
+    return newelem;
+  }
+
+  SubbagElement* allocate_in_subbag()
+  {
+    if(m_idx_new_in_subbag == c_subbag_size)
+      add_subbag();
+
+    auto* newelem = m_subbag->sb_elems.data() + m_idx_new_in_subbag;
+    m_idx_new_in_subbag++;
+    return newelem;
+  }
 
 public:
 	ptr_t allocate()
 	{
-		if(m_next_free == nullptr)
-			add_subbag();
+    SubbagElement * p;
+    if(m_next_free)
+      p = allocate_free();
+    else
+      p = allocate_in_subbag();
 
-		auto newelem = m_next_free;
-		m_next_free = m_next_free->next;
-		allocator_traits_t::construct(alloc(), newelem->element);
-		return ptr_t(newelem);
-	}
+    allocator_traits_t::construct(alloc(), &p->element);
+    return ptr_t(p);
+  }
 
-	void release(ptr_t p)
+	void release(ptr_t ptr)
 	{
-		allocator_traits_t::destroy(alloc(), p->element);
+    auto p = ptr.tget;
+		allocator_traits_t::destroy(alloc(), &p->element);
 		p->next = m_next_free;
 		m_next_free = p;
 	}
+
+  std::size_t n_subbags() const
+  {
+    std::size_t ns(0);
+    for(Subbag* iter = m_subbag; iter; iter = iter->next)
+      ns++;
+
+    return ns;
+  }
 };
 
 

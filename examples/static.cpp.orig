@@ -1,0 +1,75 @@
+
+#include "../vroum3d/vroum3d.h"
+#include <SDL2/SDL.h>
+#include <chrono>
+#include <thread>
+#include <vulkan/vulkan_core.h>
+
+using namespace Vroum3d::Core;
+using namespace Vroum3d;
+
+
+<<<<<<< HEAD
+int VROUM3D_MAIN()
+=======
+int main()
+>>>>>>> devl
+{
+	Display disp;
+	Instance inst(disp);
+
+	PipelineResource pr(inst);
+
+	Pipeline pipe(pr, BasicPipelineInformation(pr, "static.vert.spv", "static.frag.spv", {}, {}));
+
+	VkHandle<VkCommandPool> pool;
+	VkCommandPoolCreateInfo cpi{
+		VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		nullptr,
+		VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+		inst.graphic_queue_index()
+	};
+
+	vk_check(vkCreateCommandPool(inst.device(), &cpi, nullptr, &pool));
+
+	bool run = true;
+	CommandBuffer cmd_buf(inst, pool);
+
+	while(run)
+	{
+		uint32_t image_idx;
+		if(inst.render_done() && inst.acquire_next_image(&image_idx))
+		{
+			cmd_buf.reset();
+			cmd_buf.begin_primary();
+			cmd_buf.begin_rendering(inst, image_idx);
+
+			cmd_buf.bind_graphics_pipeline(inst, pipe.pipeline());
+			
+
+			cmd_buf.cmd<vkCmdDraw>(6, 1, 0, 0);
+
+			cmd_buf.end_rendering(inst, image_idx);
+			cmd_buf.end();
+
+			inst.submit_render_present(cmd_buf, image_idx);
+		}
+		else
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+		SDL_Event evnt;
+		while(SDL_PollEvent(&evnt))
+			if(evnt.type == SDL_QUIT)
+			{
+				run = false;
+				break;
+			}
+	}
+
+	vkDeviceWaitIdle(inst.device());
+
+	cmd_buf.destroy();
+	vkDestroyCommandPool(inst.device(), pool, nullptr);
+
+	return 0;
+}

@@ -34,6 +34,7 @@ add_library(vroum3d STATIC
 	vroum3d/core/pipeline.cpp
 	vroum3d/core/objects.cpp
 	vroum3d/core/pipeline_info.cpp
+  vroum3d/core/allocator.cpp
 	vroum3d/gui/base.cpp
 	vroum3d/gui/element.cpp
 	ext/stb_impl.cpp
@@ -44,7 +45,7 @@ set(SHADERS_SOURCE_DIR "${CMAKE_SOURCE_DIR}/shaders/")
 
 make_directory("${SHADERS_BINARY_DIR}")
 
-	
+
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 	set(VROUM3D_CXXFLAGS -Wall -Werror -Wextra)
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
@@ -57,41 +58,51 @@ target_include_directories(vroum3d PUBLIC ${spirv_reflect_SOURCE_DIR})
 
 file(GLOB examples "examples/*.cpp")
 
-foreach(ex ${examples})
-	get_filename_component(ex_name ${ex} NAME_WE)
+function(add_example ex_name)
 
-	add_executable(${ex_name} ${ex})
+	add_executable(${ex_name} "examples/${ex_name}.cpp")
 
 	target_link_libraries(${ex_name} vroum3d)
 
 	target_link_options(${ex_name} PRIVATE ${EXEC_LINK_OPTS})
 
 	target_compile_options(${ex_name} PRIVATE "${VROUM3D_CXXFLAGS}")
-endforeach()
+endfunction()
+
+add_example(gui)
+add_example(empty_pipeline)
+add_example(instance)
+add_example(pipeman)
+add_example(simple_pipeline)
+add_example(static)
+add_example(bag_simple)
 
 file(GLOB shaders "shaders/*")
 
-foreach(sh ${shaders})
+function (add_shader sh)
 	get_filename_component(sh_name_we ${sh} NAME_WE)
-	get_filename_component(sh_name ${sh} NAME)
 	get_filename_component(sh_ext ${sh} LAST_EXT)
 
 	if(NOT (
-		(${sh_ext} STREQUAL ".vert") OR 
+		(${sh_ext} STREQUAL ".vert") OR
 		(${sh_ext} STREQUAL ".frag")
 	))
 		continue()
 	endif()
-	
-	add_custom_command(OUTPUT "${SHADERS_BINARY_DIR}/${sh_name}.spv"
-		COMMAND "glslc" "--target-env=vulkan1.4" "${SHADERS_SOURCE_DIR}/${sh_name}" "-o" "${SHADERS_BINARY_DIR}/${sh_name}.spv"
-		DEPENDS "${SHADERS_SOURCE_DIR}/${sh_name}"
+
+	add_custom_command(OUTPUT "${SHADERS_BINARY_DIR}/${sh}.spv"
+		COMMAND "glslc" "--target-env=vulkan1.4" "${SHADERS_SOURCE_DIR}/${sh}" "-o" "${SHADERS_BINARY_DIR}/${sh_name}.spv"
+		DEPENDS "${SHADERS_SOURCE_DIR}/${sh}"
 	)
 
-	add_custom_target(shader_${sh_name} ALL
-		DEPENDS "${SHADERS_BINARY_DIR}/${sh_name}.spv"
+	add_custom_target(shader_${sh} ALL
+		DEPENDS "${SHADERS_BINARY_DIR}/${sh}.spv"
 	)
+endfunction()
 
-	message("Adding target and command for shader : ${sh_name}")
-endforeach()
-
+add_shader(empty.frag)
+add_shader(empty.vert)
+add_shader(simple.frag)
+add_shader(simple.vert)
+add_shader(static.frag)
+add_shader(static.vert)
