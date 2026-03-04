@@ -4,6 +4,7 @@
 #include "../utility.h"
 #include "../debug.h"
 #include "display.hpp"
+#include "allocator.h"
 
 #include <SDL2/SDL_video.h>
 #include <vulkan/vulkan.h>
@@ -40,7 +41,7 @@ public:
 	}
 };
 
-class Instance : public AssignDestroy<Instance>, private InstanceDebugData<debug>
+class Instance : public AssignDestroy<Instance>, private InstanceDebugData<debug>, public Allocator
 {
 	VkHandle<VkInstance> m_inst;
 	VkPhysicalDevice m_pdev;
@@ -51,13 +52,17 @@ class Instance : public AssignDestroy<Instance>, private InstanceDebugData<debug
 	VkSurfaceFormatKHR m_sw_format;
 	std::uint32_t m_ti, m_gi;
 	VkQueue m_tq, m_pq, m_gq;
+	std::vector<VkImage> m_sw_images;
 	std::vector<VkHandle<VkImageView>> m_sw_views;
 	VkHandle<VkImage> m_depth_image;
 	VkHandle<VkImageView> m_depth_view;
 	VkHandle<VkDeviceMemory> m_depth_mem;
 	VkHandle<VkCommandPool> m_transfer_pool;
 	VkFormat m_depth_format;
-	VkHandle<VkSemaphore> m_image_avail_sem, m_render_finished_semaphore;
+
+	VkHandle<VkSemaphore> m_image_avail_sem;
+	std::vector<VkHandle<VkSemaphore>> m_render_done_sems;
+
 	VkHandle<VkFence> m_render_done_fence;
 
 	struct
@@ -75,9 +80,12 @@ public:
 	auto w() const {return m_w;}
 	auto h() const {return m_h;}
 
-	VkImageView sw_view(std::uint32_t idx) const {return m_sw_views[idx].get();}
+	VkImageView sw_view(std::uint32_t idx) const {return m_sw_views[idx];}
+	VkImage sw_image(std::uint32_t idx) const {return m_sw_images[idx];}
 
 	VkImageView depth_view() const {return m_depth_view;}
+	VkImage depth_image() const {return m_depth_image;}
+	
 
 	const VkFormat& color_format() const {return m_sw_format.format;}
 	const VkFormat& depth_format() const {return m_depth_format;}

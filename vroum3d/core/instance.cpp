@@ -22,8 +22,13 @@ void Instance::destroy()
 
 	m_render_done_fence.destroy_with([&](auto fnc){vkDestroyFence(m_dev, fnc, nullptr);});
 
+
+	for(auto& sem : m_render_done_sems)
+	{
+		sem.destroy_with([&](auto sem){vkDestroySemaphore(m_dev, sem, nullptr);});
+	}
+
 	m_image_avail_sem.destroy_with([&](auto sem){vkDestroySemaphore(m_dev, sem, nullptr);});
-	m_render_finished_semaphore.destroy_with([&](auto sem){vkDestroySemaphore(m_dev, sem, nullptr);});
 
 	m_transfer_pool.destroy_with([&](auto pl){vkDestroyCommandPool(m_dev, pl, nullptr);});
 
@@ -44,6 +49,8 @@ void Instance::destroy()
 
 	m_surf.destroy_with([&](auto surf){vkDestroySurfaceKHR(m_inst, surf, nullptr);});
 	m_inst.destroy_with([&](auto inst){vkDestroyInstance(inst, nullptr);});
+
+	Allocator::destroy();
 
 }
 
@@ -273,6 +280,7 @@ void Instance::create_device(const std::vector<std::string>& exts)
 	VkPhysicalDeviceVulkan13Features vk13feats{};
 	vk13feats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
 	vk13feats.dynamicRendering = VK_TRUE;
+	vk13feats.synchronization2 = VK_TRUE;
 
 	di.pNext = &vk13feats;
 
@@ -343,11 +351,11 @@ void Instance::find_sw_info()
 
 void Instance::create_sw_views()
 {
-	auto images = wrap_enumerate<vkGetSwapchainImagesKHR>(m_dev, m_sw);
+	m_sw_images = wrap_enumerate<vkGetSwapchainImagesKHR>(m_dev, m_sw);
 
-	m_sw_views.reserve(images.size());
+	m_sw_views.reserve(m_sw_images.size());
 
-	for(auto elem : images)
+	for(auto elem : m_sw_images)
 	{
 		VkImageViewCreateInfo vi{
 			VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -455,8 +463,14 @@ void Instance::create_semaphores()
 		0
 	};
 
+	m_render_done_sems.resize(m_sw_images.size());
+
+	for(auto& sem : m_render_done_sems)
+	{
+		vk_check(vkCreateSemaphore(m_dev, &si, nullptr, &sem));
+	}
+
 	vk_check(vkCreateSemaphore(m_dev, &si, nullptr, &m_image_avail_sem));
-	vk_check(vkCreateSemaphore(m_dev, &si, nullptr, &m_render_finished_semaphore));
 }
 
 void Instance::submit_render_present(VkCommandBuffer cmd_buf, uint32_t idx)
@@ -482,7 +496,7 @@ void Instance::submit_render_present(VkCommandBuffer cmd_buf, uint32_t idx)
 	VkSemaphoreSubmitInfo ssis{
 		VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
 		nullptr,
-		m_render_finished_semaphore,
+		m_render_done_sems[idx],
 		0,
 		VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 		0
@@ -506,7 +520,7 @@ void Instance::submit_render_present(VkCommandBuffer cmd_buf, uint32_t idx)
 		VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 		nullptr,
 		1,
-		&m_render_finished_semaphore,
+		&m_render_done_sems[idx],
 		1,
 		&m_sw,
 		&idx,

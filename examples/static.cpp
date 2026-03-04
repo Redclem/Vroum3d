@@ -40,7 +40,12 @@ int VROUM3D_MAIN()
 			cmd_buf.begin_primary();
 			cmd_buf.begin_rendering(inst, image_idx);
 
-			cmd_buf.end_rendering();
+			cmd_buf.bind_graphics_pipeline(inst, pipe.pipeline());
+			
+
+			cmd_buf.cmd<vkCmdDraw>(6, 1, 0, 0);
+
+			cmd_buf.end_rendering(inst, image_idx);
 			cmd_buf.end();
 
 			inst.submit_render_present(cmd_buf, image_idx);
@@ -57,6 +62,9 @@ int VROUM3D_MAIN()
 			}
 	}
 
+	vkDeviceWaitIdle(inst.device());
+
+	cmd_buf.destroy();
 	vkDestroyCommandPool(inst.device(), pool, nullptr);
 
 	return 0;
