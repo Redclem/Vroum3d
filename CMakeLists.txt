@@ -6,6 +6,9 @@ project(Vroum3d)
 set(CMAKE_CXX_STANDARD 20)
 
 include(FetchContent)
+include(CTest)
+
+enable_testing()
 
 set(SPIRV_REFLECT_EXECUTABLE OFF)
 set(SPIRV_REFLECT_STATIC_LIB ON)
@@ -34,7 +37,7 @@ add_library(vroum3d STATIC
 	vroum3d/core/pipeline.cpp
 	vroum3d/core/objects.cpp
 	vroum3d/core/pipeline_info.cpp
-  vroum3d/core/allocator.cpp
+  	vroum3d/core/allocator.cpp
 	vroum3d/gui/base.cpp
 	vroum3d/gui/element.cpp
 	ext/stb_impl.cpp
@@ -54,7 +57,7 @@ endif()
 
 target_compile_options(vroum3d PRIVATE "${VROUM3D_CXXFLAGS}")
 target_link_libraries(vroum3d PUBLIC SDL2main SDL2 ${VULKAN_LIB} spirv-reflect-static)
-target_include_directories(vroum3d PUBLIC ${spirv_reflect_SOURCE_DIR})
+target_include_directories(vroum3d INTERFACE vroum3d)
 
 file(GLOB examples "examples/*.cpp")
 
@@ -77,6 +80,22 @@ add_example(simple_pipeline)
 add_example(static)
 add_example(bag_simple)
 
+function(add_exec_test test_name)
+
+	add_executable(test_${test_name} "tests/${test_name}.cpp")
+
+	target_link_libraries(test_${test_name} vroum3d)
+
+	target_link_options(test_${test_name} PRIVATE ${EXEC_LINK_OPTS})
+
+	target_compile_options(test_${test_name} PRIVATE "${VROUM3D_CXXFLAGS}")
+
+	add_test(NAME ${test_name} COMMAND test_${test_name})
+endfunction()
+
+add_exec_test("allocator_log")
+add_exec_test("allocator")
+
 file(GLOB shaders "shaders/*")
 
 function (add_shader sh)
@@ -91,7 +110,7 @@ function (add_shader sh)
 	endif()
 
 	add_custom_command(OUTPUT "${SHADERS_BINARY_DIR}/${sh}.spv"
-		COMMAND "glslc" "--target-env=vulkan1.4" "${SHADERS_SOURCE_DIR}/${sh}" "-o" "${SHADERS_BINARY_DIR}/${sh_name}.spv"
+		COMMAND "glslc" "--target-env=vulkan1.4" "${SHADERS_SOURCE_DIR}/${sh}" "-o" "${SHADERS_BINARY_DIR}/${sh}.spv"
 		DEPENDS "${SHADERS_SOURCE_DIR}/${sh}"
 	)
 

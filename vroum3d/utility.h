@@ -71,7 +71,8 @@ public:
 	constexpr auto operator->() const {return m_hdl;}
 	constexpr auto operator->() {return m_hdl;}
 
-	void destroy_with(auto fun)
+	template<typename Fun>
+	void destroy_with(Fun&& fun)
 	{
 		if(m_hdl != def)
 		{
@@ -107,7 +108,7 @@ std::vector<typename enumerate::res<decltype(Func)>::result_t> wrap_enumerate(Ar
 {
 	static_assert(enumerate::res<decltype(Func)>::is_enum_fun, "This function must be called with a Vulkan enumerator function");
 
-	using res = enumerate::res<decltype(Func)>::result_t;
+	using res = typename enumerate::res<decltype(Func)>::result_t;
 	std::uint32_t size;
 	
 	auto_check(Func(ags..., &size, nullptr));
@@ -127,7 +128,7 @@ std::vector<typename enumerate::res<decltype(Func)>::result_t> wrap_enumerate(Ar
 {
 	static_assert(enumerate::res<decltype(Func)>::is_enum_fun, "This function must be called with a Vulkan enumerator function");
 
-	using res = enumerate::res<decltype(Func)>::result_t;
+	using res = typename enumerate::res<decltype(Func)>::result_t;
 	std::uint32_t size;
 	
 	Func(ags..., &size, nullptr);

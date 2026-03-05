@@ -67,6 +67,9 @@ public:
 		ConstPtr(ptr_t t) : tget(t) {}
 	public:
     ConstPtr(std::nullptr_t = nullptr) {}
+
+    operator bool() const {return tget == nullptr;}
+
 		const auto& operator*() const {return tget->element;}
 		const auto* operator->() const {return &tget->element;}
 	};

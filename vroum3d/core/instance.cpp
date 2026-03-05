@@ -205,22 +205,24 @@ void Instance::create_device(const std::vector<std::string>& exts)
 	auto queues = wrap_enumerate<vkGetPhysicalDeviceQueueFamilyProperties>(m_pdev);
 
 	int it(-1), ip(-1), ig(-1);
-	
-	for(int idx = 0; const auto& elem : queues)
-	{
-		if(elem.queueFlags & VK_QUEUE_TRANSFER_BIT && it == -1)
-			it = idx;
-		if(elem.queueFlags & VK_QUEUE_GRAPHICS_BIT && ig == -1)
-			ig = idx;
-		
-		VkBool32 supp;
-		vk_check(vkGetPhysicalDeviceSurfaceSupportKHR(m_pdev, idx, m_surf, &supp));
-	
-		if(supp && ip == -1)
-			ip = idx;
+  {
+    int idx = 0;
+    for( const auto& elem : queues)
+    {
+      if(elem.queueFlags & VK_QUEUE_TRANSFER_BIT && it == -1)
+        it = idx;
+      if(elem.queueFlags & VK_QUEUE_GRAPHICS_BIT && ig == -1)
+        ig = idx;
+      
+      VkBool32 supp;
+      vk_check(vkGetPhysicalDeviceSurfaceSupportKHR(m_pdev, idx, m_surf, &supp));
+    
+      if(supp && ip == -1)
+        ip = idx;
 
-		++idx;
-	}
+      ++idx;
+    }
+  }
 
 	if(it == -1 || ip == -1 || ig == -1)
 		throw std::runtime_error("missing queue");
@@ -292,6 +294,8 @@ void Instance::create_device(const std::vector<std::string>& exts)
 
 	m_ti = it;
 	m_gi = ig;
+
+  Allocator::init(m_dev, m_pdev);
 }
 
 void Instance::create_surf(SDL_Window* wind)
