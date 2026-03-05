@@ -11,7 +11,7 @@ using namespace Vroum3d::Core;
 
 void PipelineResource::init_cache()
 {
-	std::ifstream cache_file(cache_pth, std::ios::ate);
+	std::ifstream cache_file(cache_pth, std::ios::ate | std::ios::binary);
 	std::vector<char> cache_data;
 	
 	if(cache_file.is_open())
@@ -32,7 +32,13 @@ void PipelineResource::init_cache()
 		cache_data.data()
 	};
 
-	vk_check(vkCreatePipelineCache(m_device, &ci, nullptr, &m_cache));
+	if(vkCreatePipelineCache(m_device, &ci, nullptr, &m_cache) != VK_SUCCESS)
+  {
+    ci.initialDataSize = 0;
+    ci.pInitialData = nullptr;
+
+    vk_check(vkCreatePipelineCache(m_device, &ci, nullptr, &m_cache));
+  }
 }
 
 void PipelineResource::write_cache()
@@ -43,7 +49,7 @@ void PipelineResource::write_cache()
 	
 	if(cache_size == 0) return;
 
-	std::ofstream cache_file(cache_pth);
+	std::ofstream cache_file(cache_pth, std::ios::binary);
 
 	if(!cache_file.is_open()) return;
 
