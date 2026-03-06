@@ -93,8 +93,9 @@ function(add_exec_test test_name)
 	add_test(NAME ${test_name} COMMAND test_${test_name})
 endfunction()
 
-add_exec_test("allocator_log")
-add_exec_test("allocator")
+add_exec_test(allocator_log)
+add_exec_test(allocator)
+add_exec_test(allocator_nooverlap)
 
 file(GLOB shaders "shaders/*")
 
