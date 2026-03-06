@@ -47,13 +47,16 @@ public:
 
 	void destroy()
 	{
-		for(auto sb = m_subbag; sb;)
+		for(Subbag* sb = m_subbag; sb;)
     {
-     auto tmp = sb->next;
+      auto tmp = sb->next;
 			delete sb;
       sb = tmp;
     }
+
 	}
+
+  ~Bag() {destroy();}
 
 	template<typename PtrType>
 	class ConstPtr
@@ -66,7 +69,7 @@ public:
 		friend class Bag;
 		ConstPtr(ptr_t t) : tget(t) {}
 	public:
-    ConstPtr(std::nullptr_t = nullptr) {}
+    ConstPtr(std::nullptr_t = nullptr) : tget(nullptr) {}
 
     operator bool() const {return tget != nullptr;}
 
@@ -92,6 +95,7 @@ public:
 	using ptr_t = Ptr<SubbagElement*> ;
 
 private:
+
 
 	auto& alloc() {return static_cast<allocator_t&>(*this);}
 
