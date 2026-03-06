@@ -37,6 +37,28 @@ public:
 
     return log;
   }
+
+  static constexpr std::uint32_t c_fsb_no_bit = 64;
+
+  static std::uint32_t fsb(uint64_t a)
+  {
+      if(a == 0) return c_fsb_no_bit;
+      int l(0);
+      if((a & 0xFFFFFFFF) == 0)
+          l |= 32, a >>= 32;
+      if((a & 0xFFFF) == 0)
+          l |= 16, a >>= 16;
+      if((a & 0xFF) == 0)
+          l |= 8, a >>= 8;
+      if((a & 0xF) == 0)
+          l |= 4, a >>= 4;
+      if((a & 0x3) == 0)
+          l |= 2, a >>= 2;
+      if((a & 0x1) == 0)
+          l |= 1, a >>= 1;
+      return l;
+  }
+
   
   using bit_field_t = std::uint32_t;
   static constexpr std::size_t c_log_largest_block_size = 20, c_log_smallest_block_size = 5;
@@ -81,7 +103,7 @@ private:
     std::array<secondary_bin_t, c_prim_bin_size> sec_bins; // index 0 are smallest blocks
 
     // Address of the list of free blocks that would contain a block of given size
-    addr_t addr(VkDeviceSize size)
+    static addr_t addr(VkDeviceSize size)
     {
       std::uint32_t prim_bin = int_log2(size >> c_log_smallest_block_size);
 
@@ -147,7 +169,7 @@ private:
   void free(block_ptr_t b);
   
   // Allocate Memory
-  block_ptr_t allocate_inner(std::uint32_t mem_idx, VkDeviceSize size);
+  block_ptr_t allocate_inner(std::uint32_t mem_idx, VkDeviceSize size, VkDeviceSize alignment);
 
 public:
 
@@ -169,9 +191,9 @@ public:
   using allocated_memory_t = AllocatedMemory;
 
   void free(allocated_memory_t am) {free(am.base());}
-  allocated_memory_t allocate(std::uint32_t mem_idx, VkDeviceSize s) {
+  allocated_memory_t allocate(std::uint32_t mem_idx, VkDeviceSize s, VkDeviceSize alignment) {
     check(s <= c_largest_block_size);
-    return allocate_inner(mem_idx, s);
+    return allocate_inner(mem_idx, s, alignemtn);
   }
 
 

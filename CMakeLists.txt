@@ -96,6 +96,7 @@ endfunction()
 add_exec_test(allocator_log)
 add_exec_test(allocator)
 add_exec_test(allocator_nooverlap)
+add_exec_test(allocator_fsb)
 
 file(GLOB shaders "shaders/*")
 

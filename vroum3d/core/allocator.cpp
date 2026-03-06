@@ -96,6 +96,12 @@ Allocator::block_ptr_t Allocator::get_block(std::uint32_t mem_idx, VkDeviceSize 
   {
     idx_sec = 0; // Reset search for secondary block.
 
+    
+    //auto bit = fsb((bin.free >> idx_prim) >> 1);
+    //auto idx_prim_alt = (bit == c_fsb_no_bit ? c_prim_bin_size : idx_prim + bit + 1);
+    //(void)(idx_prim_alt);
+    /*assert(idx_prim == idx_prim_alt);*/
+
     do {
       idx_prim++;
       flag_prim <<= 1;
@@ -138,9 +144,30 @@ Allocator::block_ptr_t Allocator::get_block(std::uint32_t mem_idx, VkDeviceSize 
   return block;
 }
 
-Allocator::block_ptr_t Allocator::allocate_inner(std::uint32_t mem_idx, VkDeviceSize size)
+Allocator::block_ptr_t Allocator::allocate_inner(std::uint32_t mem_idx, VkDeviceSize size, VkDeviceSize alignment)
 {
-  auto block = get_block(mem_idx, size);
+  auto block = get_block(mem_idx, size + alignment - 1);
+
+  // Align
+  if(auto aligndef = block->offset % alignment; aligndef)
+  {
+    auto added_bytes = alignment - aligndef;
+    block->offset += added_bytes;
+    // There must be a physical previous block
+    
+    auto pb = block->phys_prev;
+    if(pb->free)
+    {
+      auto init_addr = PrimaryBin::addr(pb->size);
+
+      block->phys_prev->size += added_bytes;
+
+      auto new_addr = PrimaryBin::addr(pb->size);
+
+      if(new_addr != init_addr)
+
+    }
+  }
 
   if(block->size != size) // Larger block. Split
   {
