@@ -31,6 +31,7 @@ int VROUM3D_MAIN()
 	std::uniform_int_distribution<int> d(0, Allocator::c_log_largest_block_size - 1);
 
 	std::bernoulli_distribution bd;
+  std::uniform_int_distribution alignd(0, 8);
 
   Display disp("Allocator test - No Visual");
   Instance inst(disp);
@@ -43,12 +44,15 @@ int VROUM3D_MAIN()
 		std::size_t log = d(rng);
 
 		std::size_t size = 1ull << std::size_t(log);
+    auto align = 1 << alignd(rng);
 
 		for(std::size_t i(0); i != log; ++i)
 			if(bd(rng))
 				size |= 1ull << i;
 
-    auto block = inst.allocate(0, size);
+    auto block = inst.allocate(0, size, align);
+    check(block.offset() % align == 0);
+
     blocks.push_back(block);
 
     Segment new_seg{block.memory(), block.size(), block.offset()};

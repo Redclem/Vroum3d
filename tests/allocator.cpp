@@ -16,6 +16,8 @@ int VROUM3D_MAIN()
 
 	std::bernoulli_distribution bd;
 
+  std::uniform_int_distribution alignd(0, 8);
+
   Display disp("Allocator test - No Visual");
   Instance inst(disp);
 
@@ -27,11 +29,14 @@ int VROUM3D_MAIN()
 
 		std::size_t size = 1ull << std::size_t(log);
 
+    auto align = 1 << alignd(rng);
+
 		for(std::size_t i(0); i != log; ++i)
 			if(bd(rng))
 				size |= 1ull << i;
 
-    auto new_block = inst.allocate(0, size);
+    auto new_block = inst.allocate(0, size, align);
+    check(new_block.offset() % align == 0);
 
     check(new_block.size() >= size);
 

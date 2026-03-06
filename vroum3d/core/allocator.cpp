@@ -1,4 +1,5 @@
 #include "allocator.h"
+#include <filesystem>
 #include <vulkan/vulkan_core.h>
 
 #include <cassert>
@@ -48,11 +49,9 @@ void Allocator::destroy()
   m_mem_handles.clear();
 }
 
-void Allocator::insert_block(std::uint32_t mem_idx, block_ptr_t block)
+void Allocator::insert_block(std::uint32_t mem_idx, block_ptr_t block, PrimaryBin::addr_t addr)
 {
   auto& bin = m_prim_bins[mem_idx];
-
-  auto addr = bin.addr(block->size);
   block_ptr_t& oldblock = bin.head_ptr_at(addr);
 
   if(oldblock)
@@ -89,38 +88,26 @@ Allocator::block_ptr_t Allocator::get_block(std::uint32_t mem_idx, VkDeviceSize 
   }
 
   // Find non empty bin
-  std::uint32_t flag_prim = 1ull << idx_prim;
 
-  if(!(bin.free & flag_prim) // No right secondary bin
-    || !(bin.sec_bins[idx_prim].free >> idx_sec)) // Or no right secondary bin
+  if(!(bin.free & (1ull << idx_prim)) // No right sec bin
+    || !(bin.sec_bins[idx_prim].free >> idx_sec)) // Or no right list in sec bin 
   {
     idx_sec = 0; // Reset search for secondary block.
 
+    auto free_shift = (bin.free >> idx_prim) & ~1ull;
     
-    //auto bit = fsb((bin.free >> idx_prim) >> 1);
-    //auto idx_prim_alt = (bit == c_fsb_no_bit ? c_prim_bin_size : idx_prim + bit + 1);
-    //(void)(idx_prim_alt);
-    /*assert(idx_prim == idx_prim_alt);*/
-
-    do {
-      idx_prim++;
-      flag_prim <<= 1;
-    }while (!(flag_prim & bin.free) && idx_prim < c_prim_bin_size);
-
-    if(idx_prim == c_prim_bin_size) // No more blocks !
+    if(free_shift == 0) // No more blocks !
     {
       return allocate_vk_block(mem_idx);
     }
+    
+    idx_prim = idx_prim + fsb(free_shift);
   }
 
   auto& secbin = bin.sec_bins[idx_prim];
   assert(secbin.free >> idx_sec);
-  
-  for(std::size_t flag_sec = 1ull << idx_sec; !(flag_sec & secbin.free);)
-  {
-    idx_sec++;
-    flag_sec <<= 1;
-  }
+
+  idx_sec += fsb(secbin.free >> idx_sec);
 
   // Found the list head!
   auto& head = secbin.list_heads[idx_sec];
@@ -152,21 +139,43 @@ Allocator::block_ptr_t Allocator::allocate_inner(std::uint32_t mem_idx, VkDevice
   if(auto aligndef = block->offset % alignment; aligndef)
   {
     auto added_bytes = alignment - aligndef;
-    block->offset += added_bytes;
     // There must be a physical previous block
     
     auto pb = block->phys_prev;
-    if(pb->free)
+    if(pb->free) // Enlarge previous free block
     {
       auto init_addr = PrimaryBin::addr(pb->size);
-
-      block->phys_prev->size += added_bytes;
+      auto new_size = pb->size + added_bytes;
 
       auto new_addr = PrimaryBin::addr(pb->size);
 
       if(new_addr != init_addr)
-
+      {
+        remove_free_list(pb);
+        pb->size = new_size;
+        insert_block(mem_idx, pb, new_addr);
+      }
+      else {
+        pb->size = new_size;
+      }
     }
+    else { // Create new free block
+      auto nb = m_bag.allocate();
+      nb->size = added_bytes;
+      nb->offset = block->offset;
+      nb->mem_handle = block->mem_handle;
+      nb->mem_idx = block->mem_idx;
+
+      // 4 pts to change in phys list 
+      nb->phys_next = block;
+      nb->phys_prev = block->phys_prev;
+      nb->phys_prev->phys_next = nb;
+      block->phys_prev = nb;
+
+      insert_block(mem_idx, nb);
+    }
+    block->offset += added_bytes;
+    block->size -= added_bytes;
   }
 
   if(block->size != size) // Larger block. Split
@@ -208,36 +217,6 @@ Allocator::block_ptr_t Allocator::split_block(VkDeviceSize size, block_ptr_t blo
 
 void Allocator::merge(block_ptr_t b)
 {
-  auto remove_free_list = [&](block_ptr_t removed)
-  {
-    // Remove from the free list; either it has a previous block in free list or not
-    if(!removed->list_prev) // Find it ourselves
-    {
-      auto& prim_bin = m_prim_bins[removed->mem_idx];
-      auto addr = prim_bin.addr(removed->size);
-      auto& list_head = prim_bin.head_ptr_at(addr); // List head is this block
-      assert(list_head == removed);
-
-      if(auto lhn = list_head->list_next; lhn)
-      {
-          lhn->list_prev = nullptr;
-          list_head = lhn;
-      }
-      else {
-        list_head = nullptr;
-        prim_bin.unset_free_flag(addr);
-      }
-    }
-    else {
-      // Edit 2 pointers for linked list remove; do not care for ptr of remove block
-      // Previous block exists and list is not empty
-      if(removed->list_next)
-        removed->list_next->list_prev = removed->list_prev;
-
-      removed->list_prev->list_next = removed->list_next;
-    }
-  };
-
   if(auto next_block = b->phys_next; next_block && next_block->free)
   {
     assert(next_block->mem_handle == b->mem_handle);
@@ -283,6 +262,36 @@ void Allocator::merge(block_ptr_t b)
   if(b->phys_prev)
     assert(b->size + b->phys_prev->size <= c_largest_block_size);
 
+}
+  
+void Allocator::remove_free_list(block_ptr_t removed)
+{
+  // Remove from the free list; either it has a previous block in free list or not
+  if(!removed->list_prev) // Find it ourselves
+  {
+    auto& prim_bin = m_prim_bins[removed->mem_idx];
+    auto addr = prim_bin.addr(removed->size);
+    auto& list_head = prim_bin.head_ptr_at(addr); // List head is this block
+    assert(list_head == removed);
+
+    if(auto lhn = list_head->list_next; lhn)
+    {
+        lhn->list_prev = nullptr;
+        list_head = lhn;
+    }
+    else {
+      list_head = nullptr;
+      prim_bin.unset_free_flag(addr);
+    }
+  }
+  else {
+    // Edit 2 pointers for linked list remove; do not care for ptr of remove block
+    // Previous block exists and list is not empty
+    if(removed->list_next)
+      removed->list_next->list_prev = removed->list_prev;
+
+    removed->list_prev->list_next = removed->list_next;
+  }
 }
 
 void Allocator::free(block_ptr_t b)

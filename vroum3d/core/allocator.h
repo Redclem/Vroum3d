@@ -42,7 +42,6 @@ public:
 
   static std::uint32_t fsb(uint64_t a)
   {
-      if(a == 0) return c_fsb_no_bit;
       int l(0);
       if((a & 0xFFFFFFFF) == 0)
           l |= 32, a >>= 32;
@@ -154,7 +153,13 @@ private:
   block_ptr_t allocate_vk_block(std::uint32_t index);
 
   // Insert block (usually after allocating part of it) in pools
-  void insert_block(std::uint32_t mem_idx, block_ptr_t block);
+  void insert_block(std::uint32_t mem_idx, block_ptr_t block)
+  {
+    insert_block(mem_idx, block, PrimaryBin::addr(block->size));
+  }
+
+  // Insert block (usually after allocating part of it) in pools
+  void insert_block(std::uint32_t mem_idx, block_ptr_t block, PrimaryBin::addr_t addr);
 
   // Get block from smallest matching pool / list (removes it)
   block_ptr_t get_block(std::uint32_t mem_idx, VkDeviceSize size);
@@ -170,6 +175,8 @@ private:
   
   // Allocate Memory
   block_ptr_t allocate_inner(std::uint32_t mem_idx, VkDeviceSize size, VkDeviceSize alignment);
+
+  void remove_free_list(block_ptr_t removed);
 
 public:
 
@@ -191,9 +198,9 @@ public:
   using allocated_memory_t = AllocatedMemory;
 
   void free(allocated_memory_t am) {free(am.base());}
-  allocated_memory_t allocate(std::uint32_t mem_idx, VkDeviceSize s, VkDeviceSize alignment) {
+  allocated_memory_t allocate(std::uint32_t mem_idx, VkDeviceSize s, VkDeviceSize alignment = 1) {
     check(s <= c_largest_block_size);
-    return allocate_inner(mem_idx, s, alignemtn);
+    return allocate_inner(mem_idx, s, alignment);
   }
 
 
