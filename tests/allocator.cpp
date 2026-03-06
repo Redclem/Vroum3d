@@ -12,11 +12,11 @@ constexpr std::size_t n_blocks = 10000;
 int VROUM3D_MAIN()
 {
 	std::ranlux48 rng;
-	std::uniform_int_distribution<int> d(0, 20);
+	std::uniform_int_distribution<int> d(0, Allocator::c_log_largest_block_size - 1);
 
 	std::bernoulli_distribution bd;
 
-  Display disp("ALlocator test - No Visual");
+  Display disp("Allocator test - No Visual");
   Instance inst(disp);
 
   std::vector<Allocator::allocated_memory_t> blocks;

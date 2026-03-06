@@ -21,7 +21,9 @@ namespace Vroum3d::Core
 
 template<bool enable = false>
 class InstanceDebugData {
+public:
 	void destroy(VkInstance) {}
+  void create_dbg_mesg(VkInstance, const VkDebugUtilsMessengerCreateInfoEXT&) {}
 };
 
 struct DefaultInstanceInfo;
@@ -39,6 +41,8 @@ public:
 			if(fn) fn(inst, msg, nullptr);
 		});
 	}
+
+  void create_dbg_mesg(VkInstance inst, const VkDebugUtilsMessengerCreateInfoEXT& ci);
 };
 
 class Instance : public AssignDestroy<Instance>, private InstanceDebugData<debug>, public Allocator

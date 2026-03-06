@@ -43,14 +43,14 @@ void Instance::destroy()
 	m_sw_views.clear();
 
 	m_sw.destroy_with([&](auto sw) {vkDestroySwapchainKHR(m_dev, sw, nullptr);});
+
+	Allocator::destroy();
 	m_dev.destroy_with([&](auto dev) {vkDestroyDevice(dev, nullptr);});
 
 	debug_data_t::destroy(m_inst);
 
 	m_surf.destroy_with([&](auto surf){vkDestroySurfaceKHR(m_inst, surf, nullptr);});
 	m_inst.destroy_with([&](auto inst){vkDestroyInstance(inst, nullptr);});
-
-	Allocator::destroy();
 
 }
 
@@ -119,14 +119,19 @@ void Instance::create_instance(const ExtensionsLayers& el)
 
 		vk_check(vkCreateInstance(&nfo, nullptr, &m_inst));
 
-		PFN_vkCreateDebugUtilsMessengerEXT fn = reinterpret_cast<decltype(fn)>(vkGetInstanceProcAddr(m_inst, "vkCreateDebugUtilsMessengerEXT"));
-
-		check(fn);
-
-		vk_check(fn(m_inst, &dbi, nullptr, &m_dbg_messenger));
+    create_dbg_mesg(m_inst, dbi);
 	}
 	else
 		vk_check(vkCreateInstance(&nfo, nullptr, &m_inst));
+}
+
+void InstanceDebugData<true>::create_dbg_mesg(VkInstance inst, const VkDebugUtilsMessengerCreateInfoEXT& ci)
+{
+		PFN_vkCreateDebugUtilsMessengerEXT fn = reinterpret_cast<decltype(fn)>(vkGetInstanceProcAddr(inst, "vkCreateDebugUtilsMessengerEXT"));
+
+		check(fn);
+
+		vk_check(fn(inst, &ci, nullptr, &m_dbg_messenger));
 }
 
 void Instance::choose_pdev()

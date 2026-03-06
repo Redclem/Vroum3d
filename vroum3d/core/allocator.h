@@ -80,14 +80,24 @@ private:
     bit_field_t free = 0;
     std::array<secondary_bin_t, c_prim_bin_size> sec_bins; // index 0 are smallest blocks
 
+    // Address of the list of free blocks that would contain a block of given size
     addr_t addr(VkDeviceSize size)
     {
-      std::uint32_t prim_bin = std::max<std::uint32_t>(0, int_log2(size >> c_log_smallest_block_size));
+      std::uint32_t prim_bin = int_log2(size >> c_log_smallest_block_size);
 
-      VkDeviceSize sec_bin_span = prim_bin == 0 ? c_smallest_block_size << 1 :
-            1 << (prim_bin + c_log_smallest_block_size);
+      VkDeviceSize sec_bin_span, sec_bin_smallest_size;
 
-      return {prim_bin, c_sec_bin_size * size / sec_bin_span};
+      if(0 == prim_bin)
+      {
+        sec_bin_span = c_smallest_block_size << 1;
+        sec_bin_smallest_size = 0;
+      }
+      else {
+        sec_bin_span = 1 << (prim_bin + c_log_smallest_block_size);
+        sec_bin_smallest_size = sec_bin_span;
+      }
+
+      return {prim_bin, c_sec_bin_size * (size - sec_bin_smallest_size) / sec_bin_span};
     }
 
     auto& head_ptr_at(const addr_t& addr)
@@ -99,6 +109,13 @@ private:
     {
       free |= 1ull << addr.first;
       sec_bins[addr.first].free |= 1ull << addr.second;
+    }
+
+    void unset_free_flag(const addr_t& addr)
+    {
+      sec_bins[addr.first].free &= ~(1ull << addr.second);
+      if(!sec_bins[addr.first].free)
+        free &= ~(1ull << addr.first);
     }
   };
 
@@ -152,7 +169,10 @@ public:
   using allocated_memory_t = AllocatedMemory;
 
   void free(allocated_memory_t am) {free(am.base());}
-  allocated_memory_t allocate(std::uint32_t mem_idx, VkDeviceSize s) {return allocate_inner(mem_idx, s);}
+  allocated_memory_t allocate(std::uint32_t mem_idx, VkDeviceSize s) {
+    check(s <= c_largest_block_size);
+    return allocate_inner(mem_idx, s);
+  }
 
 
 	VkDevice device() const{return m_device;}
