@@ -1,4 +1,5 @@
 #include "allocator.h"
+
 #include <filesystem>
 #include <vulkan/vulkan_core.h>
 
@@ -12,21 +13,30 @@ void Allocator::init(VkDevice dev, VkPhysicalDevice pdev)
   m_device = dev;
   m_pdev = pdev;
 
-  
+  VkPhysicalDeviceMemoryProperties mp;
+  vkGetPhysicalDeviceMemoryProperties(pdev, &mp);
+
+  //m_prim_bins = std::make_unique<primary_bin_t[]>(mp.memoryTypeCount);
 }
 
 Allocator::block_ptr_t Allocator::allocate_vk_block(std::uint32_t idx)
 {
-  VkMemoryAllocateInfo mai{
-    VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-    nullptr,
-    VkDeviceSize(c_largest_block_size),
-    idx
-  };
-
   VkDeviceMemory hdl;
 
-  vk_check(vkAllocateMemory(m_device, &mai, nullptr, &hdl));
+  if constexpr(!dry_allocation)
+  {
+    VkMemoryAllocateInfo mai{
+      VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+      nullptr,
+      VkDeviceSize(c_largest_block_size),
+      idx
+    };
+
+    vk_check(vkAllocateMemory(m_device, &mai, nullptr, &hdl));
+  }
+  else
+    hdl = VK_NULL_HANDLE;
+  
 
   block_ptr_t new_block = m_bag.allocate();
 
@@ -35,18 +45,22 @@ Allocator::block_ptr_t Allocator::allocate_vk_block(std::uint32_t idx)
   new_block->mem_handle = hdl;
   new_block->mem_idx = idx;
 
-  m_mem_handles.insert(hdl);
-
+  if constexpr (!dry_allocation) 
+    m_mem_handles.insert(hdl);
+ 
   return new_block;
 }
 
 void Allocator::destroy()
 {
-  for(auto& elem : m_mem_handles)
+  if constexpr(!dry_allocation)
   {
-    vkFreeMemory(m_device, elem, nullptr);
+    for(auto& elem : m_mem_handles)
+    {
+      vkFreeMemory(m_device, elem, nullptr);
+    }
+    m_mem_handles.clear();
   }
-  m_mem_handles.clear();
 }
 
 void Allocator::insert_block(std::uint32_t mem_idx, block_ptr_t block, PrimaryBin::addr_t addr)

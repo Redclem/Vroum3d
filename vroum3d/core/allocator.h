@@ -19,6 +19,10 @@ namespace Vroum3d::Core
 class Allocator
 {
 public:
+
+  static constexpr bool dry_allocation = true;
+
+
   static std::uint32_t int_log2(VkDeviceSize x)
   {
     std::uint32_t log(0);
@@ -143,7 +147,10 @@ private:
   using primary_bin_t = PrimaryBin;
 
   bit_field_t m_free_prim_bins = 0;
-  std::array<primary_bin_t, c_n_mem_types> m_prim_bins;
+  
+  using prim_bins_t = std::array<primary_bin_t, c_n_mem_types>;
+
+  prim_bins_t m_prim_bins;
   block_bag_t m_bag;
 
   using memory_handles_t = std::unordered_set<VkDeviceMemory>;

@@ -31,6 +31,13 @@ if(${MSYS})
 	add_compile_definitions(MSYS)
 endif()
 
+if("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo"
+  AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+  message("GNU Gprof enabled")
+  set(EXEC_LINK_OPTS ${EXEC_LINK_OPTS} -pg)
+  set(VROUM3D_CXXFLAGS ${VROUM3D_CXXFLAGS} -pg)
+endif()
+
 add_library(vroum3d STATIC
 	vroum3d/core/instance.cpp
 	vroum3d/core/vkutil.cpp
@@ -50,12 +57,12 @@ make_directory("${SHADERS_BINARY_DIR}")
 
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-	set(VROUM3D_CXXFLAGS -Wall -Werror -Wextra)
+  set(VROUM3D_CXXFLAGS ${VROUM3D_CXXFLAGS} -Wall -Werror -Wextra)
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-	set(VROUM3D_CXXFLAGS /WX /Wall)
+	set(VROUM3D_CXXFLAGS ${VROUM3D_CXXFLAGS} /WX /Wall)
 endif()
 
-target_compile_options(vroum3d PRIVATE "${VROUM3D_CXXFLAGS}")
+target_compile_options(vroum3d PRIVATE ${VROUM3D_CXXFLAGS})
 target_link_libraries(vroum3d PUBLIC SDL2main SDL2 ${VULKAN_LIB} spirv-reflect-static)
 target_include_directories(vroum3d INTERFACE vroum3d)
 
@@ -69,7 +76,7 @@ function(add_example ex_name)
 
 	target_link_options(${ex_name} PRIVATE ${EXEC_LINK_OPTS})
 
-	target_compile_options(${ex_name} PRIVATE "${VROUM3D_CXXFLAGS}")
+	target_compile_options(${ex_name} PRIVATE ${VROUM3D_CXXFLAGS})
 endfunction()
 
 add_example(gui)
@@ -78,7 +85,7 @@ add_example(instance)
 add_example(pipeman)
 add_example(simple_pipeline)
 add_example(static)
-add_example(bag_simple)
+add_example(bench_allocator)
 
 function(add_exec_test test_name)
 
@@ -97,6 +104,7 @@ add_exec_test(allocator_log)
 add_exec_test(allocator)
 add_exec_test(allocator_nooverlap)
 add_exec_test(allocator_fsb)
+add_exec_test(bag_simple)
 
 file(GLOB shaders "shaders/*")
 
