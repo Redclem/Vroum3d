@@ -31,6 +31,10 @@ if(${MSYS})
 	add_compile_definitions(MSYS)
 endif()
 
+if(VROUM3D_ALLOCATOR_DRY_ALLOC)
+  add_compile_definitions(VROUM3D_ALLOCATOR_DRY_ALLOC)
+endif()
+
 if("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo"
   AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   message("GNU Gprof enabled")
