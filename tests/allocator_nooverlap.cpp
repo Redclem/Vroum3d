@@ -15,7 +15,7 @@ constexpr std::size_t n_blocks = 10000;
 
 struct Segment
 {
-  VkDeviceMemory mem;
+  Allocator::mem_handle_t mem;
   VkDeviceSize size;
   VkDeviceSize offset;
 

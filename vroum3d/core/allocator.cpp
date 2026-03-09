@@ -21,9 +21,16 @@ void Allocator::init(VkDevice dev, VkPhysicalDevice pdev)
 
 Allocator::block_ptr_t Allocator::allocate_vk_block(std::uint32_t idx)
 {
-  VkDeviceMemory hdl;
+  union mh_t
+  {
+    VkDeviceMemory dm;
+    std::uint64_t mh;
 
-  if constexpr(!dry_allocation)
+    operator VkDeviceMemory() const {return dm;}
+    operator std::uint64_t() const {return mh;}
+  } mh;
+
+  if constexpr(!c_dry_allocation)
   {
     VkMemoryAllocateInfo mai{
       VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -32,32 +39,38 @@ Allocator::block_ptr_t Allocator::allocate_vk_block(std::uint32_t idx)
       idx
     };
 
-    vk_check(vkAllocateMemory(m_device, &mai, nullptr, &hdl));
+    vk_check(vkAllocateMemory(m_device, &mai, nullptr, &mh.dm));
   }
   else
-    hdl = VK_NULL_HANDLE;
+    mh.mh = m_mem_handles.size();
   
 
   block_ptr_t new_block = m_bag.allocate();
 
   new_block->size = c_largest_block_size;
   new_block->offset = 0;
-  new_block->mem_handle = hdl;
+  new_block->mem_handle = mh;
   new_block->mem_idx = idx;
 
-  if constexpr (!dry_allocation) 
-    m_mem_handles.insert(hdl);
+  m_mem_handles.insert(mh);
  
   return new_block;
 }
 
 void Allocator::destroy()
 {
-  if constexpr(!dry_allocation)
+
+  struct
+  {
+    VkDeviceMemory operator()(VkDeviceMemory mem) {return mem;}
+    VkDeviceMemory operator()(std::uint64_t) {return VK_NULL_HANDLE;}
+  } op;
+
+  if constexpr(!c_dry_allocation)
   {
     for(auto& elem : m_mem_handles)
     {
-      vkFreeMemory(m_device, elem, nullptr);
+      vkFreeMemory(m_device, op(elem), nullptr);
     }
     m_mem_handles.clear();
   }

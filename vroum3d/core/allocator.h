@@ -5,6 +5,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <type_traits>
 #include <unordered_set>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
@@ -20,8 +21,13 @@ class Allocator
 {
 public:
 
-  static constexpr bool dry_allocation = true;
+#ifdef VROUM3D_ALLOCATOR_DRY_ALLOC
+  static constexpr bool c_dry_allocation = true;
+#else
+  static constexpr bool c_dry_allocation = false;
+#endif
 
+  using mem_handle_t = std::conditional_t<c_dry_allocation, std::uint64_t, VkDeviceMemory>;
 
   static std::uint32_t int_log2(VkDeviceSize x)
   {
@@ -42,7 +48,6 @@ public:
     return log;
   }
 
-  static constexpr std::uint32_t c_fsb_no_bit = 64;
 
   static std::uint32_t fsb(uint64_t a)
   {
@@ -79,7 +84,7 @@ private:
   struct MemBlock
   {
     VkDeviceSize size, offset;
-    VkDeviceMemory mem_handle;
+    mem_handle_t mem_handle;
     Bag<MemBlock>::ptr_t phys_next = nullptr, phys_prev = nullptr;
     Bag<MemBlock>::ptr_t list_next = nullptr, list_prev = nullptr;
     std::uint32_t mem_idx;
@@ -153,7 +158,7 @@ private:
   prim_bins_t m_prim_bins;
   block_bag_t m_bag;
 
-  using memory_handles_t = std::unordered_set<VkDeviceMemory>;
+  using memory_handles_t = std::unordered_set<mem_handle_t>;
   memory_handles_t m_mem_handles;
 
   // Only call when associated memory index is empty. Returns a new block allocated through vk without inserting it in the pools.
@@ -197,7 +202,7 @@ public:
   public:
     AllocatedMemory() {}
 
-    VkDeviceMemory memory() const {return base()->mem_handle;}
+    mem_handle_t memory() const {return base()->mem_handle;}
     VkDeviceSize offset() const {return base()->offset;}
     VkDeviceSize size() const {return base()->size;}
   };
