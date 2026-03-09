@@ -60,7 +60,7 @@ class Instance : public AssignDestroy<Instance>, private InstanceDebugData<debug
 	std::vector<VkHandle<VkImageView>> m_sw_views;
 	VkHandle<VkImage> m_depth_image;
 	VkHandle<VkImageView> m_depth_view;
-	VkHandle<VkDeviceMemory> m_depth_mem;
+  owned_memory_t m_depth_mem;
 	VkHandle<VkCommandPool> m_transfer_pool;
 	VkFormat m_depth_format;
 

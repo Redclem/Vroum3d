@@ -36,6 +36,24 @@ void log(Ag1 && ag, Args && ... args)
 	}
 }
 
+class VulkanError : public std::exception
+{
+  VkResult m_result;
+public:
+
+  VulkanError(VkResult res) : m_result(res) {}
+
+  VkResult result() const {return m_result;}
+
+  ~VulkanError() override {}
+
+  const char * what() const noexcept override {return string_VkResult(m_result);}
+
+  constexpr bool operator==(VkResult r) const {return r == m_result;}
+};
+
+inline constexpr bool operator==(VkResult r, const VulkanError& ve) {return ve == r;}
+
 inline void spvr_check(SpvReflectResult res, std::source_location loc = std::source_location::current())
 {
 	if(res != SPV_REFLECT_RESULT_SUCCESS)
@@ -54,7 +72,7 @@ inline void vk_check(VkResult res, std::source_location loc = std::source_locati
 		log("vk_check failed at ", loc.file_name(), ":", loc.line(), " col ", loc.column());
 		log("In function ", loc.function_name());
 		log("Value : ", string_VkResult(res));
-		throw std::runtime_error("Vulkan error");
+		throw VulkanError(res);
 	}
 }
 

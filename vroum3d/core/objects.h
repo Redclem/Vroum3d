@@ -14,26 +14,26 @@ class Buffer : public AssignDestroy<Buffer>
 public:
 
 	/** Buffer constructor : creates buffer and allocs mem
-	* \param inst Instance to create buffer with
+	* \param alloc Allocator to create buffer with
 	* \param use Buffer usage
 	* \param bs Buffer size
 	* \param mp Memory properties of the memory to bind to the buffer
 	*/
 
-	Buffer(const Instance& inst, VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags mp) : m_dev(inst.device()) {
-		create_buffer(inst.pdev(), bs, use, mp);
+	Buffer(Allocator& alloc, VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags mp) : m_alloc(&alloc), m_dev(alloc.device()) {
+		create_buffer(bs, use, mp);
 	}
 
 	void destroy()
 	{
 		m_buffer.destroy_with([&](auto buf){vkDestroyBuffer(m_dev, buf, nullptr);});
-		m_mem.destroy_with([&](auto mem){vkFreeMemory(m_dev, mem, nullptr);});
-	}
+	  m_alloc->free(m_mem);
+  }
 
 	void* map()
 	{
 		void* ptr;
-		vk_check(vkMapMemory(m_dev, m_mem, 0, VK_WHOLE_SIZE, 0, &ptr));
+		vk_check(vkMapMemory(m_dev, m_mem.memory(), 0, VK_WHOLE_SIZE, 0, &ptr));
 		return ptr;
 	}
 
@@ -43,14 +43,14 @@ public:
 		VkMappedMemoryRange mr{
 			VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
 			nullptr,
-			m_mem,
+			m_mem.memory(),
 			0,
 			VK_WHOLE_SIZE
 		};
 
 		vk_check(vkFlushMappedMemoryRanges(m_dev, 1, &mr));
 
-		vkUnmapMemory(m_dev, m_mem);
+		vkUnmapMemory(m_dev, m_mem.memory());
 	}
 
 	~Buffer() {destroy();}
@@ -58,11 +58,13 @@ public:
 	const VkBuffer& buffer() const {return m_buffer;}
 	operator VkBuffer() const {return buffer();}
 private:
-	void create_buffer(VkPhysicalDevice pdev, VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags memprops);
+	void create_buffer(VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags memprops);
 
+  Allocator* m_alloc;
 	VkDevice m_dev;
 	VkHandle<VkBuffer> m_buffer;
-	VkHandle<VkDeviceMemory> m_mem;
+
+  Allocator::owned_memory_t m_mem;
 };
 
 class CommandBuffer : public AssignDestroy<CommandBuffer>

@@ -2,6 +2,7 @@
 
 #include <iterator>
 #include <random>
+#include <vulkan/vulkan_core.h>
 
 #include "../vroum3d/vroum3d.h"
 
@@ -35,12 +36,21 @@ int VROUM3D_MAIN()
 			if(bd(rng))
 				size |= 1ull << i;
 
-    auto new_block = inst.allocate(0, size, align);
-    check(new_block.offset() % align == 0);
+    Allocator::owned_memory_t new_block;
 
-    check(new_block.size() >= size);
+    try {
+      new_block = inst.allocate(0, size, align);
+         
+    } catch (const VulkanError& ve) {
+      if(ve == VK_ERROR_OUT_OF_DEVICE_MEMORY) break;
+      else throw ve;
+    }
 
-    blocks.push_back(std::move(new_block));
+      check(new_block.offset() % align == 0);
+
+      check(new_block.size() >= size);
+
+      blocks.push_back(std::move(new_block));
 	}
 
   while(!blocks.empty())

@@ -40,7 +40,7 @@ private:
 
 	Element* m_first_elem = nullptr, *m_root_elem = nullptr;
 
-	const Instance* m_instance;
+	Instance* m_instance;
 	VkDevice m_device;
 
 	VkHandle<VkBuffer> m_buffer;
@@ -56,7 +56,7 @@ public:
 
 	void destroy();
 
-	Base(const Instance& inst) : m_instance(&inst), m_device(inst.device()) {}
+	Base(Instance& inst) : m_instance(&inst), m_device(inst.device()) {}
 
 	VkDevice device() const {return m_device;}
 

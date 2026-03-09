@@ -34,7 +34,8 @@ void Instance::destroy()
 
 	m_depth_view.destroy_with([&](auto dv){vkDestroyImageView(m_dev, dv, nullptr);});
 	m_depth_image.destroy_with([&](auto di){vkDestroyImage(m_dev, di, nullptr);});
-	m_depth_mem.destroy_with([&](auto mem) {vkFreeMemory(m_dev, mem, nullptr);});
+
+  free(m_depth_mem);
 
 	for(auto& elem : m_sw_views)
 		if(elem != VK_NULL_HANDLE)
@@ -408,15 +409,16 @@ void Instance::create_depth_image()
 	VkMemoryRequirements mr;
 	vkGetImageMemoryRequirements(m_dev, m_depth_image, &mr);
 
-	VkMemoryAllocateInfo mai{
+	/*VkMemoryAllocateInfo mai{
 		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 		nullptr,
 		mr.size,
 		vkutil::find_mem_index(m_pdev, mr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
-	};
+	};*/
 
-	vk_check(vkAllocateMemory(m_dev, &mai, nullptr, &m_depth_mem));
-	vk_check(vkBindImageMemory(m_dev, m_depth_image, m_depth_mem, 0));
+  m_depth_mem = allocate(vkutil::find_mem_index(m_pdev, mr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), mr.size, mr.alignment);
+
+	vk_check(vkBindImageMemory(m_dev, m_depth_image, m_depth_mem.memory(), m_depth_mem.offset()));
 
 	VkImageViewCreateInfo vi{
 		VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,

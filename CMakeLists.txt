@@ -109,6 +109,7 @@ add_exec_test(allocator)
 add_exec_test(allocator_nooverlap)
 add_exec_test(allocator_fsb)
 add_exec_test(bag_simple)
+add_exec_test(buffer)
 
 file(GLOB shaders "shaders/*")
 

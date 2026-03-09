@@ -2,6 +2,7 @@
 #define VROUM3D_CORE_ALLOCATOR_H_INCLUDED
 
 #include "../bag.hpp"
+#include "vkutil.h"
 
 #include <cstddef>
 #include <filesystem>
@@ -71,7 +72,7 @@ public:
 
   
   using bit_field_t = std::uint32_t;
-  static constexpr std::size_t c_log_largest_block_size = 20, c_log_smallest_block_size = 5;
+  static constexpr std::size_t c_log_largest_block_size = 25, c_log_smallest_block_size = 5;
   static constexpr std::size_t c_largest_block_size = 1 << c_log_largest_block_size, c_smallest_block_size = 1<< c_log_smallest_block_size;
 
   static constexpr std::size_t c_prim_bin_size = c_log_largest_block_size - c_log_smallest_block_size + 1;
@@ -223,6 +224,10 @@ public:
   };
 
   using allocated_memory_t = AllocatedMemory;
+
+  /** Allocate memory with given index, size, alignment. Use find_mem_index to easily determine memory index
+   * On vulkan exception in memory allocation, state is unchanged.
+   * */
   allocated_memory_t allocate(std::uint32_t mem_idx, VkDeviceSize s, VkDeviceSize alignment = 1) {
     check(s <= c_largest_block_size);
     return allocate_inner(mem_idx, s, alignment);
@@ -274,7 +279,10 @@ public:
 
   using owned_memory_t = OwnedMemory;
 
+  // Free memory
   void free(allocated_memory_t am) {free(am.base());}
+
+  // Free memory
   void free(const owned_memory_t& om) {free(om.base());}
 
 
@@ -283,6 +291,11 @@ public:
 	VkPhysicalDevice pdev() const {return m_pdev;}
 
 	void destroy();
+
+  std::uint32_t find_mem_index(const VkMemoryRequirements& mr, VkMemoryPropertyFlags props)
+  {
+    return vkutil::find_mem_index(m_pdev, mr, props);
+  }
 
 protected:
 	Allocator() {}

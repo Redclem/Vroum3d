@@ -50,12 +50,22 @@ int VROUM3D_MAIN()
 			if(bd(rng))
 				size |= 1ull << i;
 
-    auto block = inst.allocate(0, size, align);
+
+    Allocator::owned_memory_t block;
+
+    try {
+      block = inst.allocate(0, size, align);
+         
+    } catch (const VulkanError& ve) {
+      if(ve == VK_ERROR_OUT_OF_DEVICE_MEMORY) break;
+      else throw ve;
+    }
+
     check(block.offset() % align == 0);
 
-    blocks.push_back(std::move(block));
-
     Segment new_seg{block.memory(), block.size(), block.offset()};
+
+    blocks.push_back(std::move(block));
     // Check for overlap in blocks
     
     
