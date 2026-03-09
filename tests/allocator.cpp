@@ -21,7 +21,7 @@ int VROUM3D_MAIN()
   Display disp("Allocator test - No Visual");
   Instance inst(disp);
 
-  std::vector<Allocator::allocated_memory_t> blocks;
+  std::vector<Allocator::owned_memory_t> blocks;
 
 	for(std::size_t i = 0; i != n_blocks;++i)
 	{
@@ -40,15 +40,14 @@ int VROUM3D_MAIN()
 
     check(new_block.size() >= size);
 
-    blocks.push_back(new_block);
+    blocks.push_back(std::move(new_block));
 	}
 
   while(!blocks.empty())
   {
      auto b_idx = std::uniform_int_distribution<std::size_t>(0, blocks.size() - 1)(rng);
 
-     auto block = blocks[b_idx];
-     blocks[b_idx] = blocks.back();
+     auto block = std::exchange(blocks[b_idx], std::move(blocks.back()));
 
      blocks.pop_back();
 

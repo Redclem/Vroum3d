@@ -3,7 +3,9 @@
 
 #include "../bag.hpp"
 
+#include <cstddef>
 #include <filesystem>
+#include <malloc.h>
 #include <memory>
 #include <type_traits>
 #include <unordered_set>
@@ -192,14 +194,27 @@ private:
 
 public:
 
+  // Raw Allocated Memory handle, exposing block property access
   class AllocatedMemory : block_ptr_t
   {
     friend Allocator;
 
-    AllocatedMemory(block_ptr_t b) : block_ptr_t(b) {}
+    using base_t = block_ptr_t;
 
-    const block_ptr_t& base() const {return static_cast<const block_ptr_t&>(*this);}
+    AllocatedMemory(block_ptr_t b) : base_t(b) {}
+
+    const base_t& base() const {return static_cast<const block_ptr_t&>(*this);}
+
+    AllocatedMemory(std::nullptr_t) : base_t() {}
+
+    AllocatedMemory& operator=(std::nullptr_t)
+    {
+      base_t::operator=(nullptr);
+      return *this;
+    }
   public:
+    using base_t::operator bool;
+
     AllocatedMemory() {}
 
     mem_handle_t memory() const {return base()->mem_handle;}
@@ -208,12 +223,59 @@ public:
   };
 
   using allocated_memory_t = AllocatedMemory;
-
-  void free(allocated_memory_t am) {free(am.base());}
   allocated_memory_t allocate(std::uint32_t mem_idx, VkDeviceSize s, VkDeviceSize alignment = 1) {
     check(s <= c_largest_block_size);
     return allocate_inner(mem_idx, s, alignment);
   }
+
+  /** Owned memory handle, non copyable. Ensures unique ownership of memory handle and no duplication
+   * Similar role to what would be VkHandle<VkDeviceMemory>
+   * \warning Does not ensure automatical freeing / release of memory !
+   * */
+  class OwnedMemory : allocated_memory_t, NonCopyable
+  {
+    using base_t = allocated_memory_t;
+
+    base_t& base() {return static_cast<base_t&>(*this);}
+    const base_t& base() const {return static_cast<const base_t&>(*this);}
+
+    friend Allocator;
+
+  public:
+    using base_t::memory, base_t::offset, base_t::size, base_t::operator bool;
+    OwnedMemory() {}
+
+    OwnedMemory(OwnedMemory&& from) : allocated_memory_t(std::exchange(from.base(), {})) {}
+
+    OwnedMemory(allocated_memory_t&& am) : allocated_memory_t(am) {}
+
+    OwnedMemory& operator=(allocated_memory_t&& rhs)
+    {
+      base_t::operator=(rhs);
+      return *this;
+    }
+
+    OwnedMemory& operator=(OwnedMemory&& rhs)
+    {
+      base() = std::exchange(rhs.base(), {});
+      return *this;
+    }
+
+    ~OwnedMemory() {}
+
+    OwnedMemory(std::nullptr_t) : base_t() {}
+
+    OwnedMemory& operator=(std::nullptr_t)
+    {
+      base_t::operator=(nullptr);
+      return *this;
+    }
+  };
+
+  using owned_memory_t = OwnedMemory;
+
+  void free(allocated_memory_t am) {free(am.base());}
+  void free(const owned_memory_t& om) {free(om.base());}
 
 
 	VkDevice device() const{return m_device;}

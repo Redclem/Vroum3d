@@ -36,7 +36,7 @@ int VROUM3D_MAIN()
   Display disp("Allocator test - No Visual");
   Instance inst(disp);
 
-  std::vector<Allocator::allocated_memory_t> blocks;
+  std::vector<Allocator::owned_memory_t> blocks;
   std::set<Segment> segms;
 
 	for(std::size_t i = 0; i != n_blocks;++i)
@@ -53,7 +53,7 @@ int VROUM3D_MAIN()
     auto block = inst.allocate(0, size, align);
     check(block.offset() % align == 0);
 
-    blocks.push_back(block);
+    blocks.push_back(std::move(block));
 
     Segment new_seg{block.memory(), block.size(), block.offset()};
     // Check for overlap in blocks
@@ -79,8 +79,7 @@ int VROUM3D_MAIN()
   {
      auto b_idx = std::uniform_int_distribution<std::size_t>(0, blocks.size() - 1)(rng);
 
-     auto block = blocks[b_idx];
-     blocks[b_idx] = blocks.back();
+     auto block = std::exchange(blocks[b_idx], std::move(blocks.back()));
 
      blocks.pop_back();
 
