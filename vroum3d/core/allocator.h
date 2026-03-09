@@ -72,7 +72,7 @@ public:
 
   
   using bit_field_t = std::uint32_t;
-  static constexpr std::size_t c_log_largest_block_size = 25, c_log_smallest_block_size = 5;
+  static constexpr std::size_t c_log_largest_block_size = 28, c_log_smallest_block_size = 5;
   static constexpr std::size_t c_largest_block_size = 1 << c_log_largest_block_size, c_smallest_block_size = 1<< c_log_smallest_block_size;
 
   static constexpr std::size_t c_prim_bin_size = c_log_largest_block_size - c_log_smallest_block_size + 1;
@@ -231,6 +231,13 @@ public:
   allocated_memory_t allocate(std::uint32_t mem_idx, VkDeviceSize s, VkDeviceSize alignment = 1) {
     check(s <= c_largest_block_size);
     return allocate_inner(mem_idx, s, alignment);
+  }
+
+  /** Allocate memory for given requirements with given memory property bits
+   */
+  allocated_memory_t allocate(const VkMemoryRequirements& mr, VkMemoryPropertyFlagBits mf)
+  {
+    return allocate_inner(find_mem_index(mr, mf), mr.size, mr.alignment);
   }
 
   /** Owned memory handle, non copyable. Ensures unique ownership of memory handle and no duplication

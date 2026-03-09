@@ -1,4 +1,5 @@
 #include "instance.h"
+#include "objects.h"
 #include "vkutil.h"
 
 #include "../version.h"
@@ -550,4 +551,42 @@ void Instance::create_fence()
 	};
 
 	vk_check(vkCreateFence(m_dev, &fi, nullptr, &m_render_done_fence));
+}
+
+void Instance::quick_submit(VkCommandBuffer cmd_buf)
+{
+  VkFence fnc;
+
+	VkFenceCreateInfo fi{
+		VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+		nullptr,
+		0
+	};
+
+	vk_check(vkCreateFence(m_dev, &fi, nullptr, &fnc));
+
+	VkCommandBufferSubmitInfo cbi{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+		nullptr,
+		cmd_buf,
+		0
+	};
+
+	VkSubmitInfo2 si{
+		VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+		nullptr,
+		0,
+    0,
+    nullptr,
+		1,
+		&cbi,
+    0,
+    nullptr
+	};
+
+	vk_check(vkQueueSubmit2(m_gq, 1, &si, fnc));
+
+  vk_check(vkWaitForFences(m_dev, 1, &fnc, VK_TRUE, ~std::uint64_t(0)));
+
+  vkDestroyFence(m_dev, fnc, nullptr);
 }

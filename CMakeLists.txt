@@ -24,6 +24,11 @@ FetchContent_MakeAvailable(spirv_reflect)
 
 set(VULKAN_LIB "vulkan")
 
+if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+  set(VROUM3D_TESTS ON)
+  set(VROUM3D_EXAMPLES ON)
+endif()
+
 if(${MSYS})
 	message("Setting up for MSYS")
 	set(VULKAN_LIB "vulkan-1")
@@ -56,9 +61,6 @@ add_library(vroum3d STATIC
 
 target_compile_definitions(vroum3d PUBLIC ${VROUM3D_COMPILE_DEF})
 
-message("csd : ${CMAKE_CURRENT_SOURCE_DIR}")
-set(SHADERS_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders/")
-set(SHADERS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders/")
 
 make_directory("${SHADERS_BINARY_DIR}")
 
@@ -71,7 +73,7 @@ endif()
 
 target_compile_options(vroum3d PRIVATE ${VROUM3D_CXXFLAGS})
 target_link_libraries(vroum3d PUBLIC SDL2main SDL2 ${VULKAN_LIB} spirv-reflect-static)
-target_include_directories(vroum3d INTERFACE vroum3d)
+target_include_directories(vroum3d INTERFACE vroum3d ext)
 
 file(GLOB examples "examples/*.cpp")
 
@@ -86,13 +88,17 @@ function(add_example ex_name)
 	target_compile_options(${ex_name} PRIVATE ${VROUM3D_CXXFLAGS})
 endfunction()
 
-add_example(gui)
-add_example(empty_pipeline)
-add_example(instance)
-add_example(pipeman)
-add_example(simple_pipeline)
-add_example(static)
-add_example(bench_allocator)
+if(VROUM3D_EXAMPLES)
+  add_example(gui)
+  add_example(empty_pipeline)
+  add_example(instance)
+  add_example(pipeman)
+  add_example(simple_pipeline)
+  add_example(static)
+  add_example(bench_allocator)
+
+  set(VROUM3D_SHADERS)
+endif()
 
 function(add_exec_test test_name)
 
@@ -107,12 +113,16 @@ function(add_exec_test test_name)
 	add_test(NAME ${test_name} COMMAND test_${test_name})
 endfunction()
 
-add_exec_test(allocator_log)
-add_exec_test(allocator)
-add_exec_test(allocator_nooverlap)
-add_exec_test(allocator_fsb)
-add_exec_test(bag_simple)
-add_exec_test(buffer)
+if(VROUM3D_TESTS)
+  add_exec_test(allocator_log)
+  add_exec_test(allocator)
+  add_exec_test(allocator_nooverlap)
+  add_exec_test(allocator_fsb)
+  add_exec_test(bag_simple)
+  add_exec_test(buffer)
+
+  set(VROUM3D_SHADERS)
+endif()
 
 file(GLOB shaders "shaders/*")
 
@@ -127,6 +137,9 @@ function (add_shader sh)
 		continue()
 	endif()
 
+  set(SHADERS_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders/")
+  set(SHADERS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders/")
+
 	add_custom_command(OUTPUT "${SHADERS_BINARY_DIR}/${sh}.spv"
 		COMMAND "glslc" "--target-env=vulkan1.4" "${SHADERS_SOURCE_DIR}/${sh}" "-o" "${SHADERS_BINARY_DIR}/${sh}.spv"
 		DEPENDS "${SHADERS_SOURCE_DIR}/${sh}"
@@ -137,9 +150,11 @@ function (add_shader sh)
 	)
 endfunction()
 
-add_shader(empty.frag)
-add_shader(empty.vert)
-add_shader(simple.frag)
-add_shader(simple.vert)
-add_shader(static.frag)
-add_shader(static.vert)
+if(VROUM3D_SHADERS)
+  add_shader(empty.frag)
+  add_shader(empty.vert)
+  add_shader(simple.frag)
+  add_shader(simple.vert)
+  add_shader(static.frag)
+  add_shader(static.vert)
+endif()

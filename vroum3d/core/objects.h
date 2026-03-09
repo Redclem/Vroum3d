@@ -24,6 +24,8 @@ public:
 		create_buffer(bs, use, mp);
 	}
 
+  Buffer(Buffer&&) = default;
+
 	void destroy()
 	{
 		m_buffer.destroy_with([&](auto buf){vkDestroyBuffer(m_dev, buf, nullptr);});

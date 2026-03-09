@@ -28,7 +28,7 @@ struct AssignDestroy : public NonCopyable
 {
 	constexpr AssignDestroy() = default;
 
-	constexpr AssignDestroy(AssignDestroy&& from) = default;
+	constexpr AssignDestroy(AssignDestroy&&) {};
 
 	constexpr AssignDestroy& operator=(AssignDestroy&&)
 	{
