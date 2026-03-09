@@ -28,11 +28,11 @@ if(${MSYS})
 	message("Setting up for MSYS")
 	set(VULKAN_LIB "vulkan-1")
 	set(EXEC_LINK_OPTS "-mconsole")
-	add_compile_definitions(MSYS)
+  set(VROUM3D_COMPILE_DEF ${VROUM3D_COMPILE_DEF} MSYS)
 endif()
 
 if(VROUM3D_ALLOCATOR_DRY_ALLOC)
-  add_compile_definitions(VROUM3D_ALLOCATOR_DRY_ALLOC)
+  set(VROUM3D_COMPILE_DEF ${VROUM3D_COMPILE_DEF} VROUM3D_ALLOCATOR_DRY_ALLOC)
 endif()
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo"
@@ -54,8 +54,11 @@ add_library(vroum3d STATIC
 	ext/stb_impl.cpp
 )
 
-set(SHADERS_BINARY_DIR "${CMAKE_BINARY_DIR}/shaders/")
-set(SHADERS_SOURCE_DIR "${CMAKE_SOURCE_DIR}/shaders/")
+target_compile_definitions(vroum3d PUBLIC ${VROUM3D_COMPILE_DEF})
+
+message("csd : ${CMAKE_CURRENT_SOURCE_DIR}")
+set(SHADERS_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders/")
+set(SHADERS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders/")
 
 make_directory("${SHADERS_BINARY_DIR}")
 
