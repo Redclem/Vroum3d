@@ -12,6 +12,9 @@
 #include "gui/element.h"
 #include "gui/common.h"
 
+#include "math/vec.hpp"
+#include "math/mat.hpp"
+
 #include "debug.h"
 #include "utility"
 #include "version.h"

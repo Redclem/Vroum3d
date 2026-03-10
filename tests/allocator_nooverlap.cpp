@@ -28,7 +28,7 @@ struct Segment
 int VROUM3D_MAIN()
 {
 	std::ranlux48 rng;
-	std::uniform_int_distribution<int> d(0, Allocator::c_log_largest_block_size - 1);
+	std::uniform_int_distribution<int> d(0, 24);
 
 	std::bernoulli_distribution bd;
   std::uniform_int_distribution alignd(0, 8);

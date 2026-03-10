@@ -120,6 +120,8 @@ if(VROUM3D_TESTS)
   add_exec_test(allocator_fsb)
   add_exec_test(bag_simple)
   add_exec_test(buffer)
+  add_exec_test(vecs)
+  add_exec_test(mats)
 
   set(VROUM3D_SHADERS)
 endif()
@@ -139,6 +141,8 @@ function (add_shader sh)
 
   set(SHADERS_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders/")
   set(SHADERS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders/")
+
+  make_directory(${SHADERS_BINARY_DIR})
 
 	add_custom_command(OUTPUT "${SHADERS_BINARY_DIR}/${sh}.spv"
 		COMMAND "glslc" "--target-env=vulkan1.4" "${SHADERS_SOURCE_DIR}/${sh}" "-o" "${SHADERS_BINARY_DIR}/${sh}.spv"
