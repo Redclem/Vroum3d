@@ -19,6 +19,7 @@ using namespace Vroum3d::Core;
 
 void Instance::destroy()
 {
+  if(m_dev == VK_NULL_HANDLE) return;
 	vkDeviceWaitIdle(m_dev);
 
 	m_render_done_fence.destroy_with([&](auto fnc){vkDestroyFence(m_dev, fnc, nullptr);});
@@ -589,4 +590,129 @@ void Instance::quick_submit(VkCommandBuffer cmd_buf)
   vk_check(vkWaitForFences(m_dev, 1, &fnc, VK_TRUE, ~std::uint64_t(0)));
 
   vkDestroyFence(m_dev, fnc, nullptr);
+}
+
+void Instance::begin_rendering(VkCommandBuffer cmd_buf, std::uint32_t img_idx, bool secondary_contents)
+{
+	std::array<VkImageMemoryBarrier2, 2> barriers = {{
+	{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+		nullptr,
+		0,
+		0,
+		VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+		VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		0,
+		0,
+		sw_image(img_idx),
+		{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
+	},
+	{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+		nullptr,
+		0,
+		0,
+		VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+		VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+		0,
+		0,
+		depth_image(),
+		{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1}
+	}
+	}};
+
+	VkDependencyInfo di{
+		VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+		nullptr,
+		0,
+		0,
+		nullptr,
+		0,
+		nullptr,
+		barriers.size(),
+		barriers.data()
+	};
+
+	vkCmdPipelineBarrier2(cmd_buf, &di);
+
+	VkRenderingAttachmentInfo
+	catt{
+		VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+		nullptr,
+		sw_view(img_idx),
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_RESOLVE_MODE_NONE,
+		VK_NULL_HANDLE,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_ATTACHMENT_LOAD_OP_CLEAR,
+		VK_ATTACHMENT_STORE_OP_STORE,
+		{.color = {{0}}}
+	};
+
+	VkRenderingAttachmentInfo
+	datt{
+		VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+		nullptr,
+		depth_view(),
+		VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL_KHR,
+		VK_RESOLVE_MODE_NONE,
+		VK_NULL_HANDLE,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_ATTACHMENT_LOAD_OP_CLEAR,
+		VK_ATTACHMENT_STORE_OP_DONT_CARE,
+		{.depthStencil = {1.0, 1}}
+	};
+	
+	VkRenderingInfo ri{
+		VK_STRUCTURE_TYPE_RENDERING_INFO,
+		nullptr,
+		secondary_contents ? VK_RENDERING_CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT : VkRenderingFlagBits(0),
+		{{0, 0}, {w(), h()}},
+		1,
+		0,
+		1,
+		&catt,
+		&datt,
+		nullptr
+	};
+
+	vkCmdBeginRendering(cmd_buf, &ri);
+}
+
+void Instance::end_rendering(VkCommandBuffer cmd_buf, std::uint32_t img_idx)
+{
+	vkCmdEndRendering(cmd_buf);
+
+	VkImageMemoryBarrier2 bar = {
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+		nullptr,
+		VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+		VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+		0,
+		0,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+		0,
+		0,
+		sw_image(img_idx),
+		{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
+	};
+
+	VkDependencyInfo di{
+		VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+		nullptr,
+		0,
+		0,
+		nullptr,
+		0,
+		nullptr,
+		1,
+		&bar
+	};
+
+	vkCmdPipelineBarrier2(cmd_buf, &di);
 }

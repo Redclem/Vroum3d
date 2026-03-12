@@ -84,6 +84,8 @@ public:
 	auto w() const {return m_w;}
 	auto h() const {return m_h;}
 
+  std::uint32_t n_swapchain_images() const {return m_sw_images.size();}
+
 	VkImageView sw_view(std::uint32_t idx) const {return m_sw_views[idx];}
 	VkImage sw_image(std::uint32_t idx) const {return m_sw_images[idx];}
 
@@ -160,6 +162,25 @@ public:
 
 		return true;
 	}
+
+  void begin_rendering(VkCommandBuffer buffer, std::uint32_t img_idx, bool secondary_contents = false);
+  void end_rendering(VkCommandBuffer cmd_buf, std::uint32_t img_idx);
+
+  void set_dynamic_viewport_scissor(VkCommandBuffer cmd_buf)
+  {
+    VkRect2D sc{{0, 0}, {w(), h()}};
+    VkViewport vp{
+      0.0,
+      0.0,
+      float(w()),
+      float(h()),
+      0.0f,
+      1.0f
+    };
+
+    vkCmdSetViewport(cmd_buf, 0, 1, &vp);
+    vkCmdSetScissor(cmd_buf, 0, 1, &sc);
+  }
 
 private:
 

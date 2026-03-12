@@ -28,8 +28,10 @@ public:
 
 	void destroy()
 	{
-		m_buffer.destroy_with([&](auto buf){vkDestroyBuffer(m_dev, buf, nullptr);});
-	  m_alloc->free(m_mem);
+		m_buffer.destroy_with([&](auto buf){
+      vkDestroyBuffer(m_dev, buf, nullptr);
+	    m_alloc->free(m_mem);
+    });
   }
 
 	void* map()
@@ -100,9 +102,15 @@ public:
 	const VkCommandBuffer & cmd_buf() const {return m_cmd_buf;}
 	operator VkCommandBuffer() const {return cmd_buf();}
 
-	void begin_rendering(Instance& inst, std::uint32_t idx);
+	void begin_rendering(Instance& inst, std::uint32_t idx)
+  {
+    inst.begin_rendering(m_cmd_buf, idx);
+  }
 
-	void end_rendering(Instance& inst, std::uint32_t idx);
+	void end_rendering(Instance& inst, std::uint32_t idx)
+  {
+    inst.end_rendering(m_cmd_buf, idx);
+  }
 
 	void bind_graphics_pipeline(Instance& inst, VkPipeline pipe);
 

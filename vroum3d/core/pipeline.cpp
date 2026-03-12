@@ -43,6 +43,8 @@ void PipelineResource::init_cache()
 
 void PipelineResource::write_cache()
 {
+  if(!m_cache) return;
+
 	size_t cache_size;
 
 	if(VK_SUCCESS != vkGetPipelineCacheData(m_device, m_cache, &cache_size, nullptr)) return;
@@ -103,9 +105,11 @@ VkDescriptorSetLayout PipelineResource::get_descriptor_set_layout(DescriptorSetD
 
 	if(!ins) return iter->second;
 
-	std::vector<VkDescriptorSetLayoutBinding> binds(des.bindings.size());
+  auto& des_ref = iter->first;
 
-	std::transform(des.bindings.begin(), des.bindings.end(), binds.begin(),
+	std::vector<VkDescriptorSetLayoutBinding> binds(des_ref.bindings.size());
+
+	std::transform(des_ref.bindings.begin(), des_ref.bindings.end(), binds.begin(),
 		[&](const auto& bind_info) -> VkDescriptorSetLayoutBinding
 		{
 			return {

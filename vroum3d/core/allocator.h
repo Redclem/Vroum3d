@@ -287,10 +287,25 @@ public:
   using owned_memory_t = OwnedMemory;
 
   // Free memory
-  void free(allocated_memory_t am) {free(am.base());}
+  void free(allocated_memory_t am) {
+    if(am)
+      free(am.base());
+  }
 
   // Free memory
-  void free(const owned_memory_t& om) {free(om.base());}
+  void free(owned_memory_t& om) {
+    if(om)
+    {
+      free(om.base());
+      om = nullptr;
+    }
+  }
+
+  // Free memory
+  void free(const owned_memory_t& om) {
+    if(om)
+      free(om.base());
+  }
 
 
 	VkDevice device() const{return m_device;}

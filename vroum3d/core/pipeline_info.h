@@ -12,7 +12,7 @@ class BasicPipelineInformation
 {
 	struct BindingDescription
 	{
-		std::uint32_t stride;
+		std::uint32_t stride = 0;
 		VkVertexInputRate input_rate = VK_VERTEX_INPUT_RATE_VERTEX;
 	};
 
@@ -58,7 +58,7 @@ public:
 
 	VkBool32 get_primitive_restart_enable() const {return VK_FALSE;}
 
-	VkPipelineLayout get_layout() const
+	auto get_layouts() const
 	{
 		return m_pr.get_shader_layouts(m_vs, m_fs);
 	}

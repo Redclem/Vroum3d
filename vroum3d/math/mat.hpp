@@ -3,9 +3,9 @@
 
 #include "vec.hpp"
 #include <cstddef>
-#include <numeric>
 #include <ostream>
 #include <type_traits>
+#include <cmath>
 
 namespace Vroum3d::Math
 {
@@ -22,21 +22,21 @@ struct mat
   class Acc
   {
     friend mat;
-    mat& m;
-    std::size_t j;
+    Mat& m;
+    std::size_t i;
 
-    Acc(mat& _m, std::size_t _j) : m(_m), j(_j) {}
+    Acc(Mat& _m, std::size_t _i) : m(_m), i(_i) {}
   public:
-    auto& operator[](auto i) {return m.at(i,j);}
+    auto& operator[](std::size_t j) {return m.at(i, j);}
   };
 
   // Access with mathematical notation (row, col)
-  Acc<mat> operator[](auto idx) {return {*this, idx};}
-  Acc<const mat> operator[](auto idx) const {return {*this, idx};}
+  Acc<mat> operator[](std::size_t idx) {return {*this, idx};}
+  Acc<const mat> operator[](std::size_t idx) const {return {*this, idx};}
 
 
-  float_t& at(auto i, auto j) {return data[j][i];}
-  const float_t& at(auto i, auto j) const {return data[j][i];}
+  float_t& at(std::size_t i, std::size_t j) {return data[j][i];}
+  const float_t& at(std::size_t i, std::size_t j) const {return data[j][i];}
 
   template<typename Fun, std::enable_if_t<std::is_invocable_v<Fun, float_t&, std::size_t, std::size_t>, bool> = true>
   void foreach(const Fun& fun)
@@ -208,6 +208,32 @@ template<typename Vec, std::enable_if_t<is_vec<Vec>, bool> = true>
 auto translate(const Vec& v)
 {
   return mat<typename Vec::float_t, Vec::n_comp() + 1>::translate(v);
+}
+
+/** Projection matrix
+  * X axis is screen x (towards right), Y axis screen y (towards up), Z axis is towards viewer.
+  * @param angle viewing angle
+  * @param ar aspect ratio (width / height)
+  * @param nearz NearZ plane
+  * @param farz FarZ plane
+  */
+template<typename FloatT = float>
+auto proj(FloatT angle, FloatT ar, FloatT nearz, FloatT farz)
+{
+  typedef mat<FloatT, 4> res_t;
+
+  // Nearz, farz associated parameters for transform z := a + b / z
+
+  FloatT a = 1 / (1 - nearz / farz);
+  FloatT b = -a * farz;
+
+  FloatT angle_tan = std::tan(angle);
+
+  res_t res = res_t::scale(generic_vec4<FloatT>(1/angle_tan, ar / angle_tan, a, 0));
+  res[2][3] = b;
+  res[3][2] = 1;
+
+  return res;
 }
 
 typedef mat<float, 4> mat4;

@@ -19,6 +19,8 @@ class Display : public AssignDestroy<Display>
 
 public:
 
+  Display& display() {return *this;}
+
 	void destroy()
 	{
 		m_wind.destroy_with(SDL_DestroyWindow);

@@ -11,9 +11,15 @@ int main()
 
   check(A * vec4(1, 0.5, 0.25, 2) == vec4(1));
 
-  std::cout << A << '\n';
+  A[2][1] = 1.0;
 
-  std::cout << translate(vec3(1, 2, 3)) << '\n';
+  auto B = translate(vec3(1, 2, 3));
+
+  vec4 v(0, 0, 0, 1);
+
+  check(B * v == vec4(1, 2, 3, 1));
+
+  check((A * B) * v == A * (B * v));
 
   return 0;
 }
