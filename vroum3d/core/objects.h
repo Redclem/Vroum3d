@@ -3,6 +3,7 @@
 
 #include "instance.h"
 #include "../utility.h"
+#include <algorithm>
 #include <vulkan/vulkan_core.h>
 
 namespace Vroum3d::Core
@@ -11,6 +12,8 @@ namespace Vroum3d::Core
 /** Class for a simple buffer, owns the buffer */
 class Buffer : public AssignDestroy<Buffer>
 {
+
+  static constexpr VkDeviceSize c_max_atom_size = 256;
 public:
 
 	/** Buffer constructor : creates buffer and allocs mem
@@ -34,22 +37,43 @@ public:
     });
   }
 
-	void* map()
+	char* map()
 	{
+    VkDeviceSize offset = m_mem.offset(), size = m_mem.size();
+
+    VkDeviceSize true_ofs = offset & ~(c_max_atom_size - 1);
+    VkDeviceSize rectified_size = size + offset - true_ofs;
+
+    if(rectified_size % c_max_atom_size)
+    {
+      rectified_size = (rectified_size & ~(c_max_atom_size - 1)) + c_max_atom_size;
+      rectified_size = std::min(rectified_size, Allocator::c_largest_block_size - true_ofs);
+    }
+
 		void* ptr;
-		vk_check(vkMapMemory(m_dev, m_mem.memory(), 0, VK_WHOLE_SIZE, 0, &ptr));
-		return ptr;
+		vk_check(vkMapMemory(m_dev, m_mem.memory(), true_ofs, rectified_size, 0, &ptr));
+		return reinterpret_cast<char*>(ptr) + offset - true_ofs;
 	}
 
 	void flush_unmap()
 	{
-		// TODO : maybe remove unused flush if memory is cached?
+    VkDeviceSize offset = m_mem.offset(), size = m_mem.size();
+
+    VkDeviceSize true_ofs = offset & ~(c_max_atom_size - 1);
+    VkDeviceSize rectified_size = size + offset - true_ofs;
+
+    if(rectified_size % c_max_atom_size)
+    {
+      rectified_size = (rectified_size & ~(c_max_atom_size - 1)) + c_max_atom_size;
+      rectified_size = std::min(rectified_size, Allocator::c_largest_block_size - true_ofs);
+    }
+
 		VkMappedMemoryRange mr{
 			VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
 			nullptr,
 			m_mem.memory(),
-			0,
-			VK_WHOLE_SIZE
+			true_ofs,
+			rectified_size
 		};
 
 		vk_check(vkFlushMappedMemoryRanges(m_dev, 1, &mr));

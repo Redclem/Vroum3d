@@ -1,6 +1,7 @@
 #include "allocator.h"
 
 #include <filesystem>
+#include <stdexcept>
 #include <vulkan/vulkan_core.h>
 
 #include <cassert>
@@ -160,6 +161,9 @@ Allocator::block_ptr_t Allocator::get_block(std::uint32_t mem_idx, VkDeviceSize 
 
 Allocator::block_ptr_t Allocator::allocate_inner(std::uint32_t mem_idx, VkDeviceSize size, VkDeviceSize alignment)
 {
+  if(size > c_largest_block_size)
+    throw std::runtime_error("Allocation of GPU memory block larger than maximum block size");
+
   auto block = get_block(mem_idx, size + alignment - 1);
 
   // Align

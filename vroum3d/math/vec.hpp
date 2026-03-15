@@ -69,6 +69,13 @@ struct vec_base : vec_root
     return drv();
   }
 
+  constexpr deriv_t operator-() const
+  {
+    deriv_t res(drv());
+    res.foreach([](auto& val) {val = -val;});
+    return res;
+  }
+
   constexpr deriv_t operator+(const auto& rhs) const
   {
     return deriv_t(drv()) += rhs;
@@ -150,6 +157,22 @@ struct vec_base : vec_root
     auto iter = res.begin();
 
     drv().foreach([&](auto val){*(iter++) = val;});
+    return res;
+  }
+
+  constexpr auto max_coord() const
+  {
+    float_t res;
+    drv().foreach([&](auto val) {res = val;});
+    drv().foreach([&](auto val) {res = std::max(res, val);});
+    return res;
+  }
+
+  constexpr auto min_coord() const
+  {
+    float_t res;
+    drv().foreach([&](auto val) {res = val;});
+    drv().foreach([&](auto val) {res = std::min(res, val);});
     return res;
   }
 
@@ -335,6 +358,14 @@ constexpr Vec inf(const Vec& a, const Vec& b)
   Vec ca(a);
   ca.foreach_paired(b, [](auto& a, const auto& b){a = std::min(a, b);});
   return ca;
+}
+
+template<typename Vec, std::enable_if_t<is_vec<Vec>, bool> = true>
+constexpr Vec operator/(auto scal, const Vec& v)
+{
+  Vec res;
+  res.foreach_paired(v, [&](auto& res, const auto& val) {res = scal / val;});
+  return res;
 }
 
 }

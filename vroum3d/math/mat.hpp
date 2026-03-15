@@ -74,6 +74,15 @@ struct mat
 
   mat() {}
 
+  template<std::size_t Next>
+  explicit mat(const mat<FloatT, Next>& from)
+  {
+    operator=(identity());
+    static_assert(Next <= n, "Cannot build matrix from larger matrix");
+
+    from.foreach([&](auto v, auto i, auto j){at(i, j) = v;});
+  }
+
   static auto identity()
   {
     mat res;
@@ -89,11 +98,10 @@ struct mat
   }
 
   template<typename Vec, std::enable_if_t<is_vec<Vec> &&
-            std::is_same_v<typename Vec::float_t, float_t> &&
-            n == Vec::n_comp(), bool> = true>
+            std::is_same_v<typename Vec::float_t, float_t>, bool> = true>
   static mat scale(const Vec& vec)
   {
-    mat res = zero();
+    mat res = identity();
 
     std::size_t i(0);
     vec.foreach([&](auto val){res[i][i] = val; ++i;});
@@ -127,7 +135,7 @@ struct mat
     return res;
   }
 
-  mat& operator+=(const mat& rhs) const
+  mat& operator+=(const mat& rhs)
   {
     foreach([&](auto& val, auto i, auto j) {
       val += rhs[i][j];
@@ -139,18 +147,19 @@ struct mat
     return mat(*this) += rhs;
   }
 
-  mat& operator*=(const mat& rhs) const
+  mat& operator*=(const mat& rhs)
   {
     return operator=(*this * rhs);
   }
 
-  mat& operator*=(auto scal) const
+  mat& operator*=(auto scal)
   {
     foreach([&](auto& val) {
       val *= scal;
     });
   }
 
+  template<typename Scal, std::enable_if_t<!is_vec<Scal>, bool> = true>
   mat operator*(auto scal) const
   {
     return mat(*this) *= scal;
@@ -159,7 +168,7 @@ struct mat
 
   template<typename Vec, std::enable_if_t<is_vec<Vec> &&
             std::is_same_v<typename Vec::float_t, float_t>, bool> = true>
-  Vec operator*(const Vec& vec)
+  Vec operator*(const Vec& vec) const
   {
     Vec res;
     std::size_t i(0);
@@ -189,6 +198,9 @@ struct mat
     });
     s << "\n]";
   }
+
+  bool operator==(const mat& rhs) const = default;
+  bool operator!=(const mat& rhs) const = default;
 };
 
 template<typename FloatT, std::size_t N>
@@ -225,13 +237,33 @@ auto proj(FloatT angle, FloatT ar, FloatT nearz, FloatT farz)
   // Nearz, farz associated parameters for transform z := a + b / z
 
   FloatT a = 1 / (1 - nearz / farz);
-  FloatT b = -a * farz;
+  FloatT b = a * nearz;
 
-  FloatT angle_tan = std::tan(angle);
+  FloatT angle_tan = std::tan(angle / 2);
 
-  res_t res = res_t::scale(generic_vec4<FloatT>(1/angle_tan, ar / angle_tan, a, 0));
-  res[2][3] = b;
-  res[3][2] = 1;
+  res_t res = res_t::scale(generic_vec4<FloatT>(1/angle_tan, -ar / angle_tan, -a, 0));
+  res[2][3] = -b;
+  res[3][2] = -1;
+
+  return res;
+}
+
+template<std::size_t axis, typename FloatT = float>
+auto rotate(FloatT angle)
+{
+  typedef mat<FloatT, 3> res_t;
+  static_assert(axis < 3);
+
+  res_t res = res_t::identity();
+  
+  constexpr std::size_t idx_a = axis == 0 ? 1 : 0;
+  constexpr std::size_t idx_b = axis == 2 ? 1 : 2;
+
+  auto cos = std::cos(angle);
+  auto sin = std::sin(angle);
+
+  res[idx_a][idx_a] = res[idx_b][idx_b] = cos;
+  res[idx_b][idx_a] = -(res[idx_a][idx_b] = sin);
 
   return res;
 }

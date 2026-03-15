@@ -5,7 +5,6 @@
 #include "../debug.h"
 
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_video.h>
 
 namespace Vroum3d::Core
 {
@@ -35,6 +34,9 @@ public:
 
 		check(m_wind);
 	}
+
+  SDL_Window* window() const {return m_wind;}
+  SDL_Surface* surface() const {return m_surf;}
 };
 
 }

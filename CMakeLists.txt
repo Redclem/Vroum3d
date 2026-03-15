@@ -40,8 +40,7 @@ if(VROUM3D_ALLOCATOR_DRY_ALLOC)
   set(VROUM3D_COMPILE_DEF ${VROUM3D_COMPILE_DEF} VROUM3D_ALLOCATOR_DRY_ALLOC)
 endif()
 
-if("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo"
-  AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+if("${ENABLE_GPROF}")
   message("GNU Gprof enabled")
   set(EXEC_LINK_OPTS ${EXEC_LINK_OPTS} -pg)
   set(VROUM3D_CXXFLAGS ${VROUM3D_CXXFLAGS} -pg)
@@ -53,7 +52,7 @@ add_library(vroum3d STATIC
 	vroum3d/core/pipeline.cpp
 	vroum3d/core/objects.cpp
 	vroum3d/core/pipeline_info.cpp
-  	vroum3d/core/allocator.cpp
+  vroum3d/core/allocator.cpp
 	vroum3d/gui/base.cpp
 	vroum3d/gui/element.cpp
 	ext/stb_impl.cpp

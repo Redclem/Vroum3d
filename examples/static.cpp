@@ -16,7 +16,7 @@ int VROUM3D_MAIN()
 
 	PipelineResource pr(inst);
 
-	Pipeline pipe(pr, BasicPipelineInformation(pr, "static.vert.spv", "static.frag.spv", {}, {}));
+	Pipeline pipe(pr, RenderPipelineInformation(pr, "static.vert.spv", "static.frag.spv", {}, {}));
 
 	VkHandle<VkCommandPool> pool;
 	VkCommandPoolCreateInfo cpi{

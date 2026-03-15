@@ -30,6 +30,9 @@ int main()
   vec3 a(1, 2, 2), b(2, 0, 0);
   check(sup(a, b) == vec3(2));
 
+  check(2.0 / vec4(2.0) == vec4(1.0));
+  check(2.0 / vec2(1.0, 2.0) == vec2(2.0, 1.0));
+
   static_assert(vec2::n_comp() == 2);
   static_assert(vec3::n_comp() == 3);
   static_assert(vec4::n_comp() == 4);

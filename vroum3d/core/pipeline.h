@@ -401,7 +401,7 @@ void Pipeline::create_pipeline(PipelineResource& pr, PipelineInformation& pi)
 		nullptr,
 		0,
 		VK_FALSE,
-		VK_FALSE,
+		pi.rasterizer_discard_enable(),
 		VK_POLYGON_MODE_FILL,
 		VK_CULL_MODE_NONE,
 		VK_FRONT_FACE_COUNTER_CLOCKWISE,
@@ -432,10 +432,10 @@ void Pipeline::create_pipeline(PipelineResource& pr, PipelineInformation& pi)
 		VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
 		nullptr,
 		0,
-		VK_FALSE,
-		VK_FALSE,
-		VK_COMPARE_OP_ALWAYS,
-		VK_FALSE,
+		pi.depth_test_enable(),
+		pi.depth_write_enable(),
+		pi.depth_compare_op(),
+    VK_FALSE,
 		VK_FALSE,
 		{}, {},
 		0.0f,
@@ -444,12 +444,7 @@ void Pipeline::create_pipeline(PipelineResource& pr, PipelineInformation& pi)
 
 	gpi.pDepthStencilState = &dssi;
 
-	VkPipelineColorBlendAttachmentState cbas;
-	cbas.blendEnable = VK_FALSE;
-	cbas.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | 
-		VK_COLOR_COMPONENT_G_BIT | 
-		VK_COLOR_COMPONENT_B_BIT | 
-		VK_COLOR_COMPONENT_A_BIT;
+	auto cbas = pi.blend_attachment_states();
 
 	VkPipelineColorBlendStateCreateInfo cbsi{
 		VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
@@ -457,8 +452,8 @@ void Pipeline::create_pipeline(PipelineResource& pr, PipelineInformation& pi)
 		0,
 		VK_FALSE,
 		VK_LOGIC_OP_NO_OP,
-		1,
-		&cbas,
+		cbas.size(),
+		cbas.data(),
 		{0}
 	};
 
@@ -480,17 +475,11 @@ void Pipeline::create_pipeline(PipelineResource& pr, PipelineInformation& pi)
 	gpi.renderPass = VK_NULL_HANDLE;
 	gpi.basePipelineHandle = VK_NULL_HANDLE;
 
-	VkPipelineRenderingCreateInfo pri{
-		VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-		nullptr,
-		0,
-		1,
-		&pr.color_format(),
-		pr.depth_format(),
-		VK_FORMAT_UNDEFINED
-	};
+	VkPipelineRenderingCreateInfo pri = pi.rendering_info();
 
 	gpi.pNext = &pri;
+  gpi.basePipelineHandle = pi.base_pipeline_handle();
+  gpi.basePipelineIndex = pi.base_pipeline_index();
 
 	vk_check(vkCreateGraphicsPipelines(m_device, pr.cache(), 1, &gpi, nullptr, &m_pipeline));
 }	

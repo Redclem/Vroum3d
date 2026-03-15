@@ -23,18 +23,9 @@ void Buffer::create_buffer(VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryProp
 	VkMemoryRequirements mr;
 	vkGetBufferMemoryRequirements(m_dev, m_buffer, &mr);
 
-	/*VkMemoryAllocateInfo mai{
-		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		nullptr,
-		mr.size,
-		vkutil::find_mem_index(pdev, mr, memprops)
-	};
-
-	vk_check(vkAllocateMemory(m_dev, &mai, nullptr, &m_mem));*/
-
   m_mem = m_alloc->allocate(m_alloc->find_mem_index(mr, memprops), mr.size, mr.alignment);
 
-	vk_check(vkBindBufferMemory(m_dev, m_buffer, m_mem.memory(), 0));
+	vk_check(vkBindBufferMemory(m_dev, m_buffer, m_mem.memory(), m_mem.offset()));
 }
 
 void CommandBuffer::begin_primary()

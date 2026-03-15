@@ -10,7 +10,7 @@ int VROUM3D_MAIN()
 
 	PipelineResource pr(inst);
 
-	Pipeline pipe(pr, BasicPipelineInformation(pr, "simple.vert.spv", "simple.frag.spv", {{12}}, {{0, 0}}));
+	Pipeline pipe(pr, RenderPipelineInformation(pr, "simple.vert.spv", "simple.frag.spv", {{12}}, {{0, 0}}));
 
 	VkDescriptorSetLayout dsl_uni;
 	{

@@ -7,7 +7,7 @@
 
 using namespace Vroum3d::Core;
 
-void BasicPipelineInformation::build_input_attachments(
+void GraphicsPipelineInformation::build_input_attachments(
 		const std::vector<BindingDescription> &binds,
 		const std::vector<AttributeDescription> &atts)
 {
@@ -56,7 +56,7 @@ void BasicPipelineInformation::build_input_attachments(
 	}
 }
 
-std::vector<VkPipelineShaderStageCreateInfo> BasicPipelineInformation::build_stages()
+std::vector<VkPipelineShaderStageCreateInfo> RenderPipelineInformation::build_stages() const
 {
 	return {
 		{
@@ -74,6 +74,21 @@ std::vector<VkPipelineShaderStageCreateInfo> BasicPipelineInformation::build_sta
 			0,
 			VK_SHADER_STAGE_FRAGMENT_BIT,
 			m_fs.vk_mod,
+			"main",
+			nullptr
+		}
+	};
+}
+
+std::vector<VkPipelineShaderStageCreateInfo> GraphicsPipelineInformation::build_stages() const
+{
+	return {
+		{
+			VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			nullptr,
+			0,
+			VK_SHADER_STAGE_VERTEX_BIT,
+			m_vs.vk_mod,
 			"main",
 			nullptr
 		}

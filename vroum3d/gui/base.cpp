@@ -253,7 +253,7 @@ void Base::init()
 
 	Fence fnc(*m_instance);
 
-	vk_check(vkQueueSubmit(m_instance->queues().tranfer, 1, &si, fnc.fence()));
+	vk_check(vkQueueSubmit(m_instance->transfer_queue(), 1, &si, fnc.fence()));
 	fnc.wait();
 }
 

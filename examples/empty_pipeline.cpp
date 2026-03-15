@@ -9,7 +9,7 @@ int VROUM3D_MAIN()
 
 	PipelineResource pr(inst);
 
-	Pipeline pipe(pr, BasicPipelineInformation(pr, "empty.vert.spv", "empty.frag.spv", {}, {}));
+	Pipeline pipe(pr, RenderPipelineInformation(pr, "empty.vert.spv", "empty.frag.spv", {}, {}));
 
 	return 0;
 }

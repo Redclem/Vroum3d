@@ -69,20 +69,21 @@ class Instance : public AssignDestroy<Instance>, private InstanceDebugData<debug
 
 	VkHandle<VkFence> m_render_done_fence;
 
-	struct
-	{
-		VkQueue tranfer, present, graphics;
-	} m_queues;
-
 	using debug_data_t = InstanceDebugData<debug>;
 
 public:
+
+  auto graphics_queue() const {return m_gq;}
+  auto transfer_queue() const {return m_tq;}
+  auto present_queue() const {return m_pq;}
 
 	auto graphic_queue_index() const {return m_gi;}
 	auto transfer_queue_index() const {return m_ti;}
 
 	auto w() const {return m_w;}
 	auto h() const {return m_h;}
+
+  float aspect_ratio() const {return float(m_w) / float(m_h);}
 
   std::uint32_t n_swapchain_images() const {return m_sw_images.size();}
 
@@ -124,8 +125,6 @@ public:
 		create_semaphores();
 		create_fence();
 	}
-
-	auto& queues() const {return m_queues;}
 
 	void destroy();
 
