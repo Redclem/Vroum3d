@@ -650,7 +650,7 @@ void Instance::begin_rendering(VkCommandBuffer cmd_buf, std::uint32_t img_idx, b
 		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_ATTACHMENT_LOAD_OP_CLEAR,
 		VK_ATTACHMENT_STORE_OP_STORE,
-		{.color = {{0}}}
+		{.color = {{.25f, .25f, .25f ,0.0f}}}
 	};
 
 	VkRenderingAttachmentInfo

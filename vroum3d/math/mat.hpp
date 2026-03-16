@@ -268,6 +268,27 @@ auto rotate(FloatT angle)
   return res;
 }
 
+template<typename FloatT>
+auto ortho_transform(const generic_vec3<FloatT>& projx, const generic_vec3<FloatT>& projy)
+{
+  return ortho_transform(projx, projy, cross(projx, projy));
+}
+
+template<typename FloatT>
+auto ortho_transform(const generic_vec3<FloatT>& projx, const generic_vec3<FloatT>& projy, const generic_vec3<FloatT>& projz)
+{
+  mat<FloatT, 3> res;
+
+  int idx(0);
+  projx.foreach([&](auto val){res[0][idx++] = val;});
+  idx = 0;
+  projy.foreach([&](auto val){res[1][idx++] = val;});
+  idx = 0;
+  projz.foreach([&](auto val){res[2][idx++] = val;});
+
+  return res;
+}
+
 typedef mat<float, 4> mat4;
 typedef mat<float, 3> mat3;
 typedef mat<float, 2> mat2;
