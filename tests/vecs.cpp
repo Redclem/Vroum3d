@@ -1,11 +1,11 @@
 #include <iostream>
-#include <math/vec.hpp>
 #include <debug.h>
+#include <vroum3d.h>
 
 using namespace Vroum3d::Math;
 using namespace Vroum3d;
 
-int main()
+int VROUM3D_MAIN()
 {
   vec3 v(0);
 
