@@ -33,8 +33,7 @@ int VROUM3D_MAIN()
 	std::bernoulli_distribution bd;
   std::uniform_int_distribution alignd(0, 8);
 
-  Display disp("Allocator test - No Visual");
-  Instance inst(disp);
+  Instance inst;
 
   std::vector<Allocator::owned_memory_t> blocks;
   std::set<Segment> segms;

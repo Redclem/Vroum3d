@@ -7,7 +7,7 @@ using namespace Vroum3d::Gui;
 int VROUM3D_MAIN()
 {
 	Display disp;
-	Instance inst(disp);
+	DisplayInstance inst(disp);
 
 	Base b(inst);
 

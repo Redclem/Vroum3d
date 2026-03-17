@@ -40,7 +40,7 @@ void CommandBuffer::begin_primary()
 	vk_check(vkBeginCommandBuffer(m_cmd_buf, &bi));
 }
 
-void CommandBuffer::begin_secondary_rendering(Instance& inst)
+void CommandBuffer::begin_secondary_rendering(DisplayInstance& inst)
 {
 
 	VkCommandBufferInheritanceRenderingInfo inhri{
@@ -77,7 +77,7 @@ void CommandBuffer::begin_secondary_rendering(Instance& inst)
 	vk_check(vkBeginCommandBuffer(m_cmd_buf, &bi));
 }
 
-void CommandBuffer::bind_graphics_pipeline(Instance& inst, VkPipeline pipe)
+void CommandBuffer::bind_graphics_pipeline(DisplayInstance& inst, VkPipeline pipe)
 {
 	vkCmdBindPipeline(m_cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe);
 

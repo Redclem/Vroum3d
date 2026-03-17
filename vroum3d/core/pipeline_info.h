@@ -127,12 +127,19 @@ public:
   
   std::array<VkPipelineColorBlendAttachmentState, 1> blend_attachment_states() const
   {
-    VkPipelineColorBlendAttachmentState cbas;
-    cbas.blendEnable = VK_FALSE;
-    cbas.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | 
+    VkPipelineColorBlendAttachmentState cbas = {
+			VK_FALSE,
+			VK_BLEND_FACTOR_ONE,
+			VK_BLEND_FACTOR_ZERO,
+			VK_BLEND_OP_ADD,
+			VK_BLEND_FACTOR_ONE,
+			VK_BLEND_FACTOR_ZERO,
+			VK_BLEND_OP_ADD,
+			VK_COLOR_COMPONENT_R_BIT | 
       VK_COLOR_COMPONENT_G_BIT | 
       VK_COLOR_COMPONENT_B_BIT | 
-      VK_COLOR_COMPONENT_A_BIT;
+      VK_COLOR_COMPONENT_A_BIT
+		};
     
     return {cbas};
   }

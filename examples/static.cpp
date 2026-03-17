@@ -12,7 +12,7 @@ using namespace Vroum3d;
 int VROUM3D_MAIN()
 {
 	Display disp;
-	Instance inst(disp);
+	DisplayInstance inst(disp);
 
 	PipelineResource pr(inst);
 

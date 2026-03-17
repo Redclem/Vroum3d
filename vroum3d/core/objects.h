@@ -101,16 +101,16 @@ public:
 
 	~CommandBuffer() {destroy();}
 
-	CommandBuffer(const Instance& inst, VkCommandPool cmd_pool, bool primary = true) : m_dev(inst.device()), m_cmd_pool(cmd_pool)
+	CommandBuffer(const DisplayInstance& inst, VkCommandPool cmd_pool, bool primary = true) : m_dev(inst.device()), m_cmd_pool(cmd_pool)
 	{
 		allocate_command_buffer(primary);
 	}
 
-	CommandBuffer(const Instance& inst, bool primary = true) : CommandBuffer(inst, inst.transfer_pool(), primary) {}
+	CommandBuffer(const DisplayInstance& inst, bool primary = true) : CommandBuffer(inst, inst.transfer_pool(), primary) {}
 
 	void begin_primary();
 
-	void begin_secondary_rendering(Instance& inst);
+	void begin_secondary_rendering(DisplayInstance& inst);
 
 	void end()
 	{
@@ -126,17 +126,17 @@ public:
 	const VkCommandBuffer & cmd_buf() const {return m_cmd_buf;}
 	operator VkCommandBuffer() const {return cmd_buf();}
 
-	void begin_rendering(Instance& inst, std::uint32_t idx)
+	void begin_rendering(DisplayInstance& inst, std::uint32_t idx)
   {
     inst.begin_rendering(m_cmd_buf, idx);
   }
 
-	void end_rendering(Instance& inst, std::uint32_t idx)
+	void end_rendering(DisplayInstance& inst, std::uint32_t idx)
   {
     inst.end_rendering(m_cmd_buf, idx);
   }
 
-	void bind_graphics_pipeline(Instance& inst, VkPipeline pipe);
+	void bind_graphics_pipeline(DisplayInstance& inst, VkPipeline pipe);
 
 	void reset()
 	{
@@ -171,7 +171,7 @@ private:
 class Fence : public AssignDestroy<Fence>
 {
 public:
-	Fence(const Instance& inst) : m_device(inst.device())
+	Fence(const DisplayInstance& inst) : m_device(inst.device())
 	{
 		VkFenceCreateInfo fi{
 			VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,

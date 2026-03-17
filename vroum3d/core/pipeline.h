@@ -141,7 +141,7 @@ public:
   VkDevice device() const {return m_device;}
 
 	constexpr static const char * cache_pth = "vk_pipeline_cache";
-	PipelineResource(Instance& inst) : m_device(inst.device()), m_color_format(inst.color_format()),
+	PipelineResource(DisplayInstance& inst) : m_device(inst.device()), m_color_format(inst.color_format()),
 		m_depth_format(inst.depth_format())
 	{
 		init_cache();
