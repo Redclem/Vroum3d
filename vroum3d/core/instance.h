@@ -6,11 +6,10 @@
 #include "display.hpp"
 #include "allocator.h"
 
-#include <SDL2/SDL_video.h>
+#include <SDL3/SDL.h>
+
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
-
-#include <SDL2/SDL_vulkan.h>
 
 #include <array>
 #include <vector>
@@ -108,7 +107,7 @@ public:
 	Instance(Display& disp, const InstanceInfo& ii = {})
 	{
 		ExtensionsLayers el = ii.inst_exts_lays();
-		fill_exts_lays(el, disp.m_wind);
+		fill_exts_lays(el);
 
 		create_instance(el);
 		create_surf(disp.m_wind);
@@ -200,7 +199,7 @@ private:
 
 
 	/** Takes needed extensions and layers as arg and adds extensions required by layers and by the SDL_Window of display */
-	void fill_exts_lays(ExtensionsLayers& el, SDL_Window* wind);
+	void fill_exts_lays(ExtensionsLayers& el);
 
 	void create_semaphores();
 	void create_fence();

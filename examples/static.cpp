@@ -1,6 +1,6 @@
 
 #include "../vroum3d/vroum3d.h"
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <chrono>
 #include <thread>
 #include <vulkan/vulkan_core.h>
@@ -9,7 +9,7 @@ using namespace Vroum3d::Core;
 using namespace Vroum3d;
 
 
-int VROUM3D_MAIN()
+int main(int, char*[])
 {
 	Display disp;
 	Instance inst(disp);
@@ -55,7 +55,7 @@ int VROUM3D_MAIN()
 
 		SDL_Event evnt;
 		while(SDL_PollEvent(&evnt))
-			if(evnt.type == SDL_QUIT)
+			if(evnt.type == SDL_EVENT_QUIT)
 			{
 				run = false;
 				break;

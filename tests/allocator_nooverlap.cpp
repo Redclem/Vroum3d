@@ -25,7 +25,7 @@ struct Segment
   }
 };
 
-int VROUM3D_MAIN()
+int main(int, char*[])
 {
 	std::ranlux48 rng;
 	std::uniform_int_distribution<int> d(0, 24);

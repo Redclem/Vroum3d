@@ -6,7 +6,7 @@
 using namespace Vroum3d;
 using namespace Vroum3d::Math;
 
-int VROUM3D_MAIN()
+int main(int, char*[])
 {
   {
     mat4 A = mat4::scale(vec4{1, 2, 4, 0.5});

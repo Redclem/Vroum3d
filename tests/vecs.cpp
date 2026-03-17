@@ -5,7 +5,7 @@
 using namespace Vroum3d::Math;
 using namespace Vroum3d;
 
-int VROUM3D_MAIN()
+int main(int, char*[])
 {
   vec3 v(0);
 

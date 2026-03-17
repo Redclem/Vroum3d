@@ -4,12 +4,12 @@
 
 #include "../version.h"
 
-#include <SDL2/SDL_video.h>
-#include <SDL2/SDL_vulkan.h>
-#include <cstdint>
-#include <stdexcept>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vk_enum_string_helper.h>
+#include <SDL3/SDL_vulkan.h>
+
+#include <cstdint>
+#include <stdexcept>
 
 #include <iostream>
 #include <algorithm>
@@ -176,7 +176,7 @@ void Instance::choose_pdev()
 	m_pdev = best_pdev;
 }
 
-void Instance::fill_exts_lays(ExtensionsLayers& el, SDL_Window* wind)
+void Instance::fill_exts_lays(ExtensionsLayers& el)
 {
 
 	std::vector<VkLayerProperties> lprops =
@@ -200,11 +200,12 @@ void Instance::fill_exts_lays(ExtensionsLayers& el, SDL_Window* wind)
 	for(auto elem : el.lays)
 		proc_lay(elem.c_str());
 
-	auto wind_lays = wrap_enumerate<SDL_Vulkan_GetInstanceExtensions>(wind);
-	for(auto elem : wind_lays)
+  Uint32 n_exts;
+  const char *const * wind_lays = SDL_Vulkan_GetInstanceExtensions(&n_exts);
+	for(auto elem = wind_lays, end = wind_lays + n_exts; elem != end; ++elem)
 	{
-		if(!std::any_of(el.exts.begin(), el.exts.end(), [elem](const std::string& s) {return s == elem;}))
-			el.exts.emplace_back(elem);
+		if(!std::any_of(el.exts.begin(), el.exts.end(), [elem](const std::string& s) {return s == *elem;}))
+			el.exts.emplace_back(*elem);
 	}
 }
 
@@ -308,7 +309,7 @@ void Instance::create_device(const std::vector<std::string>& exts)
 
 void Instance::create_surf(SDL_Window* wind)
 {
-	check(SDL_Vulkan_CreateSurface(wind, m_inst, &m_surf) == SDL_TRUE);
+	check(SDL_Vulkan_CreateSurface(wind, m_inst, nullptr, &m_surf));
 	int w, h;
 	SDL_GetWindowSize(wind, &w, &h);
 	m_w = w, m_h = h;
