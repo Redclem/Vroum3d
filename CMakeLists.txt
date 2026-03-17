@@ -74,8 +74,6 @@ target_compile_options(vroum3d PRIVATE ${VROUM3D_CXXFLAGS})
 target_link_libraries(vroum3d PUBLIC SDL2main SDL2 ${VULKAN_LIB} spirv-reflect-static)
 target_include_directories(vroum3d INTERFACE vroum3d ext)
 
-file(GLOB examples "examples/*.cpp")
-
 function(add_example ex_name)
 
 	add_executable(${ex_name} "examples/${ex_name}.cpp")
@@ -122,10 +120,8 @@ if(VROUM3D_TESTS)
   add_exec_test(vecs)
   add_exec_test(mats)
 
-  set(VROUM3D_SHADERS)
+  set(VROUM3D_SHADERS ON)
 endif()
-
-file(GLOB shaders "shaders/*")
 
 function (add_shader sh)
 	get_filename_component(sh_name_we ${sh} NAME_WE)
