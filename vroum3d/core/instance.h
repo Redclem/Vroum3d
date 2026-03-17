@@ -14,6 +14,8 @@
 
 #include <array>
 #include <vector>
+#include <cstring>
+#include <stdexcept>
 
 
 namespace Vroum3d::Core
@@ -47,31 +49,38 @@ public:
 
 class Instance : public AssignDestroy<Instance>, private InstanceDebugData<debug>, public Allocator
 {
+protected:
+	using debug_data_t = InstanceDebugData<debug>;
+  /** Base members */
+
 	VkHandle<VkInstance> m_inst;
 	VkPhysicalDevice m_pdev;
 	VkHandle<VkDevice> m_dev;
-	VkHandle<VkSurfaceKHR> m_surf;
-	std::uint32_t m_w, m_h;
-	VkHandle<VkSwapchainKHR> m_sw;
-	VkSurfaceFormatKHR m_sw_format;
 	std::uint32_t m_ti, m_gi;
-	VkQueue m_tq, m_pq, m_gq;
-	std::vector<VkImage> m_sw_images;
-	std::vector<VkHandle<VkImageView>> m_sw_views;
-	VkHandle<VkImage> m_depth_image;
-	VkHandle<VkImageView> m_depth_view;
-  owned_memory_t m_depth_mem;
+	VkQueue m_tq = VK_NULL_HANDLE, m_pq = VK_NULL_HANDLE, m_gq = VK_NULL_HANDLE;
 	VkHandle<VkCommandPool> m_transfer_pool;
-	VkFormat m_depth_format;
-
-	VkHandle<VkSemaphore> m_image_avail_sem;
-	std::vector<VkHandle<VkSemaphore>> m_render_done_sems;
-
-	VkHandle<VkFence> m_render_done_fence;
-
-	using debug_data_t = InstanceDebugData<debug>;
-
 public:
+
+	struct ExtensionsLayers
+	{
+		std::vector<std::string> exts, lays;
+	};
+
+	template<typename InstanceInfo = DefaultInstanceInfo>
+  Instance(const InstanceInfo& ii = {})
+  {
+		create_instance(ii.inst_exts_lays());
+
+		choose_pdev();
+		create_device(ii.dev_exts());
+
+		create_transfer_pool();
+
+  }
+
+  void destroy();
+
+  ~Instance() {destroy();}
 
   auto graphics_queue() const {return m_gq;}
   auto transfer_queue() const {return m_tq;}
@@ -79,6 +88,51 @@ public:
 
 	auto graphic_queue_index() const {return m_gi;}
 	auto transfer_queue_index() const {return m_ti;}
+
+	VkDevice device() const {return m_dev;}
+	VkPhysicalDevice pdev() const {return m_pdev;}
+	VkCommandPool transfer_pool() const {return m_transfer_pool;}
+
+private:
+
+	void create_instance(const ExtensionsLayers& el);
+
+	void choose_pdev();
+	void create_device(const std::vector<std::string>& exts);
+	void create_transfer_pool();
+};
+
+
+class DisplayInstance : public Instance {
+
+  /** Display associated members */
+	
+  VkHandle<VkSurfaceKHR> m_surf;
+	VkHandle<VkSwapchainKHR> m_sw;
+
+  std::vector<VkImage> m_sw_images;
+	std::vector<VkHandle<VkImageView>> m_sw_views;
+	VkHandle<VkImage> m_depth_image;
+
+	VkHandle<VkImageView> m_depth_view;
+  owned_memory_t m_depth_mem;
+
+	VkHandle<VkSemaphore> m_image_avail_sem;
+	std::vector<VkHandle<VkSemaphore>> m_render_done_sems;
+
+	VkHandle<VkFence> m_render_done_fence;
+
+	VkFormat m_depth_format;
+	VkSurfaceFormatKHR m_sw_format;
+	std::uint32_t m_w, m_h;
+
+public:
+
+  void check_present_queue()
+  {
+    if(m_pq == VK_NULL_HANDLE)
+      throw std::runtime_error("Missing present queue");
+  }
 
 	auto w() const {return m_w;}
 	auto h() const {return m_h;}
@@ -97,31 +151,66 @@ public:
 	const VkFormat& color_format() const {return m_sw_format.format;}
 	const VkFormat& depth_format() const {return m_depth_format;}
 
-	~Instance() {destroy();}
+	~DisplayInstance() {destroy();}
 
-	struct ExtensionsLayers
-	{
-		std::vector<std::string> exts, lays;
-	};
+  template<typename InstanceInfo>
+  struct DisplayInstanceInfo
+  {
+    const InstanceInfo& m_ii;
+    SDL_Window* m_wind;
+
+    DisplayInstanceInfo(Display& disp, const InstanceInfo& ii) : m_ii(ii), m_wind(disp.window()) {}
+
+    ExtensionsLayers inst_exts_lays() const
+    {
+      auto el = m_ii.inst_exts_lays();
+
+      std::vector<VkLayerProperties> lprops =
+        wrap_enumerate<vkEnumerateInstanceLayerProperties>();
+
+      auto proc_lay = [&](const char* elem){
+
+        if(!std::any_of(lprops.begin(), lprops.end(), [elem](const VkLayerProperties& lp) {return std::strcmp(elem, lp.layerName) == 0;}))
+        {
+          log("Missing extension ", elem);
+          throw std::runtime_error("Missing extension");
+        }
+
+        auto lay_exts = wrap_enumerate<vkEnumerateInstanceExtensionProperties>(elem);
+
+        for(const auto& ext : lay_exts)
+          if(!std::any_of(el.exts.begin(), el.exts.end(), [ext](const std::string& s) {return s == ext.extensionName;}))
+            el.exts.emplace_back(ext.extensionName);
+      };
+
+      for(auto elem : el.lays)
+        proc_lay(elem.c_str());
+
+      auto wind_lays = wrap_enumerate<SDL_Vulkan_GetInstanceExtensions>(m_wind);
+      for(auto elem : wind_lays)
+      {
+        if(!std::any_of(el.exts.begin(), el.exts.end(), [elem](const std::string& s) {return s == elem;}))
+          el.exts.emplace_back(elem);
+      }
+
+    }
+
+    ExtensionsLayers dev_exts() const {
+      auto vec = m_ii.dev_exts();
+      vec.push_back("VK_KHR_swapchain");
+      return vec;
+    }
+  };
 
 	template<typename InstanceInfo = DefaultInstanceInfo>
-	Instance(Display& disp, const InstanceInfo& ii = {})
+	DisplayInstance(Display& disp, const InstanceInfo& ii = {}) : Instance(DispInstanceInfo(disp, ii))
 	{
-		ExtensionsLayers el = ii.inst_exts_lays();
-		fill_exts_lays(el, disp.m_wind);
-
-		create_instance(el);
 		create_surf(disp.m_wind);
-
-		choose_pdev();
-		create_device(ii.dev_exts());
 
 		create_sw();
 		create_sw_views();
 		find_depth_format();
 		create_depth_image();
-
-		create_transfer_pool();
 		create_semaphores();
 		create_fence();
 	}
@@ -129,10 +218,6 @@ public:
 	void destroy();
 
 	void create_sw();
-
-	VkDevice device() const {return m_dev;}
-	VkPhysicalDevice pdev() const {return m_pdev;}
-	VkCommandPool transfer_pool() const {return m_transfer_pool;}
 
 	void quick_submit(VkCommandBuffer cmd_buf);
 
@@ -185,22 +270,12 @@ private:
 
 	void find_sw_info();
 
-	void create_instance(const ExtensionsLayers& el);
-
-	void choose_pdev();
-	void create_device(const std::vector<std::string>& exts);
-
 	void create_surf(SDL_Window* wind);
 
 	void create_sw_views();
 	void create_depth_image();
 
 	void find_depth_format();
-	void create_transfer_pool();
-
-
-	/** Takes needed extensions and layers as arg and adds extensions required by layers and by the SDL_Window of display */
-	void fill_exts_lays(ExtensionsLayers& el, SDL_Window* wind);
 
 	void create_semaphores();
 	void create_fence();
@@ -223,7 +298,7 @@ struct DefaultInstanceInfo
 		}();
 	};
 
-	Instance::ExtensionsLayers inst_exts_lays() const
+	DisplayInstance::ExtensionsLayers inst_exts_lays() const
 	{	
 		constexpr auto extarray = DefaultInstanceExtensions<debug>::value;
 		constexpr auto layarray = DefaultInstanceLayers<debug>::value;
@@ -232,7 +307,7 @@ struct DefaultInstanceInfo
 			{layarray.begin(), layarray.end()}};
 	}
 
-	std::vector<std::string> dev_exts() const {return {"VK_KHR_swapchain"};}
+	std::vector<std::string> dev_exts() const {return {};}
 
 };
 

@@ -6,7 +6,7 @@ using namespace Vroum3d::Core;
 int VROUM3D_MAIN()
 {
 	Display disp;
-	Instance inst(disp);
+	DisplayInstance inst(disp);
 
 	PipelineResource pr(inst);
 

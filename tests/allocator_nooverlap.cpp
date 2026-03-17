@@ -34,7 +34,7 @@ int VROUM3D_MAIN()
   std::uniform_int_distribution alignd(0, 8);
 
   Display disp("Allocator test - No Visual");
-  Instance inst(disp);
+  DisplayInstance inst(disp);
 
   std::vector<Allocator::owned_memory_t> blocks;
   std::set<Segment> segms;

@@ -14,7 +14,7 @@ class Display : public AssignDestroy<Display>
 	Handle<SDL_Window*, nullptr> m_wind;
 	Handle<SDL_Surface*, nullptr> m_surf;
 
-	friend class Instance;
+	friend class DisplayInstance;
 
 public:
 
