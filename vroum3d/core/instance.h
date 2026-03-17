@@ -57,8 +57,12 @@ protected:
 	VkPhysicalDevice m_pdev;
 	VkHandle<VkDevice> m_dev;
 	std::uint32_t m_ti, m_gi;
-	VkQueue m_tq = VK_NULL_HANDLE, m_pq = VK_NULL_HANDLE, m_gq = VK_NULL_HANDLE;
+	VkQueue m_tq = VK_NULL_HANDLE, m_gq = VK_NULL_HANDLE;
 	VkHandle<VkCommandPool> m_transfer_pool;
+
+	struct DelayedDeviceCreation {};
+
+
 public:
 
 	struct ExtensionsLayers
@@ -76,7 +80,25 @@ public:
 
 		create_transfer_pool();
 
-  }
+	}
+protected:
+	/** Create Instance with VkInstance only, to allow surface creation before device creation (for present queue) */
+	template<typename InstanceInfo = DefaultInstanceInfo>
+  Instance(DelayedDeviceCreation, const InstanceInfo& ii = {})
+	{
+		create_instance(ii.inst_exts_lays());
+	}
+
+	template<typename InstanceInfo = DefaultInstanceInfo>
+	void create_device(const InstanceInfo& ii = {}, VkSurfaceKHR surf = VK_NULL_HANDLE)
+	{
+		choose_pdev();
+		create_device(ii.dev_exts(), surf);
+
+		create_transfer_pool();
+	}
+
+public:
 
   void destroy();
 
@@ -84,7 +106,6 @@ public:
 
   auto graphics_queue() const {return m_gq;}
   auto transfer_queue() const {return m_tq;}
-  auto present_queue() const {return m_pq;}
 
 	auto graphic_queue_index() const {return m_gi;}
 	auto transfer_queue_index() const {return m_ti;}
@@ -92,13 +113,13 @@ public:
 	VkDevice device() const {return m_dev;}
 	VkPhysicalDevice pdev() const {return m_pdev;}
 	VkCommandPool transfer_pool() const {return m_transfer_pool;}
-
 private:
 
-	void create_instance(const ExtensionsLayers& el);
+
+	void create_instance(ExtensionsLayers&& el);
 
 	void choose_pdev();
-	void create_device(const std::vector<std::string>& exts);
+	void create_device(const std::vector<std::string>& exts, VkSurfaceKHR surf = VK_NULL_HANDLE);
 	void create_transfer_pool();
 };
 
@@ -108,6 +129,7 @@ class DisplayInstance : public Instance {
   /** Display associated members */
 	
   VkHandle<VkSurfaceKHR> m_surf;
+	VkQueue m_pq;
 	VkHandle<VkSwapchainKHR> m_sw;
 
   std::vector<VkImage> m_sw_images;
@@ -128,11 +150,7 @@ class DisplayInstance : public Instance {
 
 public:
 
-  void check_present_queue()
-  {
-    if(m_pq == VK_NULL_HANDLE)
-      throw std::runtime_error("Missing present queue");
-  }
+  auto present_queue() const {return m_pq;}
 
 	auto w() const {return m_w;}
 	auto h() const {return m_h;}
@@ -165,37 +183,16 @@ public:
     {
       auto el = m_ii.inst_exts_lays();
 
-      std::vector<VkLayerProperties> lprops =
-        wrap_enumerate<vkEnumerateInstanceLayerProperties>();
-
-      auto proc_lay = [&](const char* elem){
-
-        if(!std::any_of(lprops.begin(), lprops.end(), [elem](const VkLayerProperties& lp) {return std::strcmp(elem, lp.layerName) == 0;}))
-        {
-          log("Missing extension ", elem);
-          throw std::runtime_error("Missing extension");
-        }
-
-        auto lay_exts = wrap_enumerate<vkEnumerateInstanceExtensionProperties>(elem);
-
-        for(const auto& ext : lay_exts)
-          if(!std::any_of(el.exts.begin(), el.exts.end(), [ext](const std::string& s) {return s == ext.extensionName;}))
-            el.exts.emplace_back(ext.extensionName);
-      };
-
-      for(auto elem : el.lays)
-        proc_lay(elem.c_str());
-
       auto wind_lays = wrap_enumerate<SDL_Vulkan_GetInstanceExtensions>(m_wind);
       for(auto elem : wind_lays)
       {
         if(!std::any_of(el.exts.begin(), el.exts.end(), [elem](const std::string& s) {return s == elem;}))
           el.exts.emplace_back(elem);
       }
-
+			return el;
     }
 
-    ExtensionsLayers dev_exts() const {
+		auto dev_exts() const {
       auto vec = m_ii.dev_exts();
       vec.push_back("VK_KHR_swapchain");
       return vec;
@@ -203,9 +200,12 @@ public:
   };
 
 	template<typename InstanceInfo = DefaultInstanceInfo>
-	DisplayInstance(Display& disp, const InstanceInfo& ii = {}) : Instance(DispInstanceInfo(disp, ii))
+	DisplayInstance(Display& disp, const InstanceInfo& ii = {}) : Instance(DelayedDeviceCreation(), DisplayInstanceInfo(disp, ii))
 	{
 		create_surf(disp.m_wind);
+
+		create_device(DisplayInstanceInfo(disp, ii), m_surf);
+		get_present_queue();
 
 		create_sw();
 		create_sw_views();
@@ -267,6 +267,8 @@ public:
   }
 
 private:
+
+  void get_present_queue();
 
 	void find_sw_info();
 

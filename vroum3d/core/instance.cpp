@@ -14,6 +14,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cstring>
+#include <string>
 
 using namespace Vroum3d::Core;
 
@@ -63,8 +64,29 @@ void Instance::destroy()
 	m_inst.destroy_with([&](auto inst){vkDestroyInstance(inst, nullptr);});
 }
 
-void Instance::create_instance(const ExtensionsLayers& el)
+void Instance::create_instance(ExtensionsLayers&& el)
 {
+	std::vector<VkLayerProperties> lprops =
+		wrap_enumerate<vkEnumerateInstanceLayerProperties>();
+
+	auto proc_lay = [&](const char* elem){
+
+		if(!std::any_of(lprops.begin(), lprops.end(), [elem](const VkLayerProperties& lp) {return std::strcmp(elem, lp.layerName) == 0;}))
+		{
+			log("Missing extension ", elem);
+			throw std::runtime_error("Missing extension");
+		}
+
+		auto lay_exts = wrap_enumerate<vkEnumerateInstanceExtensionProperties>(elem);
+
+		for(const auto& ext : lay_exts)
+			if(!std::any_of(el.exts.begin(), el.exts.end(), [ext](const std::string& s) {return s == ext.extensionName;}))
+				el.exts.emplace_back(ext.extensionName);
+	};
+
+	for(auto elem : el.lays)
+		proc_lay(elem.c_str());
+
 	VkApplicationInfo appi = {
 		VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		nullptr,
@@ -183,25 +205,28 @@ void Instance::choose_pdev()
 }
 
 
-void Instance::create_device(const std::vector<std::string>& exts)
+void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR surf)
 {
 	auto queues = wrap_enumerate<vkGetPhysicalDeviceQueueFamilyProperties>(m_pdev);
 
 	int it(-1), ip(-1), ig(-1);
   {
     int idx = 0;
-    for( const auto& elem : queues)
+    for(const auto& elem : queues)
     {
       if(elem.queueFlags & VK_QUEUE_TRANSFER_BIT && it == -1)
         it = idx;
       if(elem.queueFlags & VK_QUEUE_GRAPHICS_BIT && ig == -1)
         ig = idx;
       
-      VkBool32 supp;
-      vk_check(vkGetPhysicalDeviceSurfaceSupportKHR(m_pdev, idx, m_surf, &supp));
-    
-      if(supp && ip == -1)
-        ip = idx;
+			if(surf != VK_NULL_HANDLE)
+			{
+				VkBool32 supp;
+				vk_check(vkGetPhysicalDeviceSurfaceSupportKHR(m_pdev, idx, surf, &supp));
+			
+				if(supp && ip == -1)
+					ip = idx;
+			}
 
       ++idx;
     }
@@ -221,7 +246,8 @@ void Instance::create_device(const std::vector<std::string>& exts)
 			};
 
 		ens_idx(it);
-		ens_idx(ip);
+		if(surf != VK_NULL_HANDLE)
+			ens_idx(ip);
 		ens_idx(ig);
 
 		dqis.resize(idxes.size());
@@ -272,8 +298,6 @@ void Instance::create_device(const std::vector<std::string>& exts)
 	vk_check(vkCreateDevice(m_pdev, &di, nullptr, &m_dev));
 
 	vkGetDeviceQueue(m_dev, it, 0, &m_tq);
-  if(ip != -1)
-	  vkGetDeviceQueue(m_dev, ip, 0, &m_pq);
 	vkGetDeviceQueue(m_dev, ig, 0, &m_gq);
 
 	m_ti = it;
@@ -432,7 +456,7 @@ void DisplayInstance::find_depth_format()
 	m_depth_format = format_depth_supp(VK_FORMAT_D32_SFLOAT) ? VK_FORMAT_D32_SFLOAT : VK_FORMAT_X8_D24_UNORM_PACK32;
 }
 
-void DisplayInstance::create_transfer_pool()
+void Instance::create_transfer_pool()
 {
 	VkCommandPoolCreateInfo pi{
 		VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -691,4 +715,27 @@ void DisplayInstance::end_rendering(VkCommandBuffer cmd_buf, std::uint32_t img_i
 	};
 
 	vkCmdPipelineBarrier2(cmd_buf, &di);
+}
+
+void DisplayInstance::get_present_queue()
+{
+	std::uint32_t n_queues;
+	vkGetPhysicalDeviceQueueFamilyProperties(pdev(), &n_queues, nullptr);
+
+	int ip(-1);
+  {
+    for(int idx = 0; idx != int(n_queues); ++idx)
+    {
+			VkBool32 supp;
+			vk_check(vkGetPhysicalDeviceSurfaceSupportKHR(m_pdev, idx, m_surf, &supp));
+		
+			if(supp && ip == -1)
+				ip = idx;
+    }
+  }
+
+	if(ip == -1)
+		throw std::runtime_error("No present support!");
+
+	vkGetDeviceQueue(device(), ip, 0, &m_pq);
 }
