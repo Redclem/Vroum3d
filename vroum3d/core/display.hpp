@@ -4,7 +4,7 @@
 #include "../utility.h"
 #include "../debug.h"
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 namespace Vroum3d::Core
 {
@@ -30,7 +30,7 @@ public:
 		if(SDL_WasInit(SDL_INIT_VIDEO) != SDL_INIT_VIDEO)
 			sdl_check(SDL_Init(SDL_INIT_VIDEO));
 
-		m_wind = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, w, h, flags);
+		m_wind = SDL_CreateWindow(title, w, h, flags);
 
 		check(m_wind);
 	}

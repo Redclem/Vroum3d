@@ -24,6 +24,8 @@ FetchContent_MakeAvailable(spirv_reflect)
 
 set(VULKAN_LIB "vulkan")
 
+find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3)
+
 if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
   set(VROUM3D_TESTS ON)
   set(VROUM3D_EXAMPLES ON)
@@ -71,7 +73,7 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 endif()
 
 target_compile_options(vroum3d PRIVATE ${VROUM3D_CXXFLAGS})
-target_link_libraries(vroum3d PUBLIC SDL2main SDL2 ${VULKAN_LIB} spirv-reflect-static)
+target_link_libraries(vroum3d PUBLIC SDL3::SDL3 ${VULKAN_LIB} spirv-reflect-static)
 target_include_directories(vroum3d INTERFACE vroum3d ext)
 
 function(add_example ex_name)

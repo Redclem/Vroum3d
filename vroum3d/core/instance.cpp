@@ -4,12 +4,12 @@
 
 #include "../version.h"
 
-#include <SDL2/SDL_video.h>
-#include <SDL2/SDL_vulkan.h>
-#include <cstdint>
-#include <stdexcept>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vk_enum_string_helper.h>
+#include <SDL3/SDL_vulkan.h>
+
+#include <cstdint>
+#include <stdexcept>
 
 #include <iostream>
 #include <algorithm>
@@ -204,7 +204,6 @@ void Instance::choose_pdev()
 	m_pdev = best_pdev;
 }
 
-
 void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR surf)
 {
 	auto queues = wrap_enumerate<vkGetPhysicalDeviceQueueFamilyProperties>(m_pdev);
@@ -308,7 +307,7 @@ void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR 
 
 void DisplayInstance::create_surf(SDL_Window* wind)
 {
-	check(SDL_Vulkan_CreateSurface(wind, m_inst, &m_surf) == SDL_TRUE);
+	check(SDL_Vulkan_CreateSurface(wind, m_inst, nullptr, &m_surf));
 	int w, h;
 	SDL_GetWindowSize(wind, &w, &h);
 	m_w = w, m_h = h;

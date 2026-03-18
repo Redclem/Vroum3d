@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <type_traits>
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vk_enum_string_helper.h>
@@ -76,9 +76,9 @@ inline void vk_check(VkResult res, std::source_location loc = std::source_locati
 	}
 }
 
-inline void sdl_check(int res, std::source_location loc = std::source_location::current())
+inline void sdl_check(bool res, std::source_location loc = std::source_location::current())
 {
-	if(res != 0)
+	if(!res)
 	{
 		log("sdl_check failed at ", loc.file_name(), ":", loc.line(), " col ", loc.column());
 		log("In function ", loc.function_name());

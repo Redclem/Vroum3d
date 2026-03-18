@@ -4,7 +4,7 @@
 
 using namespace Vroum3d::Core;
 
-int VROUM3D_MAIN()
+int main(int, char*[])
 {
 	Instance inst;
 

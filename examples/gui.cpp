@@ -4,7 +4,7 @@
 using namespace Vroum3d::Core;
 using namespace Vroum3d::Gui;
 
-int VROUM3D_MAIN()
+int main(int, char*[])
 {
 	Display disp;
 	DisplayInstance inst(disp);

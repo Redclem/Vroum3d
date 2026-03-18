@@ -8,7 +8,7 @@ using namespace Vroum3d;
 
 
 
-int VROUM3D_MAIN()
+int main(int, char*[])
 {
   std::ranlux48 rng;
 

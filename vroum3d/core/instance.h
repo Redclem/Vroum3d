@@ -6,11 +6,11 @@
 #include "display.hpp"
 #include "allocator.h"
 
-#include <SDL2/SDL_video.h>
+#include <SDL3/SDL.h>
+
+#include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
-
-#include <SDL2/SDL_vulkan.h>
 
 #include <array>
 #include <vector>
@@ -183,11 +183,13 @@ public:
     {
       auto el = m_ii.inst_exts_lays();
 
-      auto wind_lays = wrap_enumerate<SDL_Vulkan_GetInstanceExtensions>(m_wind);
-      for(auto elem : wind_lays)
+      Uint32 n_exts;
+      const char * const * exts = SDL_Vulkan_GetInstanceExtensions(&n_exts);
+
+      for(auto elem = exts, end = exts + n_exts; elem != end; ++elem)
       {
-        if(!std::any_of(el.exts.begin(), el.exts.end(), [elem](const std::string& s) {return s == elem;}))
-          el.exts.emplace_back(elem);
+        if(!std::any_of(el.exts.begin(), el.exts.end(), [elem](const std::string& s) {return s == *elem;}))
+          el.exts.emplace_back(*elem);
       }
 			return el;
     }
@@ -278,6 +280,11 @@ private:
 	void create_depth_image();
 
 	void find_depth_format();
+	void create_transfer_pool();
+
+
+	/** Takes needed extensions and layers as arg and adds extensions required by layers and by the SDL_Window of display */
+	void fill_exts_lays(ExtensionsLayers& el);
 
 	void create_semaphores();
 	void create_fence();
