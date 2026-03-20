@@ -26,6 +26,15 @@ struct vec_base : vec_root
     return nc;
   }
 
+  template<typename Deriv2>
+  vec_base(const vec_base<Deriv2>& from)
+  {
+    auto arr = from.to_array();
+    auto iter = arr.begin();
+
+    drv().foreach([&](auto& val) {val = iter == arr.end() ? 0.0 : *(iter++);});
+  }
+
   constexpr auto& drv() {return *static_cast<deriv_t*>(this);}
   constexpr const auto& drv() const {return *static_cast<const deriv_t*>(this);}
 
@@ -312,22 +321,31 @@ struct base_generic_vec4 : base_generic_vec3<FloatT>
 template<typename FloatT>
 struct generic_vec2 : base_generic_vec2<FloatT>, vec_base<generic_vec2<FloatT>>
 {
-  using base_t = base_generic_vec2<FloatT>;
-  using base_t::base_t;
+  using base_generic_t = base_generic_vec2<FloatT>;
+  using base_generic_t::base_generic_t;
+
+  using vec_base_t = vec_base<generic_vec2<FloatT>>;
+  using vec_base_t::vec_base_t;
 };
 
 template<typename FloatT>
 struct generic_vec3 : base_generic_vec3<FloatT>, vec_base<generic_vec3<FloatT>>
 {
-  using base_t = base_generic_vec3<FloatT>;
-  using base_t::base_t;
+  using base_generic_t = base_generic_vec3<FloatT>;
+  using base_generic_t::base_generic_t;
+
+  using vec_base_t = vec_base<generic_vec3<FloatT>>;
+  using vec_base_t::vec_base_t;
 };
 
 template<typename FloatT>
 struct generic_vec4 : base_generic_vec4<FloatT>, vec_base<generic_vec4<FloatT>>
 {
-  using base_t = base_generic_vec4<FloatT>;
-  using base_t::base_t;
+  using base_generic_t = base_generic_vec4<FloatT>;
+  using base_generic_t::base_generic_t;
+
+  using vec_base_t = vec_base<generic_vec4<FloatT>>;
+  using vec_base_t::vec_base_t;
 };
 
 typedef generic_vec4<float> vec4;

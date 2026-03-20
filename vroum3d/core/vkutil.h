@@ -29,10 +29,10 @@ constexpr void add_mem_reqs(VkMemoryRequirements& a, const VkMemoryRequirements&
 	a.size += b.size;
 }
 
-constexpr VkDeviceSize match_offset(VkDeviceSize a, VkDeviceSize b)
+constexpr VkDeviceSize match_offset(VkDeviceSize offset, VkDeviceSize alignment)
 {
-	if(auto mod = a % b; mod) return a + b - mod;
-	return a;
+	if(auto mod = offset % alignment; mod) return offset + alignment - mod;
+	return offset;
 }
 
 }

@@ -81,6 +81,35 @@ public:
 		vkUnmapMemory(m_dev, m_mem.memory());
 	}
 
+	void unmap()
+	{
+		vkUnmapMemory(m_dev, m_mem.memory());
+	}
+
+  void invalidate()
+  {
+    VkDeviceSize offset = m_mem.offset(), size = m_mem.size();
+
+    VkDeviceSize true_ofs = offset & ~(c_max_atom_size - 1);
+    VkDeviceSize rectified_size = size + offset - true_ofs;
+
+    if(rectified_size % c_max_atom_size)
+    {
+      rectified_size = (rectified_size & ~(c_max_atom_size - 1)) + c_max_atom_size;
+      rectified_size = std::min(rectified_size, Allocator::c_largest_block_size - true_ofs);
+    }
+
+		VkMappedMemoryRange mr{
+			VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+			nullptr,
+			m_mem.memory(),
+			true_ofs,
+			rectified_size
+		};
+
+		vk_check(vkInvalidateMappedMemoryRanges(m_dev, 1, &mr));
+  }
+
 	~Buffer() {destroy();}
 
 	const VkBuffer& buffer() const {return m_buffer;}
@@ -101,12 +130,12 @@ public:
 
 	~CommandBuffer() {destroy();}
 
-	CommandBuffer(const DisplayInstance& inst, VkCommandPool cmd_pool, bool primary = true) : m_dev(inst.device()), m_cmd_pool(cmd_pool)
+	CommandBuffer(const Instance& inst, VkCommandPool cmd_pool, bool primary = true) : m_dev(inst.device()), m_cmd_pool(cmd_pool)
 	{
 		allocate_command_buffer(primary);
 	}
 
-	CommandBuffer(const DisplayInstance& inst, bool primary = true) : CommandBuffer(inst, inst.transfer_pool(), primary) {}
+	CommandBuffer(const Instance& inst, bool primary = true) : CommandBuffer(inst, inst.transfer_pool(), primary) {}
 
 	void begin_primary();
 
@@ -137,8 +166,8 @@ public:
   }
 
 	void bind_graphics_pipeline(DisplayInstance& inst, VkPipeline pipe);
-
-	void reset()
+	
+  void reset()
 	{
 
 		vkResetCommandBuffer(m_cmd_buf, 0);
@@ -171,7 +200,7 @@ private:
 class Fence : public AssignDestroy<Fence>
 {
 public:
-	Fence(const DisplayInstance& inst) : m_device(inst.device())
+	Fence(const Instance& inst) : m_device(inst.device())
 	{
 		VkFenceCreateInfo fi{
 			VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,

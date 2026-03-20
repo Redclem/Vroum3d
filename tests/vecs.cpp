@@ -37,5 +37,8 @@ int main(int, char*[])
   static_assert(vec3::n_comp() == 3);
   static_assert(vec4::n_comp() == 4);
 
+  check(vec3(vec4(1.0, 2.0, 3.0, 4.0)) == vec3(1.0, 2.0, 3.0));
+  check(vec4(vec3(1.0, 2.0, 3.0)) == vec4(1.0, 2.0, 3.0, 0.0));
+
   return 0;
 }

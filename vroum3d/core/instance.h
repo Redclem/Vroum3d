@@ -113,6 +113,9 @@ public:
 	VkDevice device() const {return m_dev;}
 	VkPhysicalDevice pdev() const {return m_pdev;}
 	VkCommandPool transfer_pool() const {return m_transfer_pool;}
+	void create_transfer_pool();
+
+	void quick_submit(VkCommandBuffer cmd_buf);
 private:
 
 
@@ -120,9 +123,36 @@ private:
 
 	void choose_pdev();
 	void create_device(const std::vector<std::string>& exts, VkSurfaceKHR surf = VK_NULL_HANDLE);
-	void create_transfer_pool();
 };
 
+struct DefaultInstanceInfo
+{
+
+	template<bool dbg = false>
+	struct DefaultInstanceExtensions {
+		static constexpr std::array<const char*, 0> value = {};
+	};
+
+	template<bool dbg = false>
+	struct DefaultInstanceLayers {
+		static constexpr std::array value = [](){
+			if constexpr (dbg) return std::array<const char*, 1>{"VK_LAYER_KHRONOS_validation"};
+			else return std::array<const char*, 0>{};
+
+		}();
+	};
+
+	Instance::ExtensionsLayers inst_exts_lays() const
+	{	
+		constexpr auto extarray = DefaultInstanceExtensions<debug>::value;
+		constexpr auto layarray = DefaultInstanceLayers<debug>::value;
+
+		return {{extarray.begin(), extarray.end()} ,
+			{layarray.begin(), layarray.end()}};
+	}
+
+	std::vector<std::string> dev_exts() const {return {};}
+};
 
 class DisplayInstance : public Instance {
 
@@ -171,13 +201,13 @@ public:
 
 	~DisplayInstance() {destroy();}
 
-  template<typename InstanceInfo>
+  template<typename InstanceInfo = DefaultInstanceInfo>
   struct DisplayInstanceInfo
   {
     const InstanceInfo& m_ii;
     SDL_Window* m_wind;
 
-    DisplayInstanceInfo(Display& disp, const InstanceInfo& ii) : m_ii(ii), m_wind(disp.window()) {}
+    DisplayInstanceInfo(Display& disp, const InstanceInfo& ii = {}) : m_ii(ii), m_wind(disp.window()) {}
 
     ExtensionsLayers inst_exts_lays() const
     {
@@ -199,29 +229,31 @@ public:
       vec.push_back("VK_KHR_swapchain");
       return vec;
     }
+
+    VkImageUsageFlags depth_image_additional_usage() const {return 0;}
   };
 
-	template<typename InstanceInfo = DefaultInstanceInfo>
-	DisplayInstance(Display& disp, const InstanceInfo& ii = {}) : Instance(DelayedDeviceCreation(), DisplayInstanceInfo(disp, ii))
+	template<typename InstanceInfo>
+	DisplayInstance(Display& disp, const InstanceInfo& ii) : Instance(DelayedDeviceCreation(), ii)
 	{
 		create_surf(disp.m_wind);
 
-		create_device(DisplayInstanceInfo(disp, ii), m_surf);
+		create_device(ii, m_surf);
 		get_present_queue();
 
 		create_sw();
 		create_sw_views();
 		find_depth_format();
-		create_depth_image();
+		create_depth_image(ii.depth_image_additional_usage());
 		create_semaphores();
 		create_fence();
 	}
 
+  DisplayInstance(Display& disp) : DisplayInstance(disp, DisplayInstanceInfo(disp, DefaultInstanceInfo())) {}
+
 	void destroy();
 
 	void create_sw();
-
-	void quick_submit(VkCommandBuffer cmd_buf);
 
 	VkSemaphore image_available_semaphore() const {return m_image_avail_sem;}
 
@@ -277,7 +309,7 @@ private:
 	void create_surf(SDL_Window* wind);
 
 	void create_sw_views();
-	void create_depth_image();
+	void create_depth_image(VkImageUsageFlags additional_usage);
 
 	void find_depth_format();
 	void create_transfer_pool();
@@ -288,36 +320,6 @@ private:
 
 	void create_semaphores();
 	void create_fence();
-};
-
-struct DefaultInstanceInfo
-{
-
-	template<bool dbg = false>
-	struct DefaultInstanceExtensions {
-		static constexpr std::array<const char*, 0> value = {};
-	};
-
-	template<bool dbg = false>
-	struct DefaultInstanceLayers {
-		static constexpr std::array value = [](){
-			if constexpr (dbg) return std::array<const char*, 1>{"VK_LAYER_KHRONOS_validation"};
-			else return std::array<const char*, 0>{};
-
-		}();
-	};
-
-	DisplayInstance::ExtensionsLayers inst_exts_lays() const
-	{	
-		constexpr auto extarray = DefaultInstanceExtensions<debug>::value;
-		constexpr auto layarray = DefaultInstanceLayers<debug>::value;
-
-		return {{extarray.begin(), extarray.end()} ,
-			{layarray.begin(), layarray.end()}};
-	}
-
-	std::vector<std::string> dev_exts() const {return {};}
-
 };
 
 }

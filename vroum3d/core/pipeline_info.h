@@ -88,11 +88,12 @@ public:
       0,
       0,
       nullptr,
-      m_pr.depth_format(),
+      VK_FORMAT_UNDEFINED,
       VK_FORMAT_UNDEFINED
   	};
   }
 };
+
 
 /** Basic pipeline information class for vertex shader + fragment shader pipeline */
 class RenderPipelineInformation : public GraphicsPipelineInformation

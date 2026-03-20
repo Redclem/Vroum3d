@@ -2,7 +2,9 @@
 #define VROUM3D_MATH_MAT_HPP_INCLUDED
 
 #include "vec.hpp"
+#include <concepts>
 #include <cstddef>
+#include <iomanip>
 #include <ostream>
 #include <type_traits>
 #include <cmath>
@@ -10,8 +12,17 @@
 namespace Vroum3d::Math
 {
 
+struct mat_root {
+  bool operator==(const mat_root& rhs) const = default;
+  bool operator!=(const mat_root& rhs) const = default;
+};
+
+template<typename Mat>
+constexpr bool is_mat = std::is_base_of_v<mat_root, Mat>;
+
+
 template<typename FloatT, std::size_t N>
-struct mat
+struct mat : mat_root
 {
   using float_t = FloatT;
   constexpr static auto n = N;
@@ -77,10 +88,13 @@ struct mat
   template<std::size_t Next>
   explicit mat(const mat<FloatT, Next>& from)
   {
-    operator=(identity());
-    static_assert(Next <= n, "Cannot build matrix from larger matrix");
-
-    from.foreach([&](auto v, auto i, auto j){at(i, j) = v;});
+    if constexpr (Next <= n)
+    {
+      operator=(identity());
+      from.foreach([&](auto v, auto i, auto j){at(i, j) = v;});
+    }
+    else
+      foreach([&](auto& v, auto i, auto j){v = from.at(i, j);});
   }
 
   static auto identity()
@@ -167,7 +181,8 @@ struct mat
   
 
   template<typename Vec, std::enable_if_t<is_vec<Vec> &&
-            std::is_same_v<typename Vec::float_t, float_t>, bool> = true>
+            std::is_same_v<typename Vec::float_t, float_t> &&
+            Vec::n_comp() == n, bool> = true>
   Vec operator*(const Vec& vec) const
   {
     Vec res;
@@ -190,17 +205,42 @@ struct mat
 
   void disp(std::ostream& s) const
   {
+    s << std::setfill(' ');
     s << "[";
     
     foreach([&](const auto& val, auto, auto j){
       if(!j) s << '\n';
-      s << "\t" << val;
+      s << "\t" << std::setw(8) << val;
     });
     s << "\n]";
   }
 
   bool operator==(const mat& rhs) const = default;
   bool operator!=(const mat& rhs) const = default;
+  
+
+  template<typename Vec, std::enable_if_t<is_vec<Vec> &&
+            std::is_same_v<typename Vec::float_t, float_t> &&
+            Vec::n_comp() == n, bool> = true>
+  friend Vec operator*(const Vec& vec, const mat& m)
+  {
+    Vec res;
+    std::size_t i(0);
+
+    res.foreach([&](auto& out_val)
+      {
+        std::size_t j(0);
+        vec.foreach([&](auto in_val)
+                    {
+                      out_val += in_val * m.at(j, i);
+                      ++j;
+                    });
+        ++i;
+      }
+    );
+
+    return res;
+  }
 };
 
 template<typename FloatT, std::size_t N>
@@ -245,6 +285,14 @@ auto proj(FloatT angle, FloatT ar, FloatT nearz, FloatT farz)
   res[2][3] = -b;
   res[3][2] = -1;
 
+  return res;
+}
+
+template<typename FloatT, std::size_t n>
+mat<FloatT, n> transpose(const mat<FloatT, n>& from)
+{
+  mat<FloatT, n> res;
+  res.foreach([&](auto& v, auto i, auto j){v = from.at(j, i);});
   return res;
 }
 

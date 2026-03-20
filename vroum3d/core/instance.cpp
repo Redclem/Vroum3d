@@ -384,7 +384,7 @@ void DisplayInstance::create_sw_views()
 	}
 }
 
-void DisplayInstance::create_depth_image()
+void DisplayInstance::create_depth_image(VkImageUsageFlags depth_usage)
 {
 
 	VkImageCreateInfo ii{
@@ -398,7 +398,7 @@ void DisplayInstance::create_depth_image()
 		1,
 		VK_SAMPLE_COUNT_1_BIT,
 		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | depth_usage,
 		VK_SHARING_MODE_EXCLUSIVE,
 		0,
 		nullptr,
@@ -553,7 +553,7 @@ void DisplayInstance::create_fence()
 	vk_check(vkCreateFence(m_dev, &fi, nullptr, &m_render_done_fence));
 }
 
-void DisplayInstance::quick_submit(VkCommandBuffer cmd_buf)
+void Instance::quick_submit(VkCommandBuffer cmd_buf)
 {
   VkFence fnc;
 

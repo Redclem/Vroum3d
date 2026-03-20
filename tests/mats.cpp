@@ -45,6 +45,19 @@ int main(int, char*[])
   }
 
   check(mat3::scale(vec2(0.5)) * vec3(2.0) == vec3(1.0, 1.0, 2.0));
+  check(vec3(2.0) * mat3::scale(vec2(0.5)) == vec3(1.0, 1.0, 2.0));
+
+  check(mat3(mat4::translate(vec3(1.0, 2.0, 3.0))) == mat3::identity());
+
+  {
+    auto P = proj<float>(M_PI_2, 1, 0.1, 100.0);
+
+    check(P != transpose(P));
+    check(P == transpose(transpose(P)));
+    vec4 x(1, 1, 1, 1);
+
+    check(x * transpose(P) == P * x);
+  }
 
   return 0;
 }
