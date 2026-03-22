@@ -79,6 +79,11 @@ public:
   static constexpr std::size_t c_sec_bin_size = 16;
 
   static constexpr std::size_t c_n_mem_types = 32;
+
+  static_assert(VK_MAX_MEMORY_TYPES <= c_n_mem_types);
+
+  
+
 private:
 	VkDevice m_device = VK_NULL_HANDLE;
 	VkPhysicalDevice m_pdev = VK_NULL_HANDLE;
@@ -86,12 +91,17 @@ private:
 
   struct MemBlock
   {
+    static constexpr std::size_t c_mem_idx_bit_width = 8;
+
+    static_assert(c_n_mem_types <= (1 << c_mem_idx_bit_width));
+
     VkDeviceSize size, offset;
     mem_handle_t mem_handle;
     Bag<MemBlock>::ptr_t phys_next = nullptr, phys_prev = nullptr;
     Bag<MemBlock>::ptr_t list_next = nullptr, list_prev = nullptr;
-    std::uint32_t mem_idx;
-    bool free = false; // Should represent at any time if the block is inserted in a free block chain
+    std::uint32_t mem_idx : c_mem_idx_bit_width;
+    bool free : 1 = false; // Should represent at any time if the block is inserted in a free block chain
+    // TODO : Add host visible / coherent
   };
 
   using block_bag_t = Bag<MemBlock>;
