@@ -21,13 +21,13 @@ template<typename Mat>
 constexpr bool is_mat = std::is_base_of_v<mat_root, Mat>;
 
 
-template<typename FloatT, std::size_t N>
+template<typename ScalT, std::size_t N>
 struct mat : mat_root
 {
-  using float_t = FloatT;
+  using scal_t = ScalT;
   constexpr static auto n = N;
 
-  float_t data[n][n];
+  scal_t data[n][n];
 
   template<typename Mat>
   class Acc
@@ -46,10 +46,10 @@ struct mat : mat_root
   Acc<const mat> operator[](std::size_t idx) const {return {*this, idx};}
 
 
-  float_t& at(std::size_t i, std::size_t j) {return data[j][i];}
-  const float_t& at(std::size_t i, std::size_t j) const {return data[j][i];}
+  scal_t& at(std::size_t i, std::size_t j) {return data[j][i];}
+  const scal_t& at(std::size_t i, std::size_t j) const {return data[j][i];}
 
-  template<typename Fun, std::enable_if_t<std::is_invocable_v<Fun, float_t&, std::size_t, std::size_t>, bool> = true>
+  template<typename Fun, std::enable_if_t<std::is_invocable_v<Fun, scal_t&, std::size_t, std::size_t>, bool> = true>
   void foreach(const Fun& fun)
   {
     for(std::size_t i(0); i != n; ++i)
@@ -58,7 +58,7 @@ struct mat : mat_root
   }
 
 
-  template<typename Fun, std::enable_if_t<std::is_invocable_v<Fun, float_t&>, bool> = true>
+  template<typename Fun, std::enable_if_t<std::is_invocable_v<Fun, scal_t&>, bool> = true>
   void foreach(const Fun& fun)
   {
     for(std::size_t i(0); i != n; ++i)
@@ -66,7 +66,7 @@ struct mat : mat_root
         fun(at(i, j));
   }
 
-  template<typename Fun, std::enable_if_t<std::is_invocable_v<Fun, float_t&, std::size_t, std::size_t>, bool> = true>
+  template<typename Fun, std::enable_if_t<std::is_invocable_v<Fun, scal_t&, std::size_t, std::size_t>, bool> = true>
   void foreach(const Fun& fun) const
   {
     for(std::size_t i(0); i != n; ++i)
@@ -75,7 +75,7 @@ struct mat : mat_root
   }
 
 
-  template<typename Fun, std::enable_if_t<std::is_invocable_v<Fun, float_t&>, bool> = true>
+  template<typename Fun, std::enable_if_t<std::is_invocable_v<Fun, scal_t&>, bool> = true>
   void foreach(const Fun& fun) const
   {
     for(std::size_t i(0); i != n; ++i)
@@ -86,7 +86,7 @@ struct mat : mat_root
   mat() {}
 
   template<std::size_t Next>
-  explicit mat(const mat<FloatT, Next>& from)
+  explicit mat(const mat<ScalT, Next>& from)
   {
     if constexpr (Next <= n)
     {
@@ -100,19 +100,19 @@ struct mat : mat_root
   static auto identity()
   {
     mat res;
-    res.foreach([](auto& v, auto i, auto j){v = i == j ? float_t(1) : float_t(0);});
+    res.foreach([](auto& v, auto i, auto j){v = i == j ? scal_t(1) : scal_t(0);});
     return res;
   }
 
   static auto zero()
   {
     mat res;
-    res.foreach([](auto& v){v = float_t(0);});
+    res.foreach([](auto& v){v = scal_t(0);});
     return res;
   }
 
   template<typename Vec, std::enable_if_t<is_vec<Vec> &&
-            std::is_same_v<typename Vec::float_t, float_t>, bool> = true>
+            std::is_same_v<typename Vec::scal_t, scal_t>, bool> = true>
   static mat scale(const Vec& vec)
   {
     mat res = identity();
@@ -124,7 +124,7 @@ struct mat : mat_root
 
 
   template<typename Vec, std::enable_if_t<is_vec<Vec> &&
-            std::is_same_v<typename Vec::float_t, float_t> &&
+            std::is_same_v<typename Vec::scal_t, scal_t> &&
             n == Vec::n_comp() + 1, bool> = true>
   static mat translate(const Vec& vec)
   {
@@ -181,7 +181,7 @@ struct mat : mat_root
   
 
   template<typename Vec, std::enable_if_t<is_vec<Vec> &&
-            std::is_same_v<typename Vec::float_t, float_t> &&
+            std::is_same_v<typename Vec::scal_t, scal_t> &&
             Vec::n_comp() == n, bool> = true>
   Vec operator*(const Vec& vec) const
   {
@@ -220,7 +220,7 @@ struct mat : mat_root
   
 
   template<typename Vec, std::enable_if_t<is_vec<Vec> &&
-            std::is_same_v<typename Vec::float_t, float_t> &&
+            std::is_same_v<typename Vec::scal_t, scal_t> &&
             Vec::n_comp() == n, bool> = true>
   friend Vec operator*(const Vec& vec, const mat& m)
   {
@@ -243,8 +243,8 @@ struct mat : mat_root
   }
 };
 
-template<typename FloatT, std::size_t N>
-std::ostream& operator<<(std::ostream& s, const mat<FloatT, N>& M)
+template<typename ScalT, std::size_t N>
+std::ostream& operator<<(std::ostream& s, const mat<ScalT, N>& M)
 {
   M.disp(s);
   return s;
@@ -253,13 +253,13 @@ std::ostream& operator<<(std::ostream& s, const mat<FloatT, N>& M)
 template<typename Vec, std::enable_if_t<is_vec<Vec>, bool> = true>
 auto scale(const Vec& v)
 {
-  return mat<typename Vec::float_t, Vec::n_comp()>::scale(v);
+  return mat<typename Vec::scal_t, Vec::n_comp()>::scale(v);
 }
 
 template<typename Vec, std::enable_if_t<is_vec<Vec>, bool> = true>
 auto translate(const Vec& v)
 {
-  return mat<typename Vec::float_t, Vec::n_comp() + 1>::translate(v);
+  return mat<typename Vec::scal_t, Vec::n_comp() + 1>::translate(v);
 }
 
 /** Projection matrix
@@ -269,37 +269,37 @@ auto translate(const Vec& v)
   * @param nearz NearZ plane
   * @param farz FarZ plane
   */
-template<typename FloatT = float>
-auto proj(FloatT angle, FloatT ar, FloatT nearz, FloatT farz)
+template<typename ScalT = float>
+auto proj(ScalT angle, ScalT ar, ScalT nearz, ScalT farz)
 {
-  typedef mat<FloatT, 4> res_t;
+  typedef mat<ScalT, 4> res_t;
 
   // Nearz, farz associated parameters for transform z := a + b / z
 
-  FloatT a = 1 / (1 - nearz / farz);
-  FloatT b = a * nearz;
+  ScalT a = 1 / (1 - nearz / farz);
+  ScalT b = a * nearz;
 
-  FloatT angle_tan = std::tan(angle / 2);
+  ScalT angle_tan = std::tan(angle / 2);
 
-  res_t res = res_t::scale(generic_vec4<FloatT>(1/angle_tan, -ar / angle_tan, -a, 0));
+  res_t res = res_t::scale(generic_vec4<ScalT>(1/angle_tan, -ar / angle_tan, -a, 0));
   res[2][3] = -b;
   res[3][2] = -1;
 
   return res;
 }
 
-template<typename FloatT, std::size_t n>
-mat<FloatT, n> transpose(const mat<FloatT, n>& from)
+template<typename ScalT, std::size_t n>
+mat<ScalT, n> transpose(const mat<ScalT, n>& from)
 {
-  mat<FloatT, n> res;
+  mat<ScalT, n> res;
   res.foreach([&](auto& v, auto i, auto j){v = from.at(j, i);});
   return res;
 }
 
-template<std::size_t axis, typename FloatT = float>
-auto rotate(FloatT angle)
+template<std::size_t axis, typename ScalT = float>
+auto rotate(ScalT angle)
 {
-  typedef mat<FloatT, 3> res_t;
+  typedef mat<ScalT, 3> res_t;
   static_assert(axis < 3);
 
   res_t res = res_t::identity();
@@ -316,16 +316,16 @@ auto rotate(FloatT angle)
   return res;
 }
 
-template<typename FloatT>
-auto ortho_transform(const generic_vec3<FloatT>& projx, const generic_vec3<FloatT>& projy)
+template<typename ScalT>
+auto ortho_transform(const generic_vec3<ScalT>& projx, const generic_vec3<ScalT>& projy)
 {
   return ortho_transform(projx, projy, cross(projx, projy));
 }
 
-template<typename FloatT>
-auto ortho_transform(const generic_vec3<FloatT>& projx, const generic_vec3<FloatT>& projy, const generic_vec3<FloatT>& projz)
+template<typename ScalT>
+auto ortho_transform(const generic_vec3<ScalT>& projx, const generic_vec3<ScalT>& projy, const generic_vec3<ScalT>& projz)
 {
-  mat<FloatT, 3> res;
+  mat<ScalT, 3> res;
 
   int idx(0);
   projx.foreach([&](auto val){res[0][idx++] = val;});

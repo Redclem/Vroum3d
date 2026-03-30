@@ -5,6 +5,7 @@
 #include <ostream>
 #include <cmath>
 #include <type_traits>
+#include <cstdint>
 
 namespace Vroum3d::Math
 {
@@ -78,6 +79,13 @@ struct vec_base : vec_root
     return drv();
   }
 
+  template<typename Vec, std::enable_if_t<is_vec<Vec>, bool> = true>
+  constexpr deriv_t& operator/=(const Vec& rhs)
+  {
+    drv().foreach_paired(rhs.drv(), [&](auto& a, auto b){a /= b;});
+    return drv();
+  }
+
   constexpr deriv_t operator-() const
   {
     deriv_t res(drv());
@@ -141,7 +149,7 @@ struct vec_base : vec_root
 
   constexpr auto dot(const vec_base& rhs) const
   {
-    typename deriv_t::float_t res(0);
+    typename deriv_t::scal_t res(0);
     drv().foreach_paired(rhs.drv(), [&](const auto& a, const auto& b) {res += a * b;});
 
     return res;
@@ -149,7 +157,7 @@ struct vec_base : vec_root
 
   constexpr auto norm2() const
   {
-    typename deriv_t::float_t res(0);
+    typename deriv_t::scal_t res(0);
     drv().foreach([&](const auto& a) {res += a * a;});
 
     return res;
@@ -162,16 +170,24 @@ struct vec_base : vec_root
 
   constexpr auto to_array() const
   {
-    std::array<typename deriv_t::float_t, n_comp()> res;
+    std::array<typename deriv_t::scal_t, n_comp()> res;
     auto iter = res.begin();
 
     drv().foreach([&](auto val){*(iter++) = val;});
     return res;
   }
 
+  constexpr operator auto () const
+  {
+    std::array<typename deriv_t::scal_t, n_comp()> res;
+    auto iter = res.begin();
+    drv().foreach([&](const auto& val){*iter = val;});
+    return res;
+  }
+
   constexpr auto max_coord() const
   {
-    float_t res;
+    typename deriv_t::scal_t res;
     drv().foreach([&](auto val) {res = val;});
     drv().foreach([&](auto val) {res = std::max(res, val);});
     return res;
@@ -179,16 +195,39 @@ struct vec_base : vec_root
 
   constexpr auto min_coord() const
   {
-    float_t res;
+    typename deriv_t::scal_t res;
     drv().foreach([&](auto val) {res = val;});
     drv().foreach([&](auto val) {res = std::min(res, val);});
     return res;
   }
 
+  constexpr auto& clamp(auto min, auto max)
+  {
+    drv().foreach([&](auto& val) {val = std::clamp<typename deriv_t::scal_t>(val, min, max);});
+    return drv();
+  }
+
+  template<std::size_t idx>
+  constexpr const auto& get() const
+  {
+    const typename Deriv::scal_t* ptr_res;
+    std::size_t n_elem = 0;
+    drv().foreach([&](const auto& val) {if(n_elem++ == idx) *ptr_res = &val;});
+    return *ptr_res;
+  }
+
+  template<std::size_t idx>
+  constexpr auto& get()
+  {
+    typename Deriv::scal_t* ptr_res;
+    std::size_t n_elem = 0;
+    drv().foreach([&](auto& val) {if(n_elem++ == idx) *ptr_res = &val;});
+    return *ptr_res;
+  }
+
 protected:
 private:
 };
-
 
 template<typename T>
 std::ostream& operator<<(std::ostream& s, const vec_base<T>& vb)
@@ -209,12 +248,20 @@ constexpr auto operator+(Scal lhs, const vec_base<T>& rhs)
   return rhs + lhs;
 }
 
-template<typename FloatT>
+template<typename ScalT>
 struct base_generic_vec2
 {
-  using float_t = FloatT;
+  using scal_t = ScalT;
 
-  float_t x, y;
+  union{
+    scal_t x;
+    scal_t r;
+  };
+
+  union{
+    scal_t y;
+    scal_t g;
+  };
 
   constexpr void foreach(const auto& fun)
   {
@@ -240,17 +287,20 @@ struct base_generic_vec2
     fun(y, rhs.y);
   }
 
-  constexpr base_generic_vec2(float_t _x, float_t _y) : x(_x), y(_y) {}
-  constexpr base_generic_vec2(float_t scal = 0) : x(scal), y(scal) {}
+  constexpr base_generic_vec2(scal_t _x, scal_t _y) : x(_x), y(_y) {}
+  constexpr base_generic_vec2(scal_t scal = 0) : x(scal), y(scal) {}
 };
 
-template<typename FloatT>
-struct base_generic_vec3 : base_generic_vec2<FloatT>
+template<typename ScalT>
+struct base_generic_vec3 : base_generic_vec2<ScalT>
 {
-  using base_t = base_generic_vec2<FloatT>;
-  using typename base_t::float_t;
-    
-  float z;
+  using base_t = base_generic_vec2<ScalT>;
+  using typename base_t::scal_t;
+
+  union{
+    scal_t z;
+    scal_t b;
+  };
 
   constexpr void foreach(const auto& fun)
   {
@@ -276,18 +326,21 @@ struct base_generic_vec3 : base_generic_vec2<FloatT>
     fun(z, rhs.z);
   }
 
-  constexpr base_generic_vec3(float_t _x, float_t _y, float_t _z) : base_t(_x, _y), z(_z) {}
-  constexpr base_generic_vec3(float_t scal = 0) : base_t(scal), z(scal) {}
+  constexpr base_generic_vec3(scal_t _x, scal_t _y, scal_t _z) : base_t(_x, _y), z(_z) {}
+  constexpr base_generic_vec3(scal_t scal = 0) : base_t(scal), z(scal) {}
 
 };
 
-template<typename FloatT>
-struct base_generic_vec4 : base_generic_vec3<FloatT>
+template<typename ScalT>
+struct base_generic_vec4 : base_generic_vec3<ScalT>
 {
-  using base_t = base_generic_vec3<FloatT>;
-  using typename base_t::float_t;
+  using base_t = base_generic_vec3<ScalT>;
+  using typename base_t::scal_t;
     
-  float w;
+  union{
+    scal_t w;
+    scal_t a;
+  };
 
   constexpr void foreach(const auto& fun)
   {
@@ -313,47 +366,65 @@ struct base_generic_vec4 : base_generic_vec3<FloatT>
     fun(w, rhs.w);
   }
 
-  constexpr base_generic_vec4(float_t _x, float_t _y, float_t _z, float_t _w) : base_t(_x, _y, _z), w(_w) {}
-  constexpr base_generic_vec4(float_t scal = 0) : base_t(scal), w(scal) {}
+  constexpr base_generic_vec4(scal_t _x, scal_t _y, scal_t _z, scal_t _w) : base_t(_x, _y, _z), w(_w) {}
+  constexpr base_generic_vec4(scal_t scal = 0) : base_t(scal), w(scal) {}
 
 };
 
-template<typename FloatT>
-struct generic_vec2 : base_generic_vec2<FloatT>, vec_base<generic_vec2<FloatT>>
+template<typename ScalT>
+struct generic_vec2 : base_generic_vec2<ScalT>, vec_base<generic_vec2<ScalT>>
 {
-  using base_generic_t = base_generic_vec2<FloatT>;
+  using base_generic_t = base_generic_vec2<ScalT>;
   using base_generic_t::base_generic_t;
 
-  using vec_base_t = vec_base<generic_vec2<FloatT>>;
+  using vec_base_t = vec_base<generic_vec2<ScalT>>;
   using vec_base_t::vec_base_t;
+
+  using vec_base_t::get;
 };
 
-template<typename FloatT>
-struct generic_vec3 : base_generic_vec3<FloatT>, vec_base<generic_vec3<FloatT>>
+template<typename ScalT>
+struct generic_vec3 : base_generic_vec3<ScalT>, vec_base<generic_vec3<ScalT>>
 {
-  using base_generic_t = base_generic_vec3<FloatT>;
+  using base_generic_t = base_generic_vec3<ScalT>;
   using base_generic_t::base_generic_t;
 
-  using vec_base_t = vec_base<generic_vec3<FloatT>>;
+  using vec_base_t = vec_base<generic_vec3<ScalT>>;
   using vec_base_t::vec_base_t;
+
+  using vec_base_t::get;
 };
 
-template<typename FloatT>
-struct generic_vec4 : base_generic_vec4<FloatT>, vec_base<generic_vec4<FloatT>>
+template<typename ScalT>
+struct generic_vec4 : base_generic_vec4<ScalT>, vec_base<generic_vec4<ScalT>>
 {
-  using base_generic_t = base_generic_vec4<FloatT>;
+  using base_generic_t = base_generic_vec4<ScalT>;
   using base_generic_t::base_generic_t;
 
-  using vec_base_t = vec_base<generic_vec4<FloatT>>;
+  using vec_base_t = vec_base<generic_vec4<ScalT>>;
   using vec_base_t::vec_base_t;
+
+  using vec_base_t::get;
 };
 
 typedef generic_vec4<float> vec4;
 typedef generic_vec3<float> vec3;
 typedef generic_vec2<float> vec2;
 
-template<typename FloatT>
-constexpr generic_vec3<FloatT> cross(const generic_vec3<FloatT> &a, const generic_vec3<FloatT> &b)
+typedef generic_vec4<double> dvec4;
+typedef generic_vec3<double> dvec3;
+typedef generic_vec2<double> dvec2;
+
+typedef generic_vec4<std::int32_t> ivec4;
+typedef generic_vec3<std::int32_t> ivec3;
+typedef generic_vec2<std::int32_t> ivec2;
+
+typedef generic_vec4<std::uint32_t> uvec4;
+typedef generic_vec3<std::uint32_t> uvec3;
+typedef generic_vec2<std::uint32_t> uvec2;
+
+template<typename ScalT>
+constexpr generic_vec3<ScalT> cross(const generic_vec3<ScalT> &a, const generic_vec3<ScalT> &b)
 {
   return {
     a.y * b.z - a.z * b.y,
@@ -378,8 +449,8 @@ constexpr Vec inf(const Vec& a, const Vec& b)
   return ca;
 }
 
-template<typename Vec, std::enable_if_t<is_vec<Vec>, bool> = true>
-constexpr Vec operator/(auto scal, const Vec& v)
+template<typename Scal, typename Vec, std::enable_if_t<!is_vec<Scal> && is_vec<Vec>, bool> = true>
+constexpr Vec operator/(Scal scal, const Vec& v)
 {
   Vec res;
   res.foreach_paired(v, [&](auto& res, const auto& val) {res = scal / val;});
@@ -387,5 +458,6 @@ constexpr Vec operator/(auto scal, const Vec& v)
 }
 
 }
+
 
 #endif
