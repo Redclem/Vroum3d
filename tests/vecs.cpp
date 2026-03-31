@@ -41,7 +41,13 @@ int main(int, char*[])
   check(vec4(vec3(1.0, 2.0, 3.0)) == vec4(1.0, 2.0, 3.0, 0.0));
   check(vec3(1.0, 2.0, 1.0) / vec3(1.0, 2.0, 2.0) == vec3(1.0, 1.0, 0.5));
 
-  auto [x, y] = vec2(1.0, 2.0);
+  {
+    vec2 w(1.0, 2.0);
+
+    auto [x, y] = vec2(1.0, 2.0);
+
+    check(vec2(x, y) == vec2(1.0, 2.0));
+  }
 
   return 0;
 }

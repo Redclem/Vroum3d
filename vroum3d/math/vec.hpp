@@ -2,6 +2,7 @@
 #define VROUM3D_MATH_VEC_HPP_INCLUDED
 
 #include <algorithm>
+#include <functional>
 #include <ostream>
 #include <cmath>
 #include <type_traits>
@@ -16,9 +17,41 @@ template<typename T>
 constexpr bool is_vec = std::is_base_of_v<vec_root, T>;
 
 template<typename Deriv>
-struct vec_base : vec_root
+struct vec_base : vec_root, Deriv
 {
   using deriv_t = Deriv;
+
+  using deriv_t::deriv_t;
+  using scal_t = deriv_t::scal_t;
+
+  template<typename Scal>
+  static constexpr bool scal_arith_compat = std::is_convertible_v<Scal, scal_t>;
+
+  template<typename T>
+  static constexpr bool arith_compat = is_vec<T> || scal_arith_compat<T>;
+
+  template<typename ... Args, std::enable_if_t<std::is_constructible_v<deriv_t, Args&&...>, bool> = true>
+  vec_base(Args&& ... ags) : deriv_t(std::forward<Args>(ags)...) {}
+
+  vec_base(const vec_base& from) = default;
+  vec_base& operator=(const vec_base& rhs) = default;
+
+  template<typename FromVec, std::enable_if_t<is_vec<FromVec>, bool> = true>
+  vec_base(const FromVec& from)
+  {
+    auto arr = from.to_array();
+    auto iter = arr.begin();
+    drv().foreach([&](auto& val) {val = *(iter++);});
+  }
+
+  template<typename FromVec, std::enable_if_t<is_vec<FromVec>, bool> = true>
+  vec_base& operator=(const FromVec& rhs)
+  {
+    auto arr = rhs.to_array();
+    auto iter = arr.begin();
+    drv().foreach([&](auto& val) {val = *(iter++);});
+    return *this;
+  }
 
   constexpr static std::size_t n_comp()
   {
@@ -36,83 +69,125 @@ struct vec_base : vec_root
     drv().foreach([&](auto& val) {val = iter == arr.end() ? 0.0 : *(iter++);});
   }
 
-  constexpr auto& drv() {return *static_cast<deriv_t*>(this);}
-  constexpr const auto& drv() const {return *static_cast<const deriv_t*>(this);}
+  constexpr auto& drv() {return *this;}
+  constexpr const auto& drv() const {return *this;}
 
-  constexpr deriv_t& operator+=(const vec_base& rhs)
+  template<typename Vec, std::enable_if_t<is_vec<Vec>, bool> = true>
+  constexpr vec_base& asg_add(const Vec& rhs)
   {
+    static_assert(n_comp() == rhs.n_comp());
     drv().foreach_paired(rhs.drv(), [&](auto& a, const auto& b){a += b;});
-    return drv();
-  }
-
-  constexpr deriv_t& operator-=(const vec_base& rhs)
-  {
-    drv().foreach_paired(rhs.drv(), [&](auto& a, const auto& b){a -= b;});
-    return drv();
-  }
-
-  template<typename Scal, std::enable_if_t<!is_vec<Scal>, bool> = true>
-  constexpr deriv_t& operator+=(Scal rhs)
-  {
-    drv().foreach([&](auto& a){a += rhs;});
-    return drv();
-  }
-
-  template<typename Scal, std::enable_if_t<!is_vec<Scal>, bool> = true>
-  constexpr deriv_t& operator-=(Scal rhs)
-  {
-    drv().foreach([&](auto& a){a -= rhs;});
-    return drv();
-  }
-
-  template<typename Scal, std::enable_if_t<!is_vec<Scal>, bool> = true>
-  constexpr deriv_t& operator*=(Scal scal)
-  {
-    drv().foreach([&](auto& a){a *= scal;});
-    return drv();
-  }
-
-  template<typename Scal, std::enable_if_t<!is_vec<Scal>, bool> = true>
-  constexpr deriv_t& operator/=(Scal scal)
-  {
-    drv().foreach([&](auto& a){a /= scal;});
-    return drv();
+    return *this;
   }
 
   template<typename Vec, std::enable_if_t<is_vec<Vec>, bool> = true>
-  constexpr deriv_t& operator/=(const Vec& rhs)
+  constexpr vec_base& asg_min(const Vec& rhs)
   {
-    drv().foreach_paired(rhs.drv(), [&](auto& a, auto b){a /= b;});
-    return drv();
+    static_assert(n_comp() == rhs.n_comp());
+    drv().foreach_paired(rhs.drv(), [&](auto& a, const auto& b){a -= b;});
+    return *this;
   }
 
-  constexpr deriv_t operator-() const
+  template<typename Vec, std::enable_if_t<is_vec<Vec>, bool> = true>
+  constexpr vec_base& asg_div(const Vec& rhs)
   {
-    deriv_t res(drv());
+    static_assert(n_comp() == rhs.n_comp());
+    drv().foreach_paired(rhs.drv(), [&](auto& a, auto b){a /= b;});
+    return *this;
+  }
+
+  template<typename Vec, std::enable_if_t<is_vec<Vec>, bool> = true>
+  constexpr vec_base& asg_mul(const Vec& rhs)
+  {
+    static_assert(n_comp() == rhs.n_comp());
+    drv().foreach_paired(rhs.drv(), [&](auto& a, auto b){a *= b;});
+    return *this;
+  }
+
+  template<typename Scal, std::enable_if_t<scal_arith_compat<Scal>, bool> = true>
+  constexpr vec_base& asg_add(Scal rhs)
+  {
+    drv().foreach([&](auto& a){a += rhs;});
+    return *this;
+  }
+
+  template<typename Scal, std::enable_if_t<scal_arith_compat<Scal>, bool> = true>
+  constexpr vec_base& asg_min(Scal rhs)
+  {
+    drv().foreach([&](auto& a){a -= rhs;});
+    return *this;
+  }
+
+  template<typename Scal, std::enable_if_t<scal_arith_compat<Scal>, bool> = true>
+  constexpr vec_base& asg_mul(Scal scal)
+  {
+    drv().foreach([&](auto& a){a *= scal;});
+    return *this;
+  }
+
+  template<typename Scal, std::enable_if_t<scal_arith_compat<Scal>, bool> = true>
+  constexpr vec_base& asg_div(Scal scal)
+  {
+    drv().foreach([&](auto& a){a /= scal;});
+    return *this;
+  }
+
+  constexpr vec_base negate() const
+  {
+    vec_base res(drv());
     res.foreach([](auto& val) {val = -val;});
     return res;
   }
 
-  constexpr deriv_t operator+(const auto& rhs) const
+  template<typename Rhs, std::enable_if_t<arith_compat<Rhs>, bool> = true>
+  constexpr vec_base& operator+=(const Rhs& rhs)
   {
-    return deriv_t(drv()) += rhs;
+    return asg_add(rhs);
   }
 
-  constexpr deriv_t operator-(const auto& rhs) const
+  template<typename Rhs, std::enable_if_t<arith_compat<Rhs>, bool> = true>
+  constexpr vec_base& operator-=(const Rhs& rhs)
   {
-    return deriv_t(drv()) -= rhs;
+    return asg_min(rhs);
   }
 
-  constexpr deriv_t operator*(const auto& rhs) const
+  template<typename Rhs, std::enable_if_t<arith_compat<Rhs>, bool> = true>
+  constexpr vec_base& operator*=(const Rhs& rhs)
   {
-    return deriv_t(drv()) *= rhs;
+    return asg_mul(rhs);
   }
 
-  constexpr deriv_t operator/(const auto& rhs) const
+  template<typename Rhs, std::enable_if_t<arith_compat<Rhs>, bool> = true>
+  constexpr vec_base& operator/=(const Rhs& rhs)
   {
-    return deriv_t(drv()) /= rhs;
+    return asg_div(rhs);
   }
-  constexpr vec_base() {}
+
+  template<typename Rhs, std::enable_if_t<arith_compat<Rhs>, bool> = true>
+  constexpr vec_base operator+(Rhs rhs) const
+  {
+    return copy().asg_add(rhs);
+  }
+
+  template<typename Rhs, std::enable_if_t<arith_compat<Rhs>, bool> = true>
+  constexpr vec_base operator-(Rhs rhs) const
+  {
+    return copy().asg_min(rhs);
+  }
+
+  template<typename Rhs, std::enable_if_t<arith_compat<Rhs>, bool> = true>
+  constexpr vec_base operator*(Rhs rhs) const
+  {
+    return copy().asg_mul(rhs);
+  }
+
+  template<typename Rhs, std::enable_if_t<arith_compat<Rhs>, bool> = true>
+  constexpr vec_base operator/(Rhs rhs) const
+  {
+    return copy().asg_div(rhs);
+  }
+
+  auto copy() const {return vec_base(*this);}
 
   constexpr void disp(std::ostream& s) const 
   {
@@ -149,7 +224,7 @@ struct vec_base : vec_root
 
   constexpr auto dot(const vec_base& rhs) const
   {
-    typename deriv_t::scal_t res(0);
+    scal_t res(0);
     drv().foreach_paired(rhs.drv(), [&](const auto& a, const auto& b) {res += a * b;});
 
     return res;
@@ -157,7 +232,7 @@ struct vec_base : vec_root
 
   constexpr auto norm2() const
   {
-    typename deriv_t::scal_t res(0);
+    scal_t res(0);
     drv().foreach([&](const auto& a) {res += a * a;});
 
     return res;
@@ -170,7 +245,7 @@ struct vec_base : vec_root
 
   constexpr auto to_array() const
   {
-    std::array<typename deriv_t::scal_t, n_comp()> res;
+    std::array<scal_t, n_comp()> res;
     auto iter = res.begin();
 
     drv().foreach([&](auto val){*(iter++) = val;});
@@ -179,7 +254,7 @@ struct vec_base : vec_root
 
   constexpr operator auto () const
   {
-    std::array<typename deriv_t::scal_t, n_comp()> res;
+    std::array<scal_t, n_comp()> res;
     auto iter = res.begin();
     drv().foreach([&](const auto& val){*iter = val;});
     return res;
@@ -187,7 +262,7 @@ struct vec_base : vec_root
 
   constexpr auto max_coord() const
   {
-    typename deriv_t::scal_t res;
+    scal_t res;
     drv().foreach([&](auto val) {res = val;});
     drv().foreach([&](auto val) {res = std::max(res, val);});
     return res;
@@ -195,7 +270,7 @@ struct vec_base : vec_root
 
   constexpr auto min_coord() const
   {
-    typename deriv_t::scal_t res;
+    scal_t res;
     drv().foreach([&](auto val) {res = val;});
     drv().foreach([&](auto val) {res = std::min(res, val);});
     return res;
@@ -203,8 +278,8 @@ struct vec_base : vec_root
 
   constexpr auto& clamp(auto min, auto max)
   {
-    drv().foreach([&](auto& val) {val = std::clamp<typename deriv_t::scal_t>(val, min, max);});
-    return drv();
+    drv().foreach([&](auto& val) {val = std::clamp<scal_t>(val, min, max);});
+    return *this;
   }
 
   template<std::size_t idx>
@@ -212,7 +287,7 @@ struct vec_base : vec_root
   {
     const typename Deriv::scal_t* ptr_res;
     std::size_t n_elem = 0;
-    drv().foreach([&](const auto& val) {if(n_elem++ == idx) *ptr_res = &val;});
+    drv().foreach([&](const auto& val) {if(n_elem++ == idx) ptr_res = &val;});
     return *ptr_res;
   }
 
@@ -221,7 +296,7 @@ struct vec_base : vec_root
   {
     typename Deriv::scal_t* ptr_res;
     std::size_t n_elem = 0;
-    drv().foreach([&](auto& val) {if(n_elem++ == idx) *ptr_res = &val;});
+    drv().foreach([&](auto& val) {if(n_elem++ == idx) ptr_res = &val;});
     return *ptr_res;
   }
 
@@ -236,16 +311,16 @@ std::ostream& operator<<(std::ostream& s, const vec_base<T>& vb)
   return s;
 }
 
-template<typename Scal, typename T, std::enable_if_t<!is_vec<Scal>, bool> = true>
-constexpr auto operator*(Scal lhs, const vec_base<T>& rhs)
+template<typename Scal, typename Vec, std::enable_if_t<is_vec<Vec>, bool> = true>
+constexpr auto operator*(Scal lhs, const Vec& rhs)
 {
-  return rhs * lhs;
+  return rhs.copy().asg_mul(lhs);
 }
 
-template<typename Scal, typename T, std::enable_if_t<!is_vec<Scal>, bool> = true>
-constexpr auto operator+(Scal lhs, const vec_base<T>& rhs)
+template<typename Scal, typename Vec, std::enable_if_t<is_vec<Vec>, bool> = true>
+constexpr auto operator+(Scal lhs, const Vec& rhs)
 {
-  return rhs + lhs;
+  return rhs.copy().asg_add(lhs);
 }
 
 template<typename ScalT>
@@ -372,40 +447,13 @@ struct base_generic_vec4 : base_generic_vec3<ScalT>
 };
 
 template<typename ScalT>
-struct generic_vec2 : base_generic_vec2<ScalT>, vec_base<generic_vec2<ScalT>>
-{
-  using base_generic_t = base_generic_vec2<ScalT>;
-  using base_generic_t::base_generic_t;
-
-  using vec_base_t = vec_base<generic_vec2<ScalT>>;
-  using vec_base_t::vec_base_t;
-
-  using vec_base_t::get;
-};
+using generic_vec2 = vec_base<base_generic_vec2<ScalT>>;
 
 template<typename ScalT>
-struct generic_vec3 : base_generic_vec3<ScalT>, vec_base<generic_vec3<ScalT>>
-{
-  using base_generic_t = base_generic_vec3<ScalT>;
-  using base_generic_t::base_generic_t;
-
-  using vec_base_t = vec_base<generic_vec3<ScalT>>;
-  using vec_base_t::vec_base_t;
-
-  using vec_base_t::get;
-};
+using generic_vec3 = vec_base<base_generic_vec3<ScalT>>;
 
 template<typename ScalT>
-struct generic_vec4 : base_generic_vec4<ScalT>, vec_base<generic_vec4<ScalT>>
-{
-  using base_generic_t = base_generic_vec4<ScalT>;
-  using base_generic_t::base_generic_t;
-
-  using vec_base_t = vec_base<generic_vec4<ScalT>>;
-  using vec_base_t::vec_base_t;
-
-  using vec_base_t::get;
-};
+using generic_vec4 = vec_base<base_generic_vec4<ScalT>>;
 
 typedef generic_vec4<float> vec4;
 typedef generic_vec3<float> vec3;
@@ -456,6 +504,19 @@ constexpr Vec operator/(Scal scal, const Vec& v)
   res.foreach_paired(v, [&](auto& res, const auto& val) {res = scal / val;});
   return res;
 }
+
+}
+
+namespace std
+{
+
+template<typename Drv>
+struct tuple_size<Vroum3d::Math::vec_base<Drv>> : integral_constant<size_t, Vroum3d::Math::vec_base<Drv>::n_comp()> {};
+
+template<size_t I, typename Drv> 
+struct tuple_element<I, Vroum3d::Math::vec_base<Drv>> {
+    using type = typename Vroum3d::Math::vec_base<Drv>::scal_t;
+};
 
 }
 
