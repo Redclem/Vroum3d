@@ -31,13 +31,13 @@ struct vec_base : vec_root, Deriv
   static constexpr bool arith_compat = is_vec<T> || scal_arith_compat<T>;
 
   template<typename ... Args, std::enable_if_t<std::is_constructible_v<deriv_t, Args&&...>, bool> = true>
-  vec_base(Args&& ... ags) : deriv_t(std::forward<Args>(ags)...) {}
+  constexpr vec_base(Args&& ... ags) : deriv_t(std::forward<Args>(ags)...) {}
 
-  vec_base(const vec_base& from) = default;
-  vec_base& operator=(const vec_base& rhs) = default;
+  constexpr vec_base(const vec_base& from) = default;
+  constexpr vec_base& operator=(const vec_base& rhs) = default;
 
   template<typename FromVec, std::enable_if_t<is_vec<FromVec>, bool> = true>
-  vec_base(const FromVec& from)
+  constexpr vec_base(const FromVec& from)
   {
     auto arr = from.to_array();
     auto iter = arr.begin();
@@ -45,7 +45,7 @@ struct vec_base : vec_root, Deriv
   }
 
   template<typename FromVec, std::enable_if_t<is_vec<FromVec>, bool> = true>
-  vec_base& operator=(const FromVec& rhs)
+  constexpr vec_base& operator=(const FromVec& rhs)
   {
     auto arr = rhs.to_array();
     auto iter = arr.begin();
@@ -61,7 +61,7 @@ struct vec_base : vec_root, Deriv
   }
 
   template<typename Deriv2>
-  vec_base(const vec_base<Deriv2>& from)
+  constexpr vec_base(const vec_base<Deriv2>& from)
   {
     auto arr = from.to_array();
     auto iter = arr.begin();
@@ -132,11 +132,10 @@ struct vec_base : vec_root, Deriv
     return *this;
   }
 
-  constexpr vec_base negate() const
+  constexpr vec_base& negate() 
   {
-    vec_base res(drv());
-    res.foreach([](auto& val) {val = -val;});
-    return res;
+    drv().foreach([](auto& val) {val = -val;});
+    return *this;
   }
 
   template<typename Rhs, std::enable_if_t<arith_compat<Rhs>, bool> = true>
@@ -187,7 +186,12 @@ struct vec_base : vec_root, Deriv
     return copy().asg_div(rhs);
   }
 
-  auto copy() const {return vec_base(*this);}
+  constexpr vec_base operator-() const
+  {
+    return copy().negate();
+  }
+
+  constexpr auto copy() const {return vec_base(*this);}
 
   constexpr void disp(std::ostream& s) const 
   {
