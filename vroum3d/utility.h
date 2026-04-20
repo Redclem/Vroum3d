@@ -71,12 +71,22 @@ public:
 	constexpr auto operator->() const {return m_hdl;}
 	constexpr auto operator->() {return m_hdl;}
 
-	template<typename Fun>
+	template<typename Fun, std::enable_if_t<std::is_invocable_v<Fun, T&>, bool> = true>
 	void destroy_with(Fun&& fun)
 	{
 		if(m_hdl != def)
 		{
 			fun(m_hdl);
+			m_hdl = def;
+		}
+	}
+
+	template<typename Fun, std::enable_if_t<std::is_invocable_v<Fun>, bool> = true>
+	void destroy_with(Fun&& fun)
+	{
+		if(m_hdl != def)
+		{
+			fun();
 			m_hdl = def;
 		}
 	}

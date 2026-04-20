@@ -5,6 +5,7 @@
 #include "../debug.h"
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_video.h>
 
 namespace Vroum3d::Core
 {
@@ -25,7 +26,7 @@ public:
 		m_wind.destroy_with(SDL_DestroyWindow);
 	}
 
-	Display(const char* title = "Vroum3d app", int w = 1280, int h = 720, int flags = SDL_WINDOW_VULKAN)
+	Display(const char* title = "Vroum3d app", int w = 1280, int h = 720, int flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE)
 	{
 		if(SDL_WasInit(SDL_INIT_VIDEO) != SDL_INIT_VIDEO)
 			sdl_check(SDL_Init(SDL_INIT_VIDEO));

@@ -32,7 +32,7 @@ void log(Ag1 && ag, Args && ... args)
 		if constexpr (sizeof...(Args))
 			log(std::forward<Args>(args)...);
 		else
-			std::cout << '\n';
+			std::cout << std::endl;
 	}
 }
 

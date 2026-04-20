@@ -177,8 +177,19 @@ class DisplayInstance : public Instance {
 	VkFormat m_depth_format;
 	VkSurfaceFormatKHR m_sw_format;
 	std::uint32_t m_w, m_h;
+  VkImageUsageFlags m_depth_image_usage;
+  bool m_resized = false;
 
 public:
+
+  /** Check if window was resized. Resets resize flag, such that next calls will return false until new resize. */
+  bool resized() {
+    bool tmp = m_resized;
+    m_resized = false;
+    return tmp;
+  }
+
+  const VkFence& render_done_fence() const {return m_render_done_fence;}
 
   auto present_queue() const {return m_pq;}
 
@@ -244,7 +255,10 @@ public:
 		create_sw();
 		create_sw_views();
 		find_depth_format();
-		create_depth_image(ii.depth_image_additional_usage());
+
+    m_depth_image_usage = ii.depth_image_additional_usage() | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+		create_depth_image();
 		create_semaphores();
 		create_fence();
 	}
@@ -261,11 +275,17 @@ public:
 	{
 		auto res = vkAcquireNextImageKHR(m_dev, m_sw, 0, m_image_avail_sem, VK_NULL_HANDLE, index);
 		
-		if(res > 0) return false;
-		
-		vk_check(res);
-
-		return true;
+    switch(res)
+    {
+    case VK_SUBOPTIMAL_KHR:
+      return true;
+    case VK_TIMEOUT:
+    case VK_NOT_READY:
+      return false;
+    default:
+      vk_check(res);
+      return true;
+    }
 	}
 
 	void submit_render_present(VkCommandBuffer cmd_buf, uint32_t img_idx);
@@ -309,7 +329,7 @@ private:
 	void create_surf(SDL_Window* wind);
 
 	void create_sw_views();
-	void create_depth_image(VkImageUsageFlags additional_usage);
+	void create_depth_image();
 
 	void find_depth_format();
 	void create_transfer_pool();
@@ -320,6 +340,11 @@ private:
 
 	void create_semaphores();
 	void create_fence();
+
+  void resize();
+
+  void destroy_swapchain();
+  void destroy_depth_image();
 };
 
 }

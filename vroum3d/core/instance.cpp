@@ -4,6 +4,7 @@
 
 #include "../version.h"
 
+#include <limits>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vk_enum_string_helper.h>
 #include <SDL3/SDL_vulkan.h>
@@ -11,7 +12,6 @@
 #include <cstdint>
 #include <stdexcept>
 
-#include <iostream>
 #include <algorithm>
 #include <cstring>
 #include <string>
@@ -126,10 +126,10 @@ void Instance::create_instance(ExtensionsLayers&& el)
 			const VkDebugUtilsMessengerCallbackDataEXT* cbd,
 			void*
 		       ) -> VkBool32 {
-			std::cout << "Vulkan Message:\n";
-			std::cout << "Severity:" << string_VkDebugUtilsMessageSeverityFlagsEXT(sever) << '\n';
-			std::cout << "Type:" << string_VkDebugUtilsMessageTypeFlagsEXT(type) << '\n';
-			std::cout << cbd->pMessage << "\n\n\n";
+      Vroum3d::log("Vulkan Message:");
+      Vroum3d::log("Severity:", string_VkDebugUtilsMessageSeverityFlagsEXT(sever));
+      Vroum3d::log("Type:", string_VkDebugUtilsMessageTypeFlagsEXT(type));
+		  Vroum3d::log(cbd->pMessage, "\n\n");
 			return VK_FALSE;
 		};
 
@@ -280,7 +280,7 @@ void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR 
 		0,
 		std::uint32_t(dqis.size()),
 		dqis.data(),
-		0,
+0,
 		nullptr,
 		std::uint32_t(exts.size()),
 		exts_c_str.data(),
@@ -328,7 +328,7 @@ void DisplayInstance::create_sw()
 		caps.minImageCount,
 		m_sw_format.format,
 		m_sw_format.colorSpace,
-		{m_w, m_h},
+		caps.currentExtent,
 		1,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 		VK_SHARING_MODE_EXCLUSIVE,
@@ -342,6 +342,9 @@ void DisplayInstance::create_sw()
 	};
 
 	vk_check(vkCreateSwapchainKHR(m_dev, &swi, nullptr, &m_sw));
+
+  m_w = caps.currentExtent.width;
+  m_h = caps.currentExtent.height;
 }
 
 void DisplayInstance::find_sw_info()
@@ -384,7 +387,7 @@ void DisplayInstance::create_sw_views()
 	}
 }
 
-void DisplayInstance::create_depth_image(VkImageUsageFlags depth_usage)
+void DisplayInstance::create_depth_image()
 {
 
 	VkImageCreateInfo ii{
@@ -398,7 +401,7 @@ void DisplayInstance::create_depth_image(VkImageUsageFlags depth_usage)
 		1,
 		VK_SAMPLE_COUNT_1_BIT,
 		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | depth_usage,
+		m_depth_image_usage,
 		VK_SHARING_MODE_EXCLUSIVE,
 		0,
 		nullptr,
@@ -539,7 +542,12 @@ void DisplayInstance::submit_render_present(VkCommandBuffer cmd_buf, uint32_t id
 		nullptr
 	};
 
-	vk_check(vkQueuePresentKHR(m_pq, &pi));
+  auto res = vkQueuePresentKHR(m_pq, &pi);
+
+  if(res != VK_SUBOPTIMAL_KHR)
+  	vk_check(res);
+  else
+   resize();
 }
 
 void DisplayInstance::create_fence()
@@ -737,4 +745,40 @@ void DisplayInstance::get_present_queue()
 		throw std::runtime_error("No present support!");
 
 	vkGetDeviceQueue(device(), ip, 0, &m_pq);
+}
+
+void DisplayInstance::resize()
+{
+  m_resized = true;
+
+  VkSurfaceCapabilitiesKHR surf_cap;
+  vk_check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(pdev(), m_surf, &surf_cap));
+
+  vk_check(vkQueueWaitIdle(m_pq));
+
+  destroy_swapchain();
+  destroy_depth_image();
+
+  create_sw();
+  create_sw_views();
+  create_depth_image();
+}
+
+void DisplayInstance::destroy_swapchain()
+{
+  for(auto& elem : m_sw_views)
+    vkDestroyImageView(device(), elem, nullptr);
+
+  m_sw_views.clear();
+  m_sw_images.clear();
+
+  m_sw.destroy_with([&]{vkDestroySwapchainKHR(device(), m_sw, nullptr);});
+}
+
+void DisplayInstance::destroy_depth_image()
+{
+  m_depth_view.destroy_with([&]{vkDestroyImageView(device(), m_depth_view, nullptr);});
+  m_depth_image.destroy_with([&]{vkDestroyImage(device(), m_depth_image, nullptr);});
+
+  free(m_depth_mem);
 }

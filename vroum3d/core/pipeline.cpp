@@ -77,6 +77,9 @@ const PipelineResource::ShaderModule& PipelineResource::require_shader(std::stri
 
 	std::size_t shader_size = sh_file.tellg();
 	std::vector<std::uint32_t> shader_data((shader_size + 3) / 4);
+
+  if(shader_data.empty())
+    throw std::runtime_error("Empty shader file " + pth);
 	shader_data.back() = 0;
 
 	sh_file.seekg(0, std::ios::beg);
