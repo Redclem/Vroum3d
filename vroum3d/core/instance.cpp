@@ -544,10 +544,15 @@ void DisplayInstance::submit_render_present(VkCommandBuffer cmd_buf, uint32_t id
 
   auto res = vkQueuePresentKHR(m_pq, &pi);
 
-  if(res != VK_SUBOPTIMAL_KHR)
-  	vk_check(res);
-  else
-   resize();
+  switch(res)
+  {
+  case VK_SUBOPTIMAL_KHR:
+  case VK_ERROR_OUT_OF_DATE_KHR:
+    resize();
+    break;
+  default:
+    vk_check(res);
+  }
 }
 
 void DisplayInstance::create_fence()

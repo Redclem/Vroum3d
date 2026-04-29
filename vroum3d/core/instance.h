@@ -278,6 +278,7 @@ public:
     switch(res)
     {
     case VK_SUBOPTIMAL_KHR:
+    case VK_ERROR_OUT_OF_DATE_KHR:
       return true;
     case VK_TIMEOUT:
     case VK_NOT_READY:
