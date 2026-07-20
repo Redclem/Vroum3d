@@ -302,7 +302,7 @@ public:
 		return true;
 	}
 
-  void begin_rendering(VkCommandBuffer buffer, std::uint32_t img_idx, bool secondary_contents = false);
+  void begin_rendering(VkCommandBuffer buffer, std::uint32_t img_idx, bool secondary_contents = false, VkClearColorValue clear_color_value = {{0.25f, 0.25f, 0.25f, 0.0f}});
   void end_rendering(VkCommandBuffer cmd_buf, std::uint32_t img_idx);
 
   void set_dynamic_viewport_scissor(VkCommandBuffer cmd_buf)

@@ -604,7 +604,7 @@ void Instance::quick_submit(VkCommandBuffer cmd_buf)
   vkDestroyFence(m_dev, fnc, nullptr);
 }
 
-void DisplayInstance::begin_rendering(VkCommandBuffer cmd_buf, std::uint32_t img_idx, bool secondary_contents)
+void DisplayInstance::begin_rendering(VkCommandBuffer cmd_buf, std::uint32_t img_idx, bool secondary_contents, VkClearColorValue clear_color_value)
 {
 	std::array<VkImageMemoryBarrier2, 2> barriers = {{
 	{
@@ -662,7 +662,7 @@ void DisplayInstance::begin_rendering(VkCommandBuffer cmd_buf, std::uint32_t img
 		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_ATTACHMENT_LOAD_OP_CLEAR,
 		VK_ATTACHMENT_STORE_OP_STORE,
-		{.color = {{.25f, .25f, .25f ,0.0f}}}
+		{.color = clear_color_value}
 	};
 
 	VkRenderingAttachmentInfo
