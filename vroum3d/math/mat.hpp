@@ -2,6 +2,7 @@
 #define VROUM3D_MATH_MAT_HPP_INCLUDED
 
 #include "vec.hpp"
+#include "base.hpp"
 #include <concepts>
 #include <cstddef>
 #include <iomanip>
@@ -11,14 +12,6 @@
 
 namespace Vroum3d::Math
 {
-
-struct mat_root {
-  bool operator==(const mat_root& rhs) const = default;
-  bool operator!=(const mat_root& rhs) const = default;
-};
-
-template<typename Mat>
-constexpr bool is_mat = std::is_base_of_v<mat_root, Mat>;
 
 
 template<typename ScalT, std::size_t N>

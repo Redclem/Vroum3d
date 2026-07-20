@@ -1,6 +1,7 @@
 #ifndef VROUM3D_MATH_VEC_HPP_INCLUDED
 #define VROUM3D_MATH_VEC_HPP_INCLUDED
 
+#include "base.hpp"
 #include <algorithm>
 #include <functional>
 #include <ostream>
@@ -10,11 +11,6 @@
 
 namespace Vroum3d::Math
 {
-
-struct vec_root {};
-
-template<typename T>
-constexpr bool is_vec = std::is_base_of_v<vec_root, T>;
 
 template<typename Deriv>
 struct vec_base : vec_root, Deriv
@@ -320,13 +316,13 @@ std::ostream& operator<<(std::ostream& s, const vec_base<T>& vb)
   return s;
 }
 
-template<typename Scal, typename Vec, std::enable_if_t<is_vec<Vec>, bool> = true>
+template<typename Scal, typename Vec, std::enable_if_t<!is_vec_or_mat<Scal> && is_vec<Vec>, bool> = true>
 constexpr auto operator*(Scal lhs, const Vec& rhs)
 {
   return rhs.copy().asg_mul(lhs);
 }
 
-template<typename Scal, typename Vec, std::enable_if_t<is_vec<Vec>, bool> = true>
+template<typename Scal, typename Vec, std::enable_if_t<!is_vec_or_mat<Scal> && is_vec<Vec>, bool> = true>
 constexpr auto operator+(Scal lhs, const Vec& rhs)
 {
   return rhs.copy().asg_add(lhs);

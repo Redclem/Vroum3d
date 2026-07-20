@@ -31,8 +31,12 @@ if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
   set(VROUM3D_EXAMPLES ON)
 endif()
 
+
+if(WIN32)
+	set(VULKAN_LIB "vulkan-1")
+endif()
+
 if(${MSYS})
-	message("Setting up for MSYS")
 	set(VULKAN_LIB "vulkan-1")
 	set(EXEC_LINK_OPTS "-mconsole")
   set(VROUM3D_COMPILE_DEF ${VROUM3D_COMPILE_DEF} MSYS)
@@ -60,6 +64,11 @@ add_library(vroum3d STATIC
 	ext/stb_impl.cpp
 )
 
+if(DEFINED VULKAN_SDK_DIR)
+	target_include_directories(vroum3d PUBLIC ${VULKAN_SDK_DIR}/include)
+	target_link_directories(vroum3d PUBLIC ${VULKAN_SDK_DIR}/lib)
+endif()
+
 target_compile_definitions(vroum3d PUBLIC ${VROUM3D_COMPILE_DEF})
 
 
@@ -69,7 +78,7 @@ make_directory("${SHADERS_BINARY_DIR}")
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   set(VROUM3D_CXXFLAGS ${VROUM3D_CXXFLAGS} -Wall -Werror -Wextra)
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-	set(VROUM3D_CXXFLAGS ${VROUM3D_CXXFLAGS} /WX /Wall)
+	set(VROUM3D_CXXFLAGS ${VROUM3D_CXXFLAGS} /Wall)
 endif()
 
 target_compile_options(vroum3d PRIVATE ${VROUM3D_CXXFLAGS})

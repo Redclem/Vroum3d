@@ -1,4 +1,5 @@
 #include "math/mat.hpp"
+#define _USE_MATH_DEFINES
 #include <cmath>
 #include <iostream>
 #include <vroum3d.h>
