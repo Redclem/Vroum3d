@@ -351,16 +351,29 @@ void DisplayInstance::find_sw_info()
 {
 	auto forms = wrap_enumerate<vkGetPhysicalDeviceSurfaceFormatsKHR>(m_pdev, m_surf);
 
+	m_sw_format = forms[0];
+
 	for(auto& elem : forms)
 	{
 		if(elem.format == VK_FORMAT_B8G8R8_SRGB)
 		{
 			m_sw_format = elem;
-			return;
+			break;
 		}
 	}
 
-	m_sw_format = forms[0];
+	auto modes = wrap_enumerate<vkGetPhysicalDeviceSurfacePresentModesKHR>(m_pdev, m_surf);
+
+	m_sw_pres_mode = VK_PRESENT_MODE_FIFO_KHR;
+
+	for (auto& elem : modes)
+	{
+		if (elem == VK_PRESENT_MODE_MAILBOX_KHR)
+		{
+			m_sw_pres_mode = VK_PRESENT_MODE_MAILBOX_KHR;
+			break;
+		}
+	}
 }
 
 void DisplayInstance::create_sw_views()
