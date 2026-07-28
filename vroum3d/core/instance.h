@@ -17,9 +17,10 @@
 #include <cstring>
 #include <stdexcept>
 
-
 namespace Vroum3d::Core
 {
+
+constexpr bool c_enable_syncval = false;
 
 template<bool enable = false>
 class InstanceDebugData {
@@ -45,6 +46,18 @@ public:
 	}
 
   void create_dbg_mesg(VkInstance inst, const VkDebugUtilsMessengerCreateInfoEXT& ci);
+
+  constexpr static VkBool32 c_sync_val_enabled = VK_TRUE;
+  constexpr static std::array c_layer_settings = [](){
+    if constexpr (c_enable_syncval) return std::array<VkLayerSettingEXT, 1>{{{
+    "VK_LAYER_KHRONOS_validation",
+    "validate_sync",
+    VK_LAYER_SETTING_TYPE_BOOL32_EXT,
+    1,
+    &c_sync_val_enabled
+  }}};
+    else return std::array<VkLayerSettingEXT, 0>();
+  }();
 };
 
 class Instance : public AssignDestroy<Instance>, private InstanceDebugData<debug>, public Allocator
@@ -127,10 +140,12 @@ private:
 
 struct DefaultInstanceInfo
 {
-
 	template<bool dbg = false>
 	struct DefaultInstanceExtensions {
-		static constexpr std::array<const char*, 0> value = {};
+		static constexpr std::array value = [](){
+      if constexpr (dbg && c_enable_syncval) return std::array<const char*, 1>{"VK_EXT_layer_settings"};
+      else return std::array<const char*, 0>{};
+    }();
 	};
 
 	template<bool dbg = false>

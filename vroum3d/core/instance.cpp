@@ -120,6 +120,13 @@ void Instance::create_instance(ExtensionsLayers&& el)
 
 	if constexpr(debug)
 	{
+    VkLayerSettingsCreateInfoEXT lays_s = {
+      VK_STRUCTURE_TYPE_LAYER_SETTINGS_CREATE_INFO_EXT,
+      nullptr,
+      c_layer_settings.size(),
+      c_layer_settings.data()
+    };
+
 		PFN_vkDebugUtilsMessengerCallbackEXT callback = [](
 			VkDebugUtilsMessageSeverityFlagBitsEXT sever,
 			VkDebugUtilsMessageTypeFlagsEXT type,
@@ -145,6 +152,8 @@ void Instance::create_instance(ExtensionsLayers&& el)
 			callback,
 			nullptr
 		};
+
+    if constexpr(c_layer_settings.size() > 0) dbi.pNext = &lays_s;
 
 		nfo.pNext = &dbi;
 
@@ -513,7 +522,7 @@ void DisplayInstance::submit_render_present(VkCommandBuffer cmd_buf, uint32_t id
 		nullptr,
 		m_render_done_sems[idx],
 		0,
-		VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+		VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 		0
 	};
 
@@ -610,7 +619,7 @@ void DisplayInstance::begin_rendering(VkCommandBuffer cmd_buf, std::uint32_t img
 	{
 		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 		nullptr,
-		0,
+		VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 		0,
 		VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 		VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
