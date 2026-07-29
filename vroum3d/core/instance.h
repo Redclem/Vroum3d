@@ -20,7 +20,13 @@
 namespace Vroum3d::Core
 {
 
+#ifdef VROUM3D_ENABLE_SYNCVAL
+constexpr bool c_enable_syncval = true;
+#else
 constexpr bool c_enable_syncval = false;
+#endif
+
+
 
 template<bool enable = false>
 class InstanceDebugData {

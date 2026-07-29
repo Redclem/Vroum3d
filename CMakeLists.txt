@@ -69,6 +69,10 @@ if(DEFINED VULKAN_SDK_DIR)
 	target_link_directories(vroum3d PUBLIC ${VULKAN_SDK_DIR}/lib)
 endif()
 
+if(VROUM3D_ENABLE_SYNCVAL)
+  set(VROUM3D_COMPILE_DEF ${VROUM3D_COMPILE_DEF} VROUM3D_ENABLE_SYNCVAL)
+endif()
+
 target_compile_definitions(vroum3d PUBLIC ${VROUM3D_COMPILE_DEF})
 
 
