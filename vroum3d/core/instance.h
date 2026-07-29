@@ -197,6 +197,7 @@ class DisplayInstance : public Instance {
 
 	VkFormat m_depth_format;
 	VkSurfaceFormatKHR m_sw_format;
+	VkPresentModeKHR m_sw_pres_mode;
 	std::uint32_t m_w, m_h;
   VkImageUsageFlags m_depth_image_usage;
   bool m_resized = false;
