@@ -64,7 +64,7 @@ void Instance::destroy()
 	m_inst.destroy_with([&](auto inst){vkDestroyInstance(inst, nullptr);});
 }
 
-void Instance::create_instance(ExtensionsLayers&& el, const void* instance_pnext)
+void Instance::create_instance(ExtensionsLayers&& el, void* instance_pnext)
 {
 	std::vector<VkLayerProperties> lprops =
 		wrap_enumerate<vkEnumerateInstanceLayerProperties>();
@@ -170,7 +170,7 @@ void Instance::choose_pdev()
 	m_pdev = best_pdev;
 }
 
-void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR surf, const void* device_pnext)
+void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR surf, void* device_pnext)
 {
 	auto queues = wrap_enumerate<vkGetPhysicalDeviceQueueFamilyProperties>(m_pdev);
 

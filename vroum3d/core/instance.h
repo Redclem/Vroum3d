@@ -78,13 +78,13 @@ public:
 	};
 
 	template<typename InstanceInfo = DefaultInstanceInfo>
-  Instance(const InstanceInfo& ii = {})
+  Instance(InstanceInfo&& ii = {})
   {
 		create_instance(ii.inst_exts_lays(), ii.instance_pnext());
     create_dbg_mesg(m_inst, *ii.debug_messenger_info());
 
 		choose_pdev();
-		create_device(ii.dev_exts());
+		create_device(ii.dev_exts(), VK_NULL_HANDLE, ii.device_pnext());
 
 		create_transfer_pool();
 
@@ -92,14 +92,14 @@ public:
 protected:
 	/** Create Instance with VkInstance only, to allow surface creation before device creation (for present queue) */
 	template<typename InstanceInfo = DefaultInstanceInfo>
-  Instance(DelayedDeviceCreation, const InstanceInfo& ii = {})
+  Instance(DelayedDeviceCreation, InstanceInfo&& ii = {})
 	{
 		create_instance(ii.inst_exts_lays(), ii.instance_pnext());
     create_dbg_mesg(m_inst, *ii.debug_messenger_info());
 	}
 
 	template<typename InstanceInfo = DefaultInstanceInfo>
-	void create_device(const InstanceInfo& ii = {}, VkSurfaceKHR surf = VK_NULL_HANDLE)
+	void create_device(InstanceInfo&& ii = {}, VkSurfaceKHR surf = VK_NULL_HANDLE)
 	{
 		choose_pdev();
 		create_device(ii.dev_exts(), surf, ii.device_pnext());
@@ -128,18 +128,18 @@ public:
 private:
 
 
-	void create_instance(ExtensionsLayers&& el, const void* instance_pnext = nullptr);
+	void create_instance(ExtensionsLayers&& el, void* instance_pnext = nullptr);
 
 	void choose_pdev();
-	void create_device(const std::vector<std::string>& exts, VkSurfaceKHR surf = VK_NULL_HANDLE, const void* device_pnext = nullptr);
+	void create_device(const std::vector<std::string>& exts, VkSurfaceKHR surf = VK_NULL_HANDLE, void* device_pnext = nullptr);
 };
 
 template<bool debug_enable>
 struct InstanceInfoDebug
 {
-  const void* instance_pnext() const {return nullptr;}
+  void* instance_pnext() const {return nullptr;}
 
-  const VkDebugUtilsMessengerCreateInfoEXT* debug_messenger_info() const {return nullptr;}
+  VkDebugUtilsMessengerCreateInfoEXT* debug_messenger_info() const {return nullptr;}
 };
 
 template<>
@@ -190,13 +190,13 @@ struct InstanceInfoDebug<true>
     nullptr
   };
 
-  InstanceInfoDebug()
-  {
-    if constexpr(c_layer_settings.size() > 0) dbi.pNext = &lays_s;
-  }
+  InstanceInfoDebug() {}
 
-  const void* instance_pnext() const {return reinterpret_cast<const void*>(&dbi);}
-  const VkDebugUtilsMessengerCreateInfoEXT* debug_messenger_info() const {return &dbi;}
+  void* instance_pnext() {
+    if constexpr(c_layer_settings.size() > 0) dbi.pNext = &lays_s;
+    return reinterpret_cast<void*>(&dbi);
+  }
+  const VkDebugUtilsMessengerCreateInfoEXT* debug_messenger_info() {return &dbi;}
 };
 
 struct DefaultInstanceInfo : InstanceInfoDebug<debug>
@@ -218,7 +218,7 @@ struct DefaultInstanceInfo : InstanceInfoDebug<debug>
 		}();
 	};
 
-	Instance::ExtensionsLayers inst_exts_lays() const
+	Instance::ExtensionsLayers inst_exts_lays() 
 	{	
 		constexpr auto extarray = DefaultInstanceExtensions<debug>::value;
 		constexpr auto layarray = DefaultInstanceLayers<debug>::value;
@@ -227,9 +227,9 @@ struct DefaultInstanceInfo : InstanceInfoDebug<debug>
 			{layarray.begin(), layarray.end()}};
 	}
 
-	std::vector<std::string> dev_exts() const {return {};}
+	std::vector<std::string> dev_exts() {return {};}
 
-  const void* device_pnext() const {return nullptr;}
+  void* device_pnext() {return nullptr;}
 
   using InstanceInfoDebug<debug>::instance_pnext;
 };
@@ -298,9 +298,9 @@ public:
   {
     SDL_Window* m_wind;
 
-    DisplayInstanceInfo(Display& disp, const InstanceInfo& ii = {}) : InstanceInfo(ii), m_wind(disp.window()) {}
+    DisplayInstanceInfo(Display& disp, InstanceInfo&& ii = {}) : InstanceInfo(ii), m_wind(disp.window()) {}
 
-    ExtensionsLayers inst_exts_lays() const
+    ExtensionsLayers inst_exts_lays() 
     {
       auto el = InstanceInfo::inst_exts_lays();
 
@@ -315,7 +315,7 @@ public:
 			return el;
     }
 
-		auto dev_exts() const {
+		auto dev_exts() {
       auto vec = InstanceInfo::dev_exts();
       vec.push_back("VK_KHR_swapchain");
       return vec;
@@ -325,7 +325,7 @@ public:
   };
 
 	template<typename InstanceInfo>
-	DisplayInstance(Display& disp, const InstanceInfo& ii) : Instance(DelayedDeviceCreation(), ii)
+	DisplayInstance(Display& disp, InstanceInfo&& ii) : Instance(DelayedDeviceCreation(), ii)
 	{
 		create_surf(disp.m_wind);
 
