@@ -52,18 +52,6 @@ public:
 	}
 
   void create_dbg_mesg(VkInstance inst, const VkDebugUtilsMessengerCreateInfoEXT& ci);
-
-  constexpr static VkBool32 c_sync_val_enabled = VK_TRUE;
-  constexpr static std::array c_layer_settings = [](){
-    if constexpr (c_enable_syncval) return std::array<VkLayerSettingEXT, 1>{{{
-    "VK_LAYER_KHRONOS_validation",
-    "validate_sync",
-    VK_LAYER_SETTING_TYPE_BOOL32_EXT,
-    1,
-    &c_sync_val_enabled
-  }}};
-    else return std::array<VkLayerSettingEXT, 0>();
-  }();
 };
 
 class Instance : public AssignDestroy<Instance>, private InstanceDebugData<debug>, public Allocator
@@ -92,7 +80,8 @@ public:
 	template<typename InstanceInfo = DefaultInstanceInfo>
   Instance(const InstanceInfo& ii = {})
   {
-		create_instance(ii.inst_exts_lays());
+		create_instance(ii.inst_exts_lays(), ii.instance_pnext());
+    create_dbg_mesg(m_inst, *ii.debug_messenger_info());
 
 		choose_pdev();
 		create_device(ii.dev_exts());
@@ -105,14 +94,15 @@ protected:
 	template<typename InstanceInfo = DefaultInstanceInfo>
   Instance(DelayedDeviceCreation, const InstanceInfo& ii = {})
 	{
-		create_instance(ii.inst_exts_lays());
+		create_instance(ii.inst_exts_lays(), ii.instance_pnext());
+    create_dbg_mesg(m_inst, *ii.debug_messenger_info());
 	}
 
 	template<typename InstanceInfo = DefaultInstanceInfo>
 	void create_device(const InstanceInfo& ii = {}, VkSurfaceKHR surf = VK_NULL_HANDLE)
 	{
 		choose_pdev();
-		create_device(ii.dev_exts(), surf);
+		create_device(ii.dev_exts(), surf, ii.device_pnext());
 
 		create_transfer_pool();
 	}
@@ -138,13 +128,78 @@ public:
 private:
 
 
-	void create_instance(ExtensionsLayers&& el);
+	void create_instance(ExtensionsLayers&& el, const void* instance_pnext = nullptr);
 
 	void choose_pdev();
-	void create_device(const std::vector<std::string>& exts, VkSurfaceKHR surf = VK_NULL_HANDLE);
+	void create_device(const std::vector<std::string>& exts, VkSurfaceKHR surf = VK_NULL_HANDLE, const void* device_pnext = nullptr);
 };
 
-struct DefaultInstanceInfo
+template<bool debug_enable>
+struct InstanceInfoDebug
+{
+  const void* instance_pnext() const {return nullptr;}
+
+  const VkDebugUtilsMessengerCreateInfoEXT* debug_messenger_info() const {return nullptr;}
+};
+
+template<>
+struct InstanceInfoDebug<true>
+{
+  constexpr static VkBool32 c_sync_val_enabled = VK_TRUE;
+  constexpr static std::array c_layer_settings = [](){
+    if constexpr (c_enable_syncval) return std::array<VkLayerSettingEXT, 1>{{{
+    "VK_LAYER_KHRONOS_validation",
+    "validate_sync",
+    VK_LAYER_SETTING_TYPE_BOOL32_EXT,
+    1,
+    &c_sync_val_enabled
+  }}};
+    else return std::array<VkLayerSettingEXT, 0>();
+  }();
+
+  VkLayerSettingsCreateInfoEXT lays_s = {
+    VK_STRUCTURE_TYPE_LAYER_SETTINGS_CREATE_INFO_EXT,
+    nullptr,
+    c_layer_settings.size(),
+    c_layer_settings.data()
+  };
+
+  static VkBool32 callback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT sever,
+    VkDebugUtilsMessageTypeFlagsEXT type,
+    const VkDebugUtilsMessengerCallbackDataEXT* cbd,
+    void*) 
+  {
+    Vroum3d::log("Vulkan Message:");
+    Vroum3d::log("Severity:", string_VkDebugUtilsMessageSeverityFlagsEXT(sever));
+    Vroum3d::log("Type:", string_VkDebugUtilsMessageTypeFlagsEXT(type));
+    Vroum3d::log(cbd->pMessage, "\n\n");
+    return VK_FALSE;
+  };
+
+  VkDebugUtilsMessengerCreateInfoEXT dbi = {
+    VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+    nullptr,
+    0,
+    VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
+    VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT,
+    VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | 
+    VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT | 
+    VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT,
+    callback,
+    nullptr
+  };
+
+  InstanceInfoDebug()
+  {
+    if constexpr(c_layer_settings.size() > 0) dbi.pNext = &lays_s;
+  }
+
+  const void* instance_pnext() const {return reinterpret_cast<const void*>(&dbi);}
+  const VkDebugUtilsMessengerCreateInfoEXT* debug_messenger_info() const {return &dbi;}
+};
+
+struct DefaultInstanceInfo : InstanceInfoDebug<debug>
 {
 	template<bool dbg = false>
 	struct DefaultInstanceExtensions {
@@ -173,6 +228,8 @@ struct DefaultInstanceInfo
 	}
 
 	std::vector<std::string> dev_exts() const {return {};}
+
+  const void* device_pnext() const {return nullptr;}
 };
 
 class DisplayInstance : public Instance {
@@ -235,16 +292,15 @@ public:
 	~DisplayInstance() {destroy();}
 
   template<typename InstanceInfo = DefaultInstanceInfo>
-  struct DisplayInstanceInfo
+  struct DisplayInstanceInfo : public InstanceInfo
   {
-    const InstanceInfo& m_ii;
     SDL_Window* m_wind;
 
-    DisplayInstanceInfo(Display& disp, const InstanceInfo& ii = {}) : m_ii(ii), m_wind(disp.window()) {}
+    DisplayInstanceInfo(Display& disp, const InstanceInfo& ii = {}) : InstanceInfo(ii), m_wind(disp.window()) {}
 
     ExtensionsLayers inst_exts_lays() const
     {
-      auto el = m_ii.inst_exts_lays();
+      auto el = InstanceInfo::inst_exts_lays();
 
       Uint32 n_exts;
       const char * const * exts = SDL_Vulkan_GetInstanceExtensions(&n_exts);
@@ -258,7 +314,7 @@ public:
     }
 
 		auto dev_exts() const {
-      auto vec = m_ii.dev_exts();
+      auto vec = InstanceInfo::dev_exts();
       vec.push_back("VK_KHR_swapchain");
       return vec;
     }

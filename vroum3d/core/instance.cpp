@@ -64,7 +64,7 @@ void Instance::destroy()
 	m_inst.destroy_with([&](auto inst){vkDestroyInstance(inst, nullptr);});
 }
 
-void Instance::create_instance(ExtensionsLayers&& el)
+void Instance::create_instance(ExtensionsLayers&& el, const void* instance_pnext)
 {
 	std::vector<VkLayerProperties> lprops =
 		wrap_enumerate<vkEnumerateInstanceLayerProperties>();
@@ -109,7 +109,7 @@ void Instance::create_instance(ExtensionsLayers&& el)
 
 	VkInstanceCreateInfo nfo = {
 		VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-		nullptr,
+		instance_pnext,
 		0,
 		&appi,
 		std::uint32_t(lays.size()),
@@ -117,52 +117,9 @@ void Instance::create_instance(ExtensionsLayers&& el)
 		std::uint32_t(exts.size()),
 		exts.data()
 	};
+		
 
-	if constexpr(debug)
-	{
-    VkLayerSettingsCreateInfoEXT lays_s = {
-      VK_STRUCTURE_TYPE_LAYER_SETTINGS_CREATE_INFO_EXT,
-      nullptr,
-      c_layer_settings.size(),
-      c_layer_settings.data()
-    };
-
-		PFN_vkDebugUtilsMessengerCallbackEXT callback = [](
-			VkDebugUtilsMessageSeverityFlagBitsEXT sever,
-			VkDebugUtilsMessageTypeFlagsEXT type,
-			const VkDebugUtilsMessengerCallbackDataEXT* cbd,
-			void*
-		       ) -> VkBool32 {
-      Vroum3d::log("Vulkan Message:");
-      Vroum3d::log("Severity:", string_VkDebugUtilsMessageSeverityFlagsEXT(sever));
-      Vroum3d::log("Type:", string_VkDebugUtilsMessageTypeFlagsEXT(type));
-		  Vroum3d::log(cbd->pMessage, "\n\n");
-			return VK_FALSE;
-		};
-
-		VkDebugUtilsMessengerCreateInfoEXT dbi = {
-			VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-			nullptr,
-			0,
-			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
-			VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT,
-			VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | 
-			VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT | 
-			VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT,
-			callback,
-			nullptr
-		};
-
-    if constexpr(c_layer_settings.size() > 0) dbi.pNext = &lays_s;
-
-		nfo.pNext = &dbi;
-
-		vk_check(vkCreateInstance(&nfo, nullptr, &m_inst));
-
-    create_dbg_mesg(m_inst, dbi);
-	}
-	else
-		vk_check(vkCreateInstance(&nfo, nullptr, &m_inst));
+  vk_check(vkCreateInstance(&nfo, nullptr, &m_inst));
 }
 
 void InstanceDebugData<true>::create_dbg_mesg(VkInstance inst, const VkDebugUtilsMessengerCreateInfoEXT& ci)
@@ -213,7 +170,7 @@ void Instance::choose_pdev()
 	m_pdev = best_pdev;
 }
 
-void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR surf)
+void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR surf, const void* device_pnext)
 {
 	auto queues = wrap_enumerate<vkGetPhysicalDeviceQueueFamilyProperties>(m_pdev);
 
@@ -285,7 +242,7 @@ void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR 
 
 	VkDeviceCreateInfo di{
 		VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-		nullptr,
+		device_pnext,
 		0,
 		std::uint32_t(dqis.size()),
 		dqis.data(),
