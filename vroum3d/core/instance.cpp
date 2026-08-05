@@ -240,9 +240,15 @@ void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR 
 	for(auto& elem : exts)
 		exts_c_str.push_back(elem.c_str());
 
+	VkPhysicalDeviceVulkan13Features vk13feats{};
+	vk13feats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+  vk13feats.pNext = device_pnext;
+	vk13feats.dynamicRendering = VK_TRUE;
+	vk13feats.synchronization2 = VK_TRUE;
+
 	VkDeviceCreateInfo di{
 		VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-		device_pnext,
+		&vk13feats,
 		0,
 		std::uint32_t(dqis.size()),
 		dqis.data(),
@@ -252,13 +258,6 @@ void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR 
 		exts_c_str.data(),
 		nullptr
 	};
-
-	VkPhysicalDeviceVulkan13Features vk13feats{};
-	vk13feats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-	vk13feats.dynamicRendering = VK_TRUE;
-	vk13feats.synchronization2 = VK_TRUE;
-
-	di.pNext = &vk13feats;
 
 	vk_check(vkCreateDevice(m_pdev, &di, nullptr, &m_dev));
 
