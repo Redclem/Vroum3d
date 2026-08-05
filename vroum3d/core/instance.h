@@ -230,6 +230,8 @@ struct DefaultInstanceInfo : InstanceInfoDebug<debug>
 	std::vector<std::string> dev_exts() const {return {};}
 
   const void* device_pnext() const {return nullptr;}
+
+  using InstanceInfoDebug<debug>::instance_pnext;
 };
 
 class DisplayInstance : public Instance {
