@@ -109,7 +109,7 @@ if(VROUM3D_EXAMPLES)
   add_example(static)
   add_example(bench_allocator)
 
-  set(VROUM3D_SHADERS)
+  set(VROUM3D_SHADERS ON)
 endif()
 
 function(add_exec_test test_name)
@@ -172,3 +172,6 @@ if(VROUM3D_SHADERS)
   add_shader(static.frag)
   add_shader(static.vert)
 endif()
+
+add_shader(gui_win_to_vp.vert)
+add_shader(gui_fill.frag)

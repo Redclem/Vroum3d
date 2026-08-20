@@ -1,11 +1,15 @@
 #ifndef VROUM3D_GUI_BASE_H_INCLUDED
 #define VROUM3D_GUI_BASE_H_INCLUDED
 
-#include "../core/instance.h"
+#include "common.h"
 #include "element.h"
 
-#include <map>
+#include "../core/pipeline.h"
+#include "../core/instance.h"
+
 #include <vulkan/vulkan_core.h>
+
+#include <map>
 
 namespace Vroum3d::Gui
 {
@@ -17,9 +21,6 @@ using namespace Core;
 class Base : public AssignDestroy<Base>
 {
 public:
-
-	using init_elements_t = std::vector<Element*>;
-
 
 private:
 	struct Texture
@@ -34,19 +35,27 @@ private:
 	bool rgb_supported();
 
 
-	void set_root_elem(Element* elem) {
-		m_root_elem = elem;
-	}
-
-	Element* m_first_elem = nullptr, *m_root_elem = nullptr;
+	Element *m_root_elem = nullptr;
 
 	DisplayInstance* m_instance;
+	PipelineResource * m_pipe_res;
 	VkDevice m_device;
 
 	VkHandle<VkBuffer> m_buffer;
-	VkHandle<VkDeviceMemory> m_mem;
+	Allocator::OwnedMemory m_mem;
 	texture_container_t m_textures;
 	bool m_rgb;
+	VkDeviceSize m_buffer_size;
+	
+	Pipeline m_fill_pipe;
+	RenderCommands m_render_commands;
+	VkHandle<VkCommandPool> m_cmd_pool;
+	VkCommandBuffer m_pre_render_buffer, m_render_buffer;
+
+
+	void init_command_buffers();
+
+	void build_render_buffer();
 
 public:
 
@@ -54,18 +63,32 @@ public:
 		destroy();
 	}
 
-	void destroy();
+	void set_root_elem(Element* elem) {
+		m_root_elem = elem;
+	}
 
-	Base(DisplayInstance& inst) : m_instance(&inst), m_device(inst.device()) {}
+	VkCommandBuffer pre_render_buffer() const {return m_pre_render_buffer;}
+
+	void destroy();
+	auto instance() const {return m_instance;}
+
+	Base(DisplayInstance& inst, PipelineResource& pr);
 
 	VkDevice device() const {return m_device;}
 
 	void init();
 
-	void register_element(Element* elem)
+	VkDeviceSize require_buffer_space(VkDeviceSize space)
 	{
-		elem->m_next_element = m_first_elem;
-		m_first_elem = elem;
+		VkDeviceSize ofs = m_buffer_size;
+		m_buffer_size += space;
+		return ofs;
+	}
+
+	void arrange()
+	{
+		m_root_elem->set_position({0, 0, m_instance->w(), m_instance->h()});
+		m_root_elem->arrange();
 	}
 };
 

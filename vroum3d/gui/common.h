@@ -1,7 +1,10 @@
 #ifndef VROUM3D_GUI_COMMON_H_INCLUDED
 #define VROUM3D_GUI_COMMON_H_INCLUDED
 
+#include <vulkan/vulkan.h>
+
 #include <cstdint>
+#include <vector>
 
 namespace Vroum3d::Gui
 {
@@ -66,7 +69,12 @@ inline Extent operator-(Extent lhs, const Extent& rhs)
 	return lhs -= rhs;
 }
 
-struct Rect : Extent, Point {
+struct Rect : Point, Extent {
+	
+	constexpr Rect(px_t _x, px_t _y, px_t _w, px_t _h) : Point(_x, _y), Extent(_w, _h) {}
+	constexpr Rect(Point p, Extent e) : Point(p), Extent(e) {}
+	constexpr Rect() {}
+
 	Point& origin()
 	{
 		return static_cast<Point&>(*this);
@@ -88,6 +96,21 @@ struct Rect : Extent, Point {
 	}
 };
 
+
+struct RenderCommands
+{
+	struct RenderFill
+	{
+		VkDeviceSize buffer_ofs, n_vertex;
+	};
+
+	std::vector<RenderFill> fills;
+
+	void clear()
+	{
+		fills.clear();
+	}
+};
 
 }
 

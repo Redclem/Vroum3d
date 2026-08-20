@@ -1,7 +1,9 @@
 #include "base.h"
 #include "element.h"
+
 #include "../core/vkutil.h"
 #include "../core/objects.h"
+#include "../core/pipeline_info.h"
 
 #include "../../ext/stb_image.h"
 
@@ -14,6 +16,8 @@ using namespace Vroum3d::Gui;
 
 void Base::destroy()
 {
+	m_cmd_pool.destroy_with([&](auto cmdp){vkDestroyCommandPool(m_device, cmdp, nullptr);});
+
 	m_buffer.destroy_with([&](auto buf){vkDestroyBuffer(m_device, buf, nullptr);});
 
 	for(auto& [_, tex] : m_textures)
@@ -24,21 +28,12 @@ void Base::destroy()
 
 	m_textures.clear();
 
-	m_mem.destroy_with([&](auto mem) {vkFreeMemory(m_device, mem, nullptr);});
+	instance()->free(m_mem);
 }
 
 void Base::init()
 {
-	m_root_elem->register_element();
-
-	VkDeviceSize buffer_size(0); // Accumulate buffer size, use as current offset
-	for(auto * elem = m_first_elem; elem; elem = elem->m_next_element)
-	{
-		elem->init();
-
-		elem->set_buffer_offset(buffer_size);
-		buffer_size += elem->get_buffer_size();
-	}
+	m_root_elem->init();
 
 	struct Tptr {
 		unsigned char* ptr;
@@ -57,8 +52,6 @@ void Base::init()
 
 	m_rgb = rgb_supported();
 	int chan = m_rgb ? 3 : 4;
-
-	m_first_elem->init();
 
 	VkFormat format = m_rgb ? VK_FORMAT_R8G8B8_SRGB : VK_FORMAT_R8G8B8A8_SRGB;
 
@@ -101,13 +94,13 @@ void Base::init()
 		vkutil::add_mem_reqs(mr, imr);
 	}
 
-	buffer_upl_size += buffer_size;
+	buffer_upl_size += m_buffer_size;
 
 	VkBufferCreateInfo bnfo{
 		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		nullptr,
 		0,
-		buffer_size,
+		m_buffer_size,
 		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 		VK_SHARING_MODE_EXCLUSIVE,
 		0,
@@ -121,16 +114,7 @@ void Base::init()
 
 	vkutil::add_mem_reqs(mr, bmr);
 
-	/** Allocate */
-
-	VkMemoryAllocateInfo anfo{
-		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		nullptr,
-		mr.size,
-		vkutil::find_mem_index(m_instance->pdev(), mr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
-	};
-
-	vk_check(vkAllocateMemory(m_device, &anfo, nullptr, &m_mem));
+	m_mem = instance()->allocate(mr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 	Buffer buf(*m_instance, buffer_upl_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
@@ -189,7 +173,7 @@ void Base::init()
 		{
 			ofs = vkutil::match_offset(ofs, mri->second.alignment);
 
-			vk_check(vkBindImageMemory(m_device, tex.img, m_mem, ofs));
+			vk_check(vkBindImageMemory(m_device, tex.img, m_mem.memory(), ofs));
 
 			VkImageViewCreateInfo vnfo{
 				VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -232,10 +216,11 @@ void Base::init()
 	}
 
 	ofs = vkutil::match_offset(ofs, bmr.alignment);
-	vk_check(vkBindBufferMemory(m_device, m_buffer, m_mem, ofs));
+	vk_check(vkBindBufferMemory(m_device, m_buffer, m_mem.memory(), ofs + m_mem.offset()));
 
-	for(auto elem = m_first_elem; elem; elem = elem->m_next_element)
-		elem->record_upl_commands(upl_cmd);
+	arrange();
+
+	m_root_elem->record_upl_commands(upl_cmd);
 
 	upl_cmd.end();
 
@@ -262,4 +247,39 @@ bool Base::rgb_supported()
 	VkFormatProperties2 fp;
 	vkGetPhysicalDeviceFormatProperties2(m_instance->pdev(), VK_FORMAT_R8G8B8_SRGB, &fp);
 	return fp.formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_BIT;
+}
+
+Base::Base(DisplayInstance& inst, PipelineResource& pr) : m_instance(&inst), m_pipe_res(&pr), m_device(inst.device()),
+	m_fill_pipe(pr, 
+		RenderPipelineInformation(pr, "gui_win_to_vp.vert.spv", "gui_fill.frag.spv",
+				{{sizeof(Point)}}, {{0, 0}})
+	)
+{
+	init_command_buffers();
+}
+
+void Base::init_command_buffers()
+{
+	VkCommandPoolCreateInfo pi{
+		VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		nullptr,
+		VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+		m_instance->graphic_queue_index()
+	};
+
+	vk_check(vkCreateCommandPool(m_device, &pi, nullptr, &m_cmd_pool));
+
+	VkCommandBufferAllocateInfo cmdai{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		nullptr,
+		m_cmd_pool,
+		VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		1
+	};
+
+	vk_check(vkAllocateCommandBuffers(m_device, &cmdai, &m_render_buffer));
+
+	cmdai.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+
+	vk_check(vkAllocateCommandBuffers(m_device, &cmdai, &m_pre_render_buffer));
 }

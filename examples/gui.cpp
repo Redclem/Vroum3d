@@ -8,8 +8,9 @@ int main(int, char*[])
 {
 	Display disp;
 	DisplayInstance inst(disp);
+	PipelineResource pr(inst);
 
-	Base b(inst);
+	Base b(inst, pr);
 
 	return 0;
 }
