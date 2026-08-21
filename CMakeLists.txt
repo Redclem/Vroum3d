@@ -121,6 +121,7 @@ function(add_exec_test test_name)
 	target_link_options(test_${test_name} PRIVATE ${EXEC_LINK_OPTS})
 
 	target_compile_options(test_${test_name} PRIVATE "${VROUM3D_CXXFLAGS}")
+	target_compile_definitions(test_${test_name} PRIVATE "VROUM3D_TESTING")
 
 	add_test(NAME ${test_name} COMMAND test_${test_name})
 endfunction()

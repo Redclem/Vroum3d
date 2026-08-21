@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <malloc.h>
 #include <memory>
+#include <stdexcept>
 #include <type_traits>
 #include <unordered_set>
 #include <vulkan/vulkan.h>
@@ -20,7 +21,7 @@
 namespace Vroum3d::Core
 {
 
-class Allocator
+class Allocator : public NonCopyable
 {
 public:
 
@@ -78,34 +79,50 @@ public:
   static constexpr std::size_t c_prim_bin_size = c_log_largest_block_size - c_log_smallest_block_size + 1;
   static constexpr std::size_t c_sec_bin_size = 16;
 
-  static constexpr std::size_t c_n_mem_types = 32;
+  static constexpr std::size_t c_n_mem_types = VK_MAX_MEMORY_TYPES;
 
-  static_assert(VK_MAX_MEMORY_TYPES <= c_n_mem_types);
+	static constexpr std::size_t c_mem_idx_bit_width = 8;
 
-  
+	static_assert(c_n_mem_types <= (1 << c_mem_idx_bit_width));
 
 private:
 	VkDevice m_device = VK_NULL_HANDLE;
-	VkPhysicalDevice m_pdev = VK_NULL_HANDLE;
+	VkPhysicalDeviceMemoryProperties m_mem_props;
+	VkDeviceSize m_nonCoherentAtomSize;
 
+	struct DeviceBlock;
+	using device_blocks_t = Bag<DeviceBlock, 256>;
+	using device_block_ptr_t = device_blocks_t::ptr_t;
+
+	struct DeviceBlock
+	{
+		VkDeviceMemory mem_handle;
+		char* mapped_addr = nullptr;
+		std::uint32_t idx : c_mem_idx_bit_width;
+		device_block_ptr_t prev, next;
+		bool visible : 1, coherent: 1;
+		std::uint32_t n_mapped = 0;
+	};
+
+	device_blocks_t m_device_blocks;
+	device_blocks_t::ptr_t m_first_device_block;
+
+	struct MemBlock;
+
+  using block_bag_t = Bag<MemBlock>;
+  using block_ptr_t = block_bag_t::ptr_t;
 
   struct MemBlock
   {
-    static constexpr std::size_t c_mem_idx_bit_width = 8;
-
-    static_assert(c_n_mem_types <= (1 << c_mem_idx_bit_width));
-
     VkDeviceSize size, offset;
     mem_handle_t mem_handle;
-    Bag<MemBlock>::ptr_t phys_next = nullptr, phys_prev = nullptr;
-    Bag<MemBlock>::ptr_t list_next = nullptr, list_prev = nullptr;
+    block_ptr_t phys_next = nullptr, phys_prev = nullptr;
+    block_ptr_t list_next = nullptr, list_prev = nullptr;
+		device_block_ptr_t device_memory_block;
     std::uint32_t mem_idx : c_mem_idx_bit_width;
     bool free : 1 = false; // Should represent at any time if the block is inserted in a free block chain
     // TODO : Add host visible / coherent
   };
-
-  using block_bag_t = Bag<MemBlock>;
-  using block_ptr_t = block_bag_t::ptr_t;
 
   using mem_block_t = MemBlock;
 
@@ -171,11 +188,10 @@ private:
   prim_bins_t m_prim_bins;
   block_bag_t m_bag;
 
-  using memory_handles_t = std::unordered_set<mem_handle_t>;
-  memory_handles_t m_mem_handles;
-
   // Only call when associated memory index is empty. Returns a new block allocated through vk without inserting it in the pools.
-  block_ptr_t allocate_vk_block(std::uint32_t index);
+  block_ptr_t allocate_device_block(std::uint32_t index);
+
+	void free_device_block(device_block_ptr_t block);
 
   // Insert block (usually after allocating part of it) in pools
   void insert_block(std::uint32_t mem_idx, block_ptr_t block)
@@ -192,16 +208,27 @@ private:
   // Split block (reduce size to given size, returns block following)
   block_ptr_t split_block(VkDeviceSize newsize, block_ptr_t block);
 
-  // Try to merge block with physical neighbors
-  void merge(block_ptr_t block);
+  /* Try to merge block with physical neighbors and insert it in free blocks list
+	 * \return The previous block if the block was merged with the previous one (and thus this one was deleted)
+	 */
+  block_ptr_t merge_insert(block_ptr_t block);
 
   // Free block
   void free(block_ptr_t b);
   
   // Allocate Memory
   block_ptr_t allocate_inner(std::uint32_t mem_idx, VkDeviceSize size, VkDeviceSize alignment);
+	
+	// Flush post check
+	void flush_inner(block_ptr_t b);
 
+	// Invalidate post check
+	void invalidate_inner(block_ptr_t b);
+
+	// Remove block from list of free blocks of its pool
   void remove_free_list(block_ptr_t removed);
+
+	// Map 
 
 public:
 
@@ -231,6 +258,14 @@ public:
     mem_handle_t memory() const {return base()->mem_handle;}
     VkDeviceSize offset() const {return base()->offset;}
     VkDeviceSize size() const {return base()->size;}
+
+		bool visible() const {
+			return base()->device_memory_block->visible;
+		}
+
+		bool coherent() const {
+			return base()->device_memory_block->coherent;
+		}
   };
 
   using allocated_memory_t = AllocatedMemory;
@@ -239,7 +274,7 @@ public:
    * On vulkan exception in memory allocation, state is unchanged.
    * */
   allocated_memory_t allocate(std::uint32_t mem_idx, VkDeviceSize s, VkDeviceSize alignment = 1) {
-    check(s <= c_largest_block_size);
+    if constexpr (debug) check(s <= c_largest_block_size);
     return allocate_inner(mem_idx, s, alignment);
   }
 
@@ -249,6 +284,30 @@ public:
   {
     return allocate_inner(find_mem_index(mr, mf), mr.size, mr.alignment);
   }
+
+	/** Map memory block to host memory (or compute pointer from already mapped) */
+	char * map(block_ptr_t block);
+
+	/** Unmap memory block */
+	void unmap(block_ptr_t block);
+
+	/** Flush mapped memory.
+	 * Already checks if memory is coherent to avoid superfluous API calls.*/
+	void flush(block_ptr_t block)
+	{
+		if(block->device_memory_block->coherent) return;
+
+		flush_inner(block);
+	}
+
+	/** Invalidate mapped memory.
+	 * Already checks if memory is coherent to avoid superfluous API calls.*/
+	void invalidate(block_ptr_t block)
+	{
+		if(block->device_memory_block->coherent) return;
+
+		invalidate_inner(block);
+	}
 
   /** Owned memory handle, non copyable. Ensures unique ownership of memory handle and no duplication
    * Similar role to what would be VkHandle<VkDeviceMemory>
@@ -296,6 +355,11 @@ public:
 
   using owned_memory_t = OwnedMemory;
 
+	auto map(const owned_memory_t& b) {return map(b.base());}
+	void unmap(const owned_memory_t& b) {unmap(b.base());}
+	void flush(const owned_memory_t& b) {flush(b.base());}
+	void invalidate(const owned_memory_t& b) {invalidate(b.base());}
+
   // Free memory
   void free(allocated_memory_t am) {
     if(am)
@@ -320,13 +384,20 @@ public:
 
 	VkDevice device() const{return m_device;}
 
-	VkPhysicalDevice pdev() const {return m_pdev;}
-
 	void destroy();
+
+	~Allocator() {destroy();}
 
   std::uint32_t find_mem_index(const VkMemoryRequirements& mr, VkMemoryPropertyFlags props)
   {
-    return vkutil::find_mem_index(m_pdev, mr, props);
+		std::uint32_t bit(1);
+		for(std::uint32_t idx(0); idx != m_mem_props.memoryTypeCount; ++idx)
+		{
+			if(bit & mr.memoryTypeBits && (props & m_mem_props.memoryTypes[idx].propertyFlags) == props)
+				return idx;
+		}
+
+		throw std::runtime_error("No matching memory type");
   }
 
 protected:

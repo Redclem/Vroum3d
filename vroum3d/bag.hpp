@@ -11,22 +11,24 @@
 namespace Vroum3d
 {
 
-template<typename T, typename Allocator = std::allocator<T>>
+template<typename T, std::size_t Subbag_size = 1024, typename Allocator = std::allocator<T>>
 class Bag : public Allocator
 {
 public:
 	using element_t = T;
 	using allocator_t = Allocator;
 	using allocator_traits_t = std::allocator_traits<allocator_t>;
-	static constexpr std::size_t c_subbag_size = 1024;
+
+	constexpr static std::size_t c_subbag_size = Subbag_size;
 private:
-
-
 
 	union SubbagElement
 	{
-		SubbagElement* next;
-		element_t element;
+		union
+		{
+			SubbagElement* next;
+			element_t element;
+		};
 
 		SubbagElement() {}
 	};

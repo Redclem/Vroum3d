@@ -39,51 +39,18 @@ public:
 
 	char* map()
 	{
-    VkDeviceSize offset = m_mem.offset(), size = m_mem.size();
-
-    VkDeviceSize true_ofs = offset & ~(c_max_atom_size - 1);
-    VkDeviceSize rectified_size = size + offset - true_ofs;
-
-    if(rectified_size % c_max_atom_size)
-    {
-      rectified_size = (rectified_size & ~(c_max_atom_size - 1)) + c_max_atom_size;
-      rectified_size = std::min(rectified_size, Allocator::c_largest_block_size - true_ofs);
-    }
-
-		void* ptr;
-		vk_check(vkMapMemory(m_dev, m_mem.memory(), true_ofs, rectified_size, 0, &ptr));
-		return reinterpret_cast<char*>(ptr) + offset - true_ofs;
+		return m_alloc->map(m_mem);
 	}
 
 	void flush_unmap()
 	{
-    VkDeviceSize offset = m_mem.offset(), size = m_mem.size();
-
-    VkDeviceSize true_ofs = offset & ~(c_max_atom_size - 1);
-    VkDeviceSize rectified_size = size + offset - true_ofs;
-
-    if(rectified_size % c_max_atom_size)
-    {
-      rectified_size = (rectified_size & ~(c_max_atom_size - 1)) + c_max_atom_size;
-      rectified_size = std::min(rectified_size, Allocator::c_largest_block_size - true_ofs);
-    }
-
-		VkMappedMemoryRange mr{
-			VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
-			nullptr,
-			m_mem.memory(),
-			true_ofs,
-			rectified_size
-		};
-
-		vk_check(vkFlushMappedMemoryRanges(m_dev, 1, &mr));
-
-		vkUnmapMemory(m_dev, m_mem.memory());
+		m_alloc->flush(m_mem);
+		m_alloc->unmap(m_mem);
 	}
 
 	void unmap()
 	{
-		vkUnmapMemory(m_dev, m_mem.memory());
+		m_alloc->unmap(m_mem);
 	}
 
   void invalidate()
