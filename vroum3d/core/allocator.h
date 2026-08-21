@@ -280,7 +280,7 @@ public:
 
   /** Allocate memory for given requirements with given memory property bits
    */
-  allocated_memory_t allocate(const VkMemoryRequirements& mr, VkMemoryPropertyFlagBits mf)
+  allocated_memory_t allocate(const VkMemoryRequirements& mr, VkMemoryPropertyFlags mf)
   {
     return allocate_inner(find_mem_index(mr, mf), mr.size, mr.alignment);
   }
