@@ -27,6 +27,7 @@ private:
 	{
 		VkHandle<VkImage> img;
 		VkHandle<VkImageView> view;
+		Allocator::OwnedMemory mem;
 
 		std::uint32_t w, h;
 	};
@@ -35,27 +36,25 @@ private:
 	bool rgb_supported();
 
 
-	Element *m_root_elem = nullptr;
+	Element *m_root_elem = nullptr, *m_first_element;
 
 	DisplayInstance* m_instance;
 	PipelineResource * m_pipe_res;
 	VkDevice m_device;
 
 	VkHandle<VkBuffer> m_buffer;
-	Allocator::OwnedMemory m_mem;
+	Allocator::OwnedMemory m_buffer_mem;
 	texture_container_t m_textures;
 	bool m_rgb;
-	VkDeviceSize m_buffer_size;
 	
 	Pipeline m_fill_pipe;
 	RenderCommands m_render_commands;
 	VkHandle<VkCommandPool> m_cmd_pool;
-	VkCommandBuffer m_pre_render_buffer, m_render_buffer;
-
+	std::vector<VkCommandBuffer> m_cmd_bufs;
 
 	void init_command_buffers();
 
-	void build_render_buffer();
+	void build_render_buffer(uint32_t image_idx);
 
 public:
 
@@ -67,8 +66,6 @@ public:
 		m_root_elem = elem;
 	}
 
-	VkCommandBuffer pre_render_buffer() const {return m_pre_render_buffer;}
-
 	void destroy();
 	auto instance() const {return m_instance;}
 
@@ -78,18 +75,24 @@ public:
 
 	void init();
 
-	VkDeviceSize require_buffer_space(VkDeviceSize space)
-	{
-		VkDeviceSize ofs = m_buffer_size;
-		m_buffer_size += space;
-		return ofs;
-	}
-
 	void arrange()
 	{
+		if(!m_root_elem) return;
 		m_root_elem->set_position({0, 0, m_instance->w(), m_instance->h()});
 		m_root_elem->arrange();
 	}
+
+	void register_element(Element* elem)
+	{
+		elem->m_next_element = m_first_element;
+		m_first_element = elem;
+	}
+
+	void render();
+
+private:
+	void assign_buffer_space();
+	void allocate_buffer();
 };
 
 }

@@ -8,11 +8,28 @@
 #include "../../ext/stb_image.h"
 
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <vulkan/vulkan_core.h>
 
 using namespace Vroum3d::Gui;
+
+struct FillPipeInfo : public RenderPipelineInformation
+{
+	FillPipeInfo(PipelineResource& pr) : RenderPipelineInformation(pr, "gui_win_to_vp.vert.spv", "gui_fill.frag.spv",
+				{{sizeof(Point)}}, {{0, 0}}) {}
+
+	auto get_primitive_topology() const {return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;}
+};
+
+Base::Base(DisplayInstance& inst, PipelineResource& pr) : m_instance(&inst), m_pipe_res(&pr), m_device(inst.device()),
+	m_fill_pipe(pr, 
+		FillPipeInfo(pr)
+	)
+{
+	init_command_buffers();
+}
 
 void Base::destroy()
 {
@@ -24,16 +41,22 @@ void Base::destroy()
 	{
 		tex.view.destroy_with([&](auto v){vkDestroyImageView(m_device, v, nullptr);});
 		tex.img.destroy_with([&](auto im){vkDestroyImage(m_device, im, nullptr);});
+		m_instance->free(tex.mem);
 	}
 
 	m_textures.clear();
 
-	instance()->free(m_mem);
+	if(m_buffer_mem)
+	{
+		instance()->unmap(m_buffer_mem);
+		instance()->free(m_buffer_mem);
+		}
 }
 
 void Base::init()
 {
-	m_root_elem->init();
+	if(m_root_elem)
+		m_root_elem->init();
 
 	struct Tptr {
 		unsigned char* ptr;
@@ -47,8 +70,6 @@ void Base::init()
 	textures.reserve(m_textures.size());
 
 	VkDeviceSize buffer_upl_size = 0;
-
-	VkMemoryRequirements mr{0, 0, 0};
 
 	m_rgb = rgb_supported();
 	int chan = m_rgb ? 3 : 4;
@@ -91,16 +112,25 @@ void Base::init()
 		VkMemoryRequirements imr;
 		vkGetImageMemoryRequirements(m_device, tex.img, &imr);
 
-		vkutil::add_mem_reqs(mr, imr);
+		tex.mem = m_instance->allocate(imr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		vk_check(vkBindImageMemory(device(), tex.img, tex.mem.memory(), tex.mem.offset()));
+	}
+	
+	VkDeviceSize buffer_size(0);
+
+	for(auto elem = m_first_element; elem; elem = elem->next_element())
+	{
+		elem->set_buffer_offset(buffer_size);
+		buffer_size += elem->buffer_size();
 	}
 
-	buffer_upl_size += m_buffer_size;
+	buffer_upl_size += buffer_size;
 
 	VkBufferCreateInfo bnfo{
 		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		nullptr,
 		0,
-		m_buffer_size,
+		buffer_size,
 		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 		VK_SHARING_MODE_EXCLUSIVE,
 		0,
@@ -112,9 +142,10 @@ void Base::init()
 	VkMemoryRequirements bmr;
 	vkGetBufferMemoryRequirements(m_device, m_buffer, &bmr);
 
-	vkutil::add_mem_reqs(mr, bmr);
+	m_buffer_mem = m_instance->allocate(bmr, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	char * mapped_buffer_addr = instance()->map(m_buffer_mem);
 
-	m_mem = instance()->allocate(mr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	vk_check(vkBindBufferMemory(device(), m_buffer, m_buffer_mem.memory(), m_buffer_mem.offset()));
 
 	Buffer buf(*m_instance, buffer_upl_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
@@ -122,7 +153,7 @@ void Base::init()
 
 	/** Bind and upload data */
 
-	VkDeviceSize ofs(0), upl_ofs(0);
+	VkDeviceSize upl_ofs(0);
 	CommandBuffer upl_cmd(*m_instance);
 	upl_cmd.begin_primary();
 
@@ -171,10 +202,6 @@ void Base::init()
 
 		for(auto& [_, tex] : m_textures)
 		{
-			ofs = vkutil::match_offset(ofs, mri->second.alignment);
-
-			vk_check(vkBindImageMemory(m_device, tex.img, m_mem.memory(), ofs));
-
 			VkImageViewCreateInfo vnfo{
 				VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 				nullptr,
@@ -188,8 +215,6 @@ void Base::init()
 
 			vk_check(vkCreateImageView(m_device, &vnfo, nullptr, &tex.view));
 			
-			ofs += mri->second.size;
-
 			std::uint64_t size = tex.w * tex.h * chan;
 
 			std::memcpy(dt, mri->first.ptr, size);
@@ -215,13 +240,6 @@ void Base::init()
 		}
 	}
 
-	ofs = vkutil::match_offset(ofs, bmr.alignment);
-	vk_check(vkBindBufferMemory(m_device, m_buffer, m_mem.memory(), ofs + m_mem.offset()));
-
-	arrange();
-
-	m_root_elem->record_upl_commands(upl_cmd);
-
 	upl_cmd.end();
 
 	VkSubmitInfo si{
@@ -239,6 +257,17 @@ void Base::init()
 	Fence fnc(*m_instance);
 
 	vk_check(vkQueueSubmit(m_instance->transfer_queue(), 1, &si, fnc.fence()));
+
+	arrange();
+
+	VkDeviceSize ofs(0);
+	for(auto elem = m_first_element; elem; elem = elem->next_element())
+	{
+		elem->set_buffer_data_ptr(mapped_buffer_addr);
+		mapped_buffer_addr += ofs;
+		elem->upload_buffer();
+	}
+
 	fnc.wait();
 }
 
@@ -247,15 +276,6 @@ bool Base::rgb_supported()
 	VkFormatProperties2 fp;
 	vkGetPhysicalDeviceFormatProperties2(m_instance->pdev(), VK_FORMAT_R8G8B8_SRGB, &fp);
 	return fp.formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_BIT;
-}
-
-Base::Base(DisplayInstance& inst, PipelineResource& pr) : m_instance(&inst), m_pipe_res(&pr), m_device(inst.device()),
-	m_fill_pipe(pr, 
-		RenderPipelineInformation(pr, "gui_win_to_vp.vert.spv", "gui_fill.frag.spv",
-				{{sizeof(Point)}}, {{0, 0}})
-	)
-{
-	init_command_buffers();
 }
 
 void Base::init_command_buffers()
@@ -269,17 +289,57 @@ void Base::init_command_buffers()
 
 	vk_check(vkCreateCommandPool(m_device, &pi, nullptr, &m_cmd_pool));
 
+	m_cmd_bufs.resize(instance()->n_swapchain_images());
+
 	VkCommandBufferAllocateInfo cmdai{
 		VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 		nullptr,
 		m_cmd_pool,
 		VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-		1
+		std::uint32_t(m_cmd_bufs.size())
 	};
 
-	vk_check(vkAllocateCommandBuffers(m_device, &cmdai, &m_render_buffer));
+	vk_check(vkAllocateCommandBuffers(m_device, &cmdai, m_cmd_bufs.data()));
+}
 
-	cmdai.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+void Base::build_render_buffer(std::uint32_t image_idx)
+{
+	if(m_root_elem)
+		m_root_elem->record_render_commands(m_render_commands);
 
-	vk_check(vkAllocateCommandBuffers(m_device, &cmdai, &m_pre_render_buffer));
+	auto cmd_buf = m_cmd_bufs[image_idx];
+
+	vk_check(vkResetCommandBuffer(cmd_buf, 0));
+
+	VkCommandBufferBeginInfo bi{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		nullptr,
+		0,
+		nullptr
+	};
+
+	vk_check(vkBeginCommandBuffer(cmd_buf, &bi));	
+	m_instance->begin_rendering(cmd_buf, image_idx);
+
+	vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_fill_pipe.pipeline());
+
+	for(auto& cmd : m_render_commands.fills)
+	{
+		vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_buffer, &cmd.buffer_ofs);
+		vkCmdDraw(cmd_buf, cmd.n_vertex, 1, 0, 0);
+	}
+
+	instance()->end_rendering(cmd_buf, image_idx);
+
+	vk_check(vkEndCommandBuffer(cmd_buf));
+}
+
+void Base::render()
+{
+	uint32_t idx;
+	if(!instance()->acquire_next_image(&idx)) return;
+
+	build_render_buffer(idx);
+
+	instance()->submit_render_present(m_cmd_bufs[idx], idx);
 }

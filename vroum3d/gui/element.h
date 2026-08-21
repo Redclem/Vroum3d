@@ -21,11 +21,15 @@ class Element
 protected:
 	Base* m_base;
 	Rect m_position;
+	char* m_buffer_data_ptr;
 	VkDeviceSize m_buffer_offset;
-	Element* m_next_element = nullptr;
+	Element* m_next_element;
 	
 public:
 
+	auto next_element() const {return m_next_element;}
+
+	void set_buffer_data_ptr(char* ptr) {m_buffer_data_ptr = ptr;}
 	void set_buffer_offset(VkDeviceSize offset) {m_buffer_offset = offset;}
 
 	constexpr Element(Base* base) : m_base(base) {
@@ -33,24 +37,35 @@ public:
 
 	Base* base() const {return m_base;}
 
+	constexpr static VkDeviceSize c_buffer_size = 0;
+
 	/** Get required buffer size for this element
 	 * Does not include child elements!
 	 * Should be constant or at least fixed after init */
-	constexpr virtual VkDeviceSize buffer_size() const {return 0;};
+	constexpr virtual VkDeviceSize buffer_size() const {return c_buffer_size;};
 
 	/** Init Element : 
+	 * - Call ancestor's init function (including if deriving directly from Element !)
 	 * - Init child elements
 	 * - Require needed textures from base using require_texture
 	 * - Build required vk objects
-	 * - Init child elements
 	 */
 	virtual void init();
 
-	virtual void record_upl_commands(VkCommandBuffer cmd_buf);
-	virtual void arrange() {}
+	/** Record upload commands for data upload on initialization / size change
+	 * Do not call on child elements*/
+	virtual void upload_buffer() = 0;
+
+	/** Update inner state on position change.
+	 * Should arrange child elements / elements contained */
+	virtual void arrange();
 
 	const Rect& position() const {return m_position;}
 	void set_position(const Rect& p) {m_position = p;}
+
+	/** Record render commands in given struct
+	 * Also record appropriate child commands */
+	virtual void record_render_commands(RenderCommands& rc) = 0;
 
 };
 
@@ -60,7 +75,7 @@ class Frame : public Element
 
 	struct RenderData
 	{
-		std::array<Point, 4> margin_out, margin_in;
+		std::array<Point, 8> points;
 	};
 
 public:
@@ -72,7 +87,13 @@ public:
 
 	Frame(Base* base, px_t border = 0, px_t margin = 0) : Element(base), m_border(border), m_margin(margin) {}
 
-	constexpr virtual VkDeviceSize buffer_size() const override {return 0;}
+	constexpr static VkDeviceSize c_buffer_size = sizeof(RenderData);
+	constexpr virtual VkDeviceSize buffer_size() const override {return c_buffer_size;}
+	virtual void init() override;
+	virtual void upload_buffer() override;
+
+	virtual void arrange() override;
+	virtual void record_render_commands(RenderCommands& rc) override;
 };
 
 }
