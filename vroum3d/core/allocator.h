@@ -121,7 +121,6 @@ private:
 		device_block_ptr_t device_memory_block;
     std::uint32_t mem_idx : c_mem_idx_bit_width;
     bool free : 1 = false; // Should represent at any time if the block is inserted in a free block chain
-    // TODO : Add host visible / coherent
   };
 
   using mem_block_t = MemBlock;
@@ -213,7 +212,8 @@ private:
 	 */
   block_ptr_t merge_insert(block_ptr_t block);
 
-  // Free block
+  /* Free block
+	 * Block should be unmapped! */
   void free(block_ptr_t b);
   
   // Allocate Memory
@@ -399,6 +399,10 @@ public:
 
 		throw std::runtime_error("No matching memory type");
   }
+
+	/*! TODO: Function to check existence of memory type w/ given flags / try allocation function; custom not found memory type exception
+	 *	\todo Function to check existence of memory type w/ given flags / try allocation function; custom not found memory type exception
+	 */
 
 protected:
 	Allocator() {}

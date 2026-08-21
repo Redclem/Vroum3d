@@ -351,6 +351,11 @@ public:
 
 	VkSemaphore image_available_semaphore() const {return m_image_avail_sem;}
 
+	/* Acquire swapchain image for rendering
+	 * \param index Point to value receiving acquired image index
+	 * \return true if image successfully acquired, false otherwise */
+	
+
 	bool acquire_next_image(std::uint32_t* index)
 	{
 		auto res = vkAcquireNextImageKHR(m_dev, m_sw, 0, m_image_avail_sem, VK_NULL_HANDLE, index);
@@ -383,6 +388,10 @@ public:
 	}
 
   void begin_rendering(VkCommandBuffer buffer, std::uint32_t img_idx, bool secondary_contents = false, VkClearColorValue clear_color_value = {{0.25f, 0.25f, 0.25f, 0.0f}});
+
+	/* End rendering and perform necessary layout transition for presentation.
+	 * Does NOT end command buffer. */
+	
   void end_rendering(VkCommandBuffer cmd_buf, std::uint32_t img_idx);
 
   void set_dynamic_viewport_scissor(VkCommandBuffer cmd_buf)
