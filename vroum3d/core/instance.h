@@ -26,7 +26,7 @@ constexpr bool c_enable_syncval = true;
 constexpr bool c_enable_syncval = false;
 #endif
 
-
+constexpr std::size_t c_frames_in_flight = 2; // AKA number of buffered frames
 
 template<bool enable = false>
 class InstanceDebugData {
@@ -249,15 +249,21 @@ class DisplayInstance : public Instance {
 	VkHandle<VkImageView> m_depth_view;
   owned_memory_t m_depth_mem;
 
-	VkHandle<VkSemaphore> m_image_avail_sem;
-	std::vector<VkHandle<VkSemaphore>> m_render_done_sems;
+	struct FrameSync
+	{
+		VkHandle<VkSemaphore> image_avail_sem, render_done_sem;
+		VkHandle<VkFence> render_done_fence;
 
-	VkHandle<VkFence> m_render_done_fence;
+		std::uint32_t image_index;
+	};
+
+	std::array<FrameSync, c_frames_in_flight> m_frame_sync; // Frame sync primitives, one per buffered frame
 
 	VkFormat m_depth_format;
 	VkSurfaceFormatKHR m_sw_format;
 	VkPresentModeKHR m_sw_pres_mode;
 	std::uint32_t m_w, m_h;
+	std::uint32_t m_next_frame = 0; // Index of next frame in m_frame_sync vector
   VkImageUsageFlags m_depth_image_usage;
   bool m_resized = false;
 
@@ -269,8 +275,6 @@ public:
     m_resized = false;
     return tmp;
   }
-
-  const VkFence& render_done_fence() const {return m_render_done_fence;}
 
   auto present_queue() const {return m_pq;}
 
@@ -339,8 +343,7 @@ public:
     m_depth_image_usage = ii.depth_image_additional_usage() | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
 		create_depth_image();
-		create_semaphores();
-		create_fence();
+		create_frame_sync();
 	}
 
   DisplayInstance(Display& disp) : DisplayInstance(disp, DisplayInstanceInfo(disp, DefaultInstanceInfo())) {}
@@ -349,16 +352,9 @@ public:
 
 	void create_sw();
 
-	VkSemaphore image_available_semaphore() const {return m_image_avail_sem;}
-
-	/* Acquire swapchain image for rendering
-	 * \param index Point to value receiving acquired image index
-	 * \return true if image successfully acquired, false otherwise */
-	
-
-	bool acquire_next_image(std::uint32_t* index)
+	bool acquire_next_image()
 	{
-		auto res = vkAcquireNextImageKHR(m_dev, m_sw, 0, m_image_avail_sem, VK_NULL_HANDLE, index);
+		auto res = vkAcquireNextImageKHR(m_dev, m_sw, 0, m_frame_sync[m_next_frame].image_avail_sem, VK_NULL_HANDLE, &m_frame_sync[m_next_frame].image_index);
 		
     switch(res)
     {
@@ -374,11 +370,22 @@ public:
     }
 	}
 
-	void submit_render_present(VkCommandBuffer cmd_buf, uint32_t img_idx);
+	/* Index of next frame among swapchain frames. Only valid after a successful call to acquire_next_image and before render submission */
+	std::uint32_t next_swapchain_frame()
+	{
+		return m_frame_sync[m_next_frame].image_index;
+	}
+
+	std::uint32_t next_frame()
+	{
+		return m_next_frame;
+	}
+
+	void submit_render_present(VkCommandBuffer cmd_buf);
 
 	bool render_done() const
 	{
-		auto res = vkWaitForFences(m_dev, 1, &m_render_done_fence, VK_TRUE, 0);
+		auto res = vkWaitForFences(m_dev, 1, &m_frame_sync[m_next_frame].render_done_fence, VK_TRUE, 0);
 
 		if(res > 0) return false;
 		
@@ -387,12 +394,8 @@ public:
 		return true;
 	}
 
-  void begin_rendering(VkCommandBuffer buffer, std::uint32_t img_idx, bool secondary_contents = false, VkClearColorValue clear_color_value = {{0.25f, 0.25f, 0.25f, 0.0f}});
-
-	/* End rendering and perform necessary layout transition for presentation.
-	 * Does NOT end command buffer. */
-	
-  void end_rendering(VkCommandBuffer cmd_buf, std::uint32_t img_idx);
+  void begin_rendering(VkCommandBuffer buffer, bool secondary_contents = false, VkClearColorValue clear_color_value = {{0.25f, 0.25f, 0.25f, 0.0f}});
+  void end_rendering(VkCommandBuffer cmd_buf);
 
   void set_dynamic_viewport_scissor(VkCommandBuffer cmd_buf)
   {
@@ -428,13 +431,14 @@ private:
 	/** Takes needed extensions and layers as arg and adds extensions required by layers and by the SDL_Window of display */
 	void fill_exts_lays(ExtensionsLayers& el);
 
-	void create_semaphores();
 	void create_fence();
 
   void resize();
 
   void destroy_swapchain();
   void destroy_depth_image();
+
+	void create_frame_sync();
 };
 
 }
