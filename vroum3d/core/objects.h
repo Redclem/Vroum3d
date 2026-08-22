@@ -155,14 +155,14 @@ public:
 	const VkCommandBuffer & cmd_buf() const {return m_cmd_buf;}
 	operator VkCommandBuffer() const {return cmd_buf();}
 
-	void begin_rendering(DisplayInstance& inst, std::uint32_t idx)
+	void begin_rendering(DisplayInstance& inst)
   {
-    inst.begin_rendering(m_cmd_buf, idx);
+    inst.begin_rendering(m_cmd_buf);
   }
 
-	void end_rendering(DisplayInstance& inst, std::uint32_t idx)
+	void end_rendering(DisplayInstance& inst)
   {
-    inst.end_rendering(m_cmd_buf, idx);
+    inst.end_rendering(m_cmd_buf);
   }
 
 	void bind_graphics_pipeline(DisplayInstance& inst, VkPipeline pipe);

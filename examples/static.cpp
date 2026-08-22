@@ -33,22 +33,21 @@ int main(int, char*[])
 
 	while(run)
 	{
-		uint32_t image_idx;
-		if(inst.render_done() && inst.acquire_next_image(&image_idx))
+		if(inst.render_done() && inst.acquire_next_image())
 		{
 			cmd_buf.reset();
 			cmd_buf.begin_primary();
-			cmd_buf.begin_rendering(inst, image_idx);
+			cmd_buf.begin_rendering(inst);
 
 			cmd_buf.bind_graphics_pipeline(inst, pipe.pipeline());
 			
 
 			cmd_buf.cmd<vkCmdDraw>(6, 1, 0, 0);
 
-			cmd_buf.end_rendering(inst, image_idx);
+			cmd_buf.end_rendering(inst);
 			cmd_buf.end();
 
-			inst.submit_render_present(cmd_buf, image_idx);
+			inst.submit_render_present(cmd_buf);
 		}
 		else
 			std::this_thread::sleep_for(std::chrono::milliseconds(1));
