@@ -448,6 +448,7 @@ void Instance::create_transfer_pool()
 void DisplayInstance::submit_render_present(VkCommandBuffer cmd_buf)
 {	
 	auto& sync = m_frame_sync[m_next_frame];
+	m_next_frame = (m_next_frame + 1) % c_frames_in_flight;
 
 	vk_check(vkResetFences(m_dev, 1, &sync.render_done_fence));
 
@@ -566,7 +567,7 @@ void DisplayInstance::begin_rendering(VkCommandBuffer cmd_buf, bool secondary_co
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		0,
 		0,
-		sw_image(next_frame_index()),
+		sw_image(next_swapchain_frame()),
 		{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
 	},
 	{
@@ -603,7 +604,7 @@ void DisplayInstance::begin_rendering(VkCommandBuffer cmd_buf, bool secondary_co
 	catt{
 		VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
 		nullptr,
-		sw_view(next_frame_index()),
+		sw_view(next_swapchain_frame()),
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		VK_RESOLVE_MODE_NONE,
 		VK_NULL_HANDLE,
@@ -658,7 +659,7 @@ void DisplayInstance::end_rendering(VkCommandBuffer cmd_buf)
 		VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 		0,
 		0,
-		sw_image(next_frame_index()),
+		sw_image(next_swapchain_frame()),
 		{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
 	};
 

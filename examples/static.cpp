@@ -29,12 +29,14 @@ int main(int, char*[])
 	vk_check(vkCreateCommandPool(inst.device(), &cpi, nullptr, &pool));
 
 	bool run = true;
-	CommandBuffer cmd_buf(inst, pool);
+	std::array<CommandBuffer, 2> cmd_bufs = {{{inst, pool}, {inst, pool}}};
 
 	while(run)
 	{
 		if(inst.render_done() && inst.acquire_next_image())
 		{
+			auto& cmd_buf = cmd_bufs[inst.next_frame()];
+
 			cmd_buf.reset();
 			cmd_buf.begin_primary();
 			cmd_buf.begin_rendering(inst);
@@ -63,7 +65,7 @@ int main(int, char*[])
 
 	vkDeviceWaitIdle(inst.device());
 
-	cmd_buf.destroy();
+	for(auto& cb : cmd_bufs) cb.destroy();
 	vkDestroyCommandPool(inst.device(), pool, nullptr);
 
 	return 0;

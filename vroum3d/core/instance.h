@@ -371,9 +371,14 @@ public:
 	}
 
 	/* Index of next frame among swapchain frames. Only valid after a successful call to acquire_next_image and before render submission */
-	std::uint32_t next_frame_index()
+	std::uint32_t next_swapchain_frame()
 	{
 		return m_frame_sync[m_next_frame].image_index;
+	}
+
+	std::uint32_t next_frame()
+	{
+		return m_next_frame;
 	}
 
 	void submit_render_present(VkCommandBuffer cmd_buf);
