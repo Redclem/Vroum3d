@@ -19,9 +19,9 @@ void Frame::init()
 	Element::init();
 }
 
-void Frame::upload_buffer()
+void Frame::upload_buffer(char * buffer_data_ptr )
 {
-	RenderData& rd = *reinterpret_cast<RenderData*>(m_buffer_data_ptr + Element::c_buffer_size);
+	RenderData& rd = *reinterpret_cast<RenderData*>(buffer_data_ptr + Element::c_buffer_size);
 
 	Rect r(position());
 	r.shrink(m_margin);
@@ -37,9 +37,11 @@ void Frame::upload_buffer()
 	rd.points[5] = pts_inner[2];
 	rd.points[6] = pts_outer[3];
 	rd.points[7] = pts_inner[3];
+	rd.points[8] = pts_outer[0];
+	rd.points[9] = pts_inner[0];
 }
 
 void Frame::record_render_commands(RenderCommands& rc)
 {
-	rc.fills.emplace_back(m_buffer_offset + Element::c_buffer_size, 8);
+	rc.fills.emplace_back(m_buffer_offset + Element::c_buffer_size, 10);
 }

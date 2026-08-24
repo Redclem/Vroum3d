@@ -9,6 +9,7 @@
 #include <SDL3/SDL.h>
 
 #include <SDL3/SDL_vulkan.h>
+#include <cstdint>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
@@ -412,6 +413,18 @@ public:
     vkCmdSetViewport(cmd_buf, 0, 1, &vp);
     vkCmdSetScissor(cmd_buf, 0, 1, &sc);
   }
+
+	/* Wait for all renders to be done.
+	 * Do not use in render loop, or it may lead to poor performance. */
+	
+	void wait_renders_done()
+	{
+		std::array<VkFence, c_frames_in_flight> fences;
+		for(std::uint32_t i(0); i != c_frames_in_flight; ++i)
+			fences[i] = m_frame_sync[i].render_done_fence;
+
+		vk_check(vkWaitForFences(device(), c_frames_in_flight, fences.data(), VK_TRUE, UINT64_MAX));
+	}
 
 private:
 

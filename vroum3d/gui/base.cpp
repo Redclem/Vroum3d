@@ -4,6 +4,7 @@
 #include "../core/vkutil.h"
 #include "../core/objects.h"
 #include "../core/pipeline_info.h"
+#include "../math/vec.hpp"
 
 #include "../../ext/stb_image.h"
 
@@ -33,6 +34,7 @@ Base::Base(DisplayInstance& inst, PipelineResource& pr) : m_instance(&inst), m_p
 
 void Base::destroy()
 {
+	instance()->wait_renders_done();
 	m_cmd_pool.destroy_with([&](auto cmdp){vkDestroyCommandPool(m_device, cmdp, nullptr);});
 
 	m_buffer.destroy_with([&](auto buf){vkDestroyBuffer(m_device, buf, nullptr);});
@@ -50,7 +52,7 @@ void Base::destroy()
 	{
 		instance()->unmap(m_buffer_mem);
 		instance()->free(m_buffer_mem);
-		}
+	}
 }
 
 void Base::init()
@@ -71,10 +73,9 @@ void Base::init()
 
 	VkDeviceSize buffer_upl_size = 0;
 
-	m_rgb = rgb_supported();
-	int chan = m_rgb ? 3 : 4;
+	constexpr int chan = 4;
 
-	VkFormat format = m_rgb ? VK_FORMAT_R8G8B8_SRGB : VK_FORMAT_R8G8B8A8_SRGB;
+	VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
 
 	for(auto& [name, tex] : m_textures)
 	{
@@ -116,21 +117,19 @@ void Base::init()
 		vk_check(vkBindImageMemory(device(), tex.img, tex.mem.memory(), tex.mem.offset()));
 	}
 	
-	VkDeviceSize buffer_size(0);
-
 	for(auto elem = m_first_element; elem; elem = elem->next_element())
 	{
-		elem->set_buffer_offset(buffer_size);
-		buffer_size += elem->buffer_size();
+		elem->set_buffer_offset(m_buffer_size);
+		m_buffer_size += elem->buffer_size();
 	}
 
-	buffer_upl_size += buffer_size;
+	buffer_upl_size += m_buffer_size;
 
 	VkBufferCreateInfo bnfo{
 		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		nullptr,
 		0,
-		buffer_size,
+		c_frames_in_flight * m_buffer_size,
 		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 		VK_SHARING_MODE_EXCLUSIVE,
 		0,
@@ -143,7 +142,7 @@ void Base::init()
 	vkGetBufferMemoryRequirements(m_device, m_buffer, &bmr);
 
 	m_buffer_mem = m_instance->allocate(bmr, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	char * mapped_buffer_addr = instance()->map(m_buffer_mem);
+	m_mapped_buffer_ptr = instance()->map(m_buffer_mem);
 
 	vk_check(vkBindBufferMemory(device(), m_buffer, m_buffer_mem.memory(), m_buffer_mem.offset()));
 
@@ -260,22 +259,7 @@ void Base::init()
 
 	arrange();
 
-	VkDeviceSize ofs(0);
-	for(auto elem = m_first_element; elem; elem = elem->next_element())
-	{
-		elem->set_buffer_data_ptr(mapped_buffer_addr);
-		mapped_buffer_addr += ofs;
-		elem->upload_buffer();
-	}
-
 	fnc.wait();
-}
-
-bool Base::rgb_supported()
-{
-	VkFormatProperties2 fp;
-	vkGetPhysicalDeviceFormatProperties2(m_instance->pdev(), VK_FORMAT_R8G8B8_SRGB, &fp);
-	return fp.formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_BIT;
 }
 
 void Base::init_command_buffers()
@@ -289,7 +273,7 @@ void Base::init_command_buffers()
 
 	vk_check(vkCreateCommandPool(m_device, &pi, nullptr, &m_cmd_pool));
 
-	m_cmd_bufs.resize(instance()->n_swapchain_images());
+	m_cmd_bufs.resize(c_frames_in_flight);
 
 	VkCommandBufferAllocateInfo cmdai{
 		VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -302,12 +286,24 @@ void Base::init_command_buffers()
 	vk_check(vkAllocateCommandBuffers(m_device, &cmdai, m_cmd_bufs.data()));
 }
 
-void Base::build_render_buffer(std::uint32_t image_idx)
-{
-	if(m_root_elem)
-		m_root_elem->record_render_commands(m_render_commands);
+void Base::build_render_buffer()
+{	
+	m_render_commands.clear();
 
-	auto cmd_buf = m_cmd_bufs[image_idx];
+	if(m_root_elem)
+	{
+		m_root_elem->record_render_commands(m_render_commands);
+	}
+
+	VkDeviceSize buffer_ofs(m_buffer_size * instance()->next_frame());
+	char * data_ptr = m_mapped_buffer_ptr + buffer_ofs;
+
+	for(auto elem = m_first_element; elem; elem = elem->next_element())
+	{
+		elem->upload_buffer(data_ptr);
+	}
+
+	auto cmd_buf = m_cmd_bufs[instance()->next_frame()];
 
 	vk_check(vkResetCommandBuffer(cmd_buf, 0));
 
@@ -319,27 +315,44 @@ void Base::build_render_buffer(std::uint32_t image_idx)
 	};
 
 	vk_check(vkBeginCommandBuffer(cmd_buf, &bi));	
-	m_instance->begin_rendering(cmd_buf, image_idx);
+	m_instance->begin_rendering(cmd_buf);
 
 	vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_fill_pipe.pipeline());
 
+	struct Pc
+	{
+		Math::vec4 color;
+		Math::vec2 twice_inv_size;
+	} pc;
+
+	pc.color = {0, 0, 0, 1};
+	pc.twice_inv_size = 2.0f / Math::vec2(instance()->w(), instance()->h());
+
+	vkCmdPushConstants(cmd_buf, m_fill_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
+
+	VkViewport vp{0, 0, float(instance()->w()), float(instance()->h()), 0.0, 1.0};
+	vkCmdSetViewport(cmd_buf, 0, 1, &vp);
+
+	VkRect2D scissor{{0, 0}, {instance()->w(), instance()->h()}};
+	vkCmdSetScissor(cmd_buf, 0, 1, &scissor);
+
 	for(auto& cmd : m_render_commands.fills)
 	{
+		cmd.buffer_ofs += buffer_ofs;
 		vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_buffer, &cmd.buffer_ofs);
 		vkCmdDraw(cmd_buf, cmd.n_vertex, 1, 0, 0);
 	}
 
-	instance()->end_rendering(cmd_buf, image_idx);
+	instance()->end_rendering(cmd_buf);
 
 	vk_check(vkEndCommandBuffer(cmd_buf));
 }
 
 void Base::render()
 {
-	uint32_t idx;
-	if(!instance()->acquire_next_image(&idx)) return;
+	if(!instance()->acquire_next_image()) return;
 
-	build_render_buffer(idx);
+	build_render_buffer();
 
-	instance()->submit_render_present(m_cmd_bufs[idx], idx);
+	instance()->submit_render_present(m_cmd_bufs[instance()->next_frame()]);
 }

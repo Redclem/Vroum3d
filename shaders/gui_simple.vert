@@ -4,8 +4,8 @@ layout(location=0) in uvec2 i_pos;
 
 layout(push_constant) uniform Pc 
 {
-	vec2 twice_inv_size;
 	vec4 color;
+	vec2 twice_inv_size;
 } pc;
 
 void main()

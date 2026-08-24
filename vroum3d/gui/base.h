@@ -33,10 +33,8 @@ private:
 	};
 	
 	using texture_container_t = std::map<std::string, Texture>;
-	bool rgb_supported();
 
-
-	Element *m_root_elem = nullptr, *m_first_element;
+	Element *m_root_elem = nullptr, *m_first_element = nullptr;
 
 	DisplayInstance* m_instance;
 	PipelineResource * m_pipe_res;
@@ -44,8 +42,9 @@ private:
 
 	VkHandle<VkBuffer> m_buffer;
 	Allocator::OwnedMemory m_buffer_mem;
+	VkDeviceSize m_buffer_size = 0;
+	char * m_mapped_buffer_ptr = nullptr;
 	texture_container_t m_textures;
-	bool m_rgb;
 	
 	Pipeline m_fill_pipe;
 	RenderCommands m_render_commands;
@@ -54,7 +53,7 @@ private:
 
 	void init_command_buffers();
 
-	void build_render_buffer(uint32_t image_idx);
+	void build_render_buffer();
 
 public:
 
@@ -86,6 +85,12 @@ public:
 	{
 		elem->m_next_element = m_first_element;
 		m_first_element = elem;
+	}
+
+	template<typename T>
+	void require_texture(T&& pth)
+	{
+		m_textures.emplace(std::forward<T>(pth));
 	}
 
 	void render();

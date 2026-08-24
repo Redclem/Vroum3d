@@ -21,7 +21,6 @@ class Element
 protected:
 	Base* m_base;
 	Rect m_position;
-	char* m_buffer_data_ptr;
 	VkDeviceSize m_buffer_offset;
 	Element* m_next_element;
 	
@@ -29,7 +28,6 @@ public:
 
 	auto next_element() const {return m_next_element;}
 
-	void set_buffer_data_ptr(char* ptr) {m_buffer_data_ptr = ptr;}
 	void set_buffer_offset(VkDeviceSize offset) {m_buffer_offset = offset;}
 
 	constexpr Element(Base* base) : m_base(base) {
@@ -53,8 +51,10 @@ public:
 	virtual void init();
 
 	/** Record upload commands for data upload on initialization / size change
-	 * Do not call on child elements*/
-	virtual void upload_buffer() = 0;
+	 * Do not call on child elements
+	 * \param buffer_data_ptr Pointer to area of memory mapped to buffer. Does not account of offset of current element.
+	 */
+	virtual void upload_buffer(char * buffer_data_ptr) = 0;
 
 	/** Update inner state on position change.
 	 * Should arrange child elements / elements contained */
@@ -75,7 +75,7 @@ class Frame : public Element
 
 	struct RenderData
 	{
-		std::array<Point, 8> points;
+		std::array<Point, 10> points;
 	};
 
 public:
@@ -90,9 +90,8 @@ public:
 	constexpr static VkDeviceSize c_buffer_size = sizeof(RenderData);
 	constexpr virtual VkDeviceSize buffer_size() const override {return c_buffer_size;}
 	virtual void init() override;
-	virtual void upload_buffer() override;
+	virtual void upload_buffer(char * buffer_data_ptr) override;
 
-	virtual void arrange() override;
 	virtual void record_render_commands(RenderCommands& rc) override;
 };
 

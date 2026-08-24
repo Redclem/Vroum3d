@@ -1,5 +1,6 @@
 
 #include "../vroum3d/vroum3d.h"
+#include "gui/element.h"
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_oldnames.h>
 
@@ -13,6 +14,10 @@ int main(int, char*[])
 	PipelineResource pr(inst);
 
 	Base b(inst, pr);
+	Frame f(&b, 4, 4);
+	b.set_root_elem(&f);
+
+	b.init();
 
 	bool run(true);
 	while(run)
