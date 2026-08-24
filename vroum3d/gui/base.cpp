@@ -18,7 +18,7 @@ using namespace Vroum3d::Gui;
 
 struct FillPipeInfo : public RenderPipelineInformation
 {
-	FillPipeInfo(PipelineResource& pr) : RenderPipelineInformation(pr, "gui_win_to_vp.vert.spv", "gui_fill.frag.spv",
+	FillPipeInfo(PipelineResource& pr) : RenderPipelineInformation(pr, "gui_simple.vert.spv", "gui_fill.frag.spv",
 				{{sizeof(Point)}}, {{0, 0}}) {}
 
 	auto get_primitive_topology() const {return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;}

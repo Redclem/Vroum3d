@@ -174,5 +174,5 @@ if(VROUM3D_SHADERS)
   add_shader(static.vert)
 endif()
 
-add_shader(gui_win_to_vp.vert)
+add_shader(gui_simple.vert)
 add_shader(gui_fill.frag)
