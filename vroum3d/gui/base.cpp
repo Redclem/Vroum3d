@@ -15,6 +15,7 @@
 #include <vulkan/vulkan_core.h>
 
 using namespace Vroum3d::Gui;
+using namespace Vroum3d::Gui;
 
 struct FillPipeInfo : public RenderPipelineInformation
 {
@@ -24,10 +25,19 @@ struct FillPipeInfo : public RenderPipelineInformation
 	auto get_primitive_topology() const {return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;}
 };
 
+struct TexturedPipeInfo : public RenderPipelineInformation
+{
+	TexturedPipeInfo(PipelineResource& pr) : RenderPipelineInformation(pr, "gui_uv.vert.spv", "gui_textured.frag.spv",
+				{{sizeof(TexturedPoint)}}, {{0, 0}, {0, sizeof(Point)}}) {}
+
+	auto get_primitive_topology() const {return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;}
+};
+
 Base::Base(DisplayInstance& inst, PipelineResource& pr) : m_instance(&inst), m_pipe_res(&pr), m_device(inst.device()),
 	m_fill_pipe(pr, 
 		FillPipeInfo(pr)
-	)
+	),
+	m_textured_pipe(pr, TexturedPipeInfo(pr))
 {
 	init_command_buffers();
 }
@@ -35,6 +45,8 @@ Base::Base(DisplayInstance& inst, PipelineResource& pr) : m_instance(&inst), m_p
 void Base::destroy()
 {
 	instance()->wait_renders_done();
+
+	m_desc_pool.destroy_with([&](VkDescriptorPool dp){vkDestroyDescriptorPool(device(), dp, nullptr);});
 	m_cmd_pool.destroy_with([&](auto cmdp){vkDestroyCommandPool(m_device, cmdp, nullptr);});
 
 	m_buffer.destroy_with([&](auto buf){vkDestroyBuffer(m_device, buf, nullptr);});
@@ -60,15 +72,12 @@ void Base::init()
 	if(m_root_elem)
 		m_root_elem->init();
 
-	struct Tptr {
-		unsigned char* ptr;
-
-		~Tptr() {if(ptr) std::free(ptr);}
-	};
+	struct FreeDel {void operator()(unsigned char* ptr) {stbi_image_free(ptr);}};
+	using Tptr = std::unique_ptr<unsigned char, FreeDel>;
 
 	/** Gather texture and buffer memory requirements */
 
-	std::vector<std::pair<Tptr, VkMemoryRequirements>> textures;
+	std::vector<Tptr> textures;
 	textures.reserve(m_textures.size());
 
 	VkDeviceSize buffer_upl_size = 0;
@@ -81,9 +90,7 @@ void Base::init()
 	{
 		int channels;
 		int w, h;
-		textures.emplace_back(
-			Tptr{stbi_load(name.c_str(), &w, &h, &channels, chan)}, 
-			VkMemoryRequirements{});
+		textures.emplace_back(stbi_load(name.c_str(), &w, &h, &channels, chan));
 		tex.w = w;
 		tex.h = h;
 
@@ -192,8 +199,8 @@ void Base::init()
 		nullptr,
 		0,
 		nullptr,
-		std::uint32_t(imb.size()),
-		imb.data()
+		1,
+		nullptr
 	};
 
 	{
@@ -202,7 +209,7 @@ void Base::init()
 		for(auto& [_, tex] : m_textures)
 		{
 			VkImageViewCreateInfo vnfo{
-				VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+				VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 				nullptr,
 				0,
 				tex.img,
@@ -216,23 +223,27 @@ void Base::init()
 			
 			std::uint64_t size = tex.w * tex.h * chan;
 
-			std::memcpy(dt, mri->first.ptr, size);
-
-			dt += size;
-			upl_ofs += size;
+			std::memcpy(dt, mri->get(), size);
 
 			VkBufferImageCopy bic{
 				upl_ofs,
 				tex.w,
 				tex.h,
-				{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0},
+				{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
 				{0, 0, 0},
 				{tex.w, tex.h, 1}
 			};
 
+			dt += size;
+			upl_ofs += size;
+			imb[0].image = imb[1].image = tex.img;
+
+			di.pImageMemoryBarriers = &imb[0];
+			upl_cmd.cmd<vkCmdPipelineBarrier2>(&di);
+
 			upl_cmd.cmd<vkCmdCopyBufferToImage>(buf, tex.img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bic);
 
-			imb[0].image = imb[1].image = tex.img;
+			di.pImageMemoryBarriers = &imb[1];
 			upl_cmd.cmd<vkCmdPipelineBarrier2>(&di);
 			
 			mri++;
@@ -257,6 +268,7 @@ void Base::init()
 
 	vk_check(vkQueueSubmit(m_instance->transfer_queue(), 1, &si, fnc.fence()));
 
+	create_descriptor_set();
 	arrange();
 
 	fnc.wait();
@@ -317,30 +329,52 @@ void Base::build_render_buffer()
 	vk_check(vkBeginCommandBuffer(cmd_buf, &bi));	
 	m_instance->begin_rendering(cmd_buf);
 
-	vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_fill_pipe.pipeline());
-
-	struct Pc
-	{
-		Math::vec4 color;
-		Math::vec2 twice_inv_size;
-	} pc;
-
-	pc.color = {0, 0, 0, 1};
-	pc.twice_inv_size = 2.0f / Math::vec2(instance()->w(), instance()->h());
-
-	vkCmdPushConstants(cmd_buf, m_fill_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
-
+	Math::vec2 twice_inv_size = 2.0f / Math::vec2(instance()->w(), instance()->h());
 	VkViewport vp{0, 0, float(instance()->w()), float(instance()->h()), 0.0, 1.0};
-	vkCmdSetViewport(cmd_buf, 0, 1, &vp);
-
 	VkRect2D scissor{{0, 0}, {instance()->w(), instance()->h()}};
-	vkCmdSetScissor(cmd_buf, 0, 1, &scissor);
 
-	for(auto& cmd : m_render_commands.fills)
+	if(m_render_commands.fills.size())
 	{
-		cmd.buffer_ofs += buffer_ofs;
-		vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_buffer, &cmd.buffer_ofs);
-		vkCmdDraw(cmd_buf, cmd.n_vertex, 1, 0, 0);
+		vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_fill_pipe.pipeline());
+
+		struct Pc
+		{
+			Math::vec4 color;
+			Math::vec2 twice_inv_size;
+		} pc;
+
+		pc.color = {0, 0, 0, 1};
+		pc.twice_inv_size = twice_inv_size;
+
+		vkCmdPushConstants(cmd_buf, m_fill_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
+
+		vkCmdSetViewport(cmd_buf, 0, 1, &vp);
+		vkCmdSetScissor(cmd_buf, 0, 1, &scissor);
+
+		for(auto& cmd : m_render_commands.fills)
+		{
+			cmd.buffer_ofs += buffer_ofs;
+			vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_buffer, &cmd.buffer_ofs);
+			vkCmdDraw(cmd_buf, cmd.n_vertex, 1, 0, 0);
+		}
+	}
+
+	if(m_render_commands.textures.size())
+	{
+		vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_textured_pipe.pipeline());
+		vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_textured_pipe.layout(), 0, 1, &m_tex_des_set, 0, nullptr);
+
+		vkCmdSetViewport(cmd_buf, 0, 1, &vp);
+		vkCmdSetScissor(cmd_buf, 0, 1, &scissor);
+		
+		vkCmdPushConstants(cmd_buf, m_textured_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(twice_inv_size), &twice_inv_size);
+
+		for(auto& cmd : m_render_commands.textures)
+		{
+			cmd.buffer_ofs += buffer_ofs;
+			vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_buffer, &cmd.buffer_ofs);
+			vkCmdDraw(cmd_buf, cmd.n_vertex, 1, 0, 0);
+		}
 	}
 
 	instance()->end_rendering(cmd_buf);
@@ -356,3 +390,77 @@ void Base::render()
 
 	instance()->submit_render_present(m_cmd_bufs[instance()->next_frame()]);
 }
+
+void Base::create_descriptor_set()
+{
+	if(!m_textures.size()) return;
+
+	std::array<VkDescriptorPoolSize, 2> sizes = {{
+		{
+			VK_DESCRIPTOR_TYPE_SAMPLER,
+			1
+		},
+		{
+			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+			Core::PipelineResource::c_variable_binding_max_size	
+		},
+	}};
+
+	VkDescriptorPoolCreateInfo dpi{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		nullptr,
+		0,
+		1,
+		sizes.size(),
+		sizes.data()
+	};
+
+	vk_check(vkCreateDescriptorPool(device(), &dpi, nullptr, &m_desc_pool));
+
+	auto dsl = m_textured_pipe.descriptor_set_layout(0);
+
+	std::uint32_t n_tex(m_textures.size());
+	VkDescriptorSetVariableDescriptorCountAllocateInfo vdcai{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO,
+		nullptr,
+		1,
+		&n_tex
+	};
+
+	VkDescriptorSetAllocateInfo ai{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+		&vdcai,
+		m_desc_pool,
+		1,
+		&dsl
+	};
+
+	vk_check(vkAllocateDescriptorSets(device(), &ai, &m_tex_des_set));
+
+	std::vector<VkDescriptorImageInfo> img_infos(m_textures.size());
+
+	std::uint32_t index(0);
+	std::transform(m_textures.begin(), m_textures.end(), img_infos.begin(),
+								[&index](texture_container_t::value_type& tex) -> VkDescriptorImageInfo
+								{
+									tex.second.set_index = index++;
+									return {VK_NULL_HANDLE, tex.second.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+								});
+
+	VkWriteDescriptorSet w{
+		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+		nullptr,
+		m_tex_des_set,
+		1,
+		0,
+		std::uint32_t(m_textures.size()),
+		VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+		img_infos.data(),
+		nullptr,
+		nullptr
+	};
+
+	vkUpdateDescriptorSets(device(), 1, &w, 0, nullptr);
+}
+
+

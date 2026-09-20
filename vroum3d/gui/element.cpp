@@ -1,6 +1,8 @@
 #include "element.h"
 #include "../core/vkutil.h"
 #include "base.h"
+#include "common.h"
+#include <cassert>
 #include <vulkan/vulkan_core.h>
 
 using namespace Vroum3d::Gui;
@@ -21,7 +23,7 @@ void Frame::init()
 
 void Frame::upload_buffer(char * buffer_data_ptr )
 {
-	RenderData& rd = *reinterpret_cast<RenderData*>(buffer_data_ptr + Element::c_buffer_size);
+	RenderData& rd = *reinterpret_cast<RenderData*>(buffer_data_ptr + Element::c_buffer_size + m_buffer_offset);
 
 	Rect r(position());
 	r.shrink(m_margin);
@@ -43,5 +45,50 @@ void Frame::upload_buffer(char * buffer_data_ptr )
 
 void Frame::record_render_commands(RenderCommands& rc)
 {
-	rc.fills.emplace_back(m_buffer_offset + Element::c_buffer_size, 10);
+	rc.fill(m_buffer_offset + Element::c_buffer_size, 10);
+}
+
+void Image::init()
+{
+	Element::init();
+}
+
+void Image::upload_buffer(char* buffer_data_ptr)
+{
+	RenderData& rd = *reinterpret_cast<RenderData*>(buffer_data_ptr + Element::c_buffer_size + m_buffer_offset);
+
+	auto points = position().rect_points();
+
+	rd.points = {{
+		{points[0], m_texture_offset},
+		{points[1], m_texture_offset + Math::vec2{m_texture_extent.x, 0}},
+		{points[3], m_texture_offset + Math::vec2{0, m_texture_extent.y}},
+		{points[2], m_texture_offset + m_texture_extent}
+	}};
+}
+
+void Image::record_render_commands(RenderCommands& rc)
+{
+	rc.texture(m_buffer_offset + Element::c_buffer_size, 4, m_texture->set_index);
+}
+
+void Image::arrange()
+{
+	auto w = m_texture->w, h = m_texture->h;
+
+	auto th = m_position.w * h / w;
+
+	if(m_position.h < th) // Image too "tall"
+	{
+		auto w_red = m_position.w - m_position.h * w / h;
+		assert(m_position.w >= m_position.h * w / h);
+		m_position.x += w_red / 2;
+		m_position.w -= w_red;
+	}
+	else
+	{
+		auto h_red = m_position.h - th;
+		m_position.y += h_red / 2;
+		m_position.h -= h_red;
+	}
 }

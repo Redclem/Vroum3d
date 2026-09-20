@@ -2,7 +2,6 @@
 #define VROUM3D_GUI_BASE_H_INCLUDED
 
 #include "common.h"
-#include "element.h"
 
 #include "../core/pipeline.h"
 #include "../core/instance.h"
@@ -14,7 +13,62 @@
 namespace Vroum3d::Gui
 {
 
-class Element;
+class Base;
+
+class Element
+{
+	friend class Base;
+
+protected:
+	Base* m_base;
+	Rect m_position;
+	VkDeviceSize m_buffer_offset;
+	Element* m_next_element;
+	
+public:
+
+	auto next_element() const {return m_next_element;}
+
+	void set_buffer_offset(VkDeviceSize offset) {m_buffer_offset = offset;}
+
+	constexpr Element(Base* base) : m_base(base) {
+	}
+
+	Base* base() const {return m_base;}
+
+	constexpr static VkDeviceSize c_buffer_size = 0;
+
+	/** Get required buffer size for this element
+	 * Does not include child elements!
+	 * Should be constant or at least fixed after init */
+	constexpr virtual VkDeviceSize buffer_size() const {return c_buffer_size;};
+
+	/** Init Element : 
+	 * - Call ancestor's init function (including if deriving directly from Element !)
+	 * - Init child elements
+	 * - Require needed textures from base using require_texture
+	 * - Build required vk objects
+	 */
+	virtual void init();
+
+	/** Record upload commands for data upload on initialization / size change
+	 * Do not call on child elements
+	 * \param buffer_data_ptr Pointer to area of memory mapped to buffer. Does not account of offset of current element.
+	 */
+	virtual void upload_buffer(char * buffer_data_ptr) = 0;
+
+	/** Update inner state on position change.
+	 * Should arrange child elements / elements contained */
+	virtual void arrange();
+
+	const Rect& position() const {return m_position;}
+	void set_position(const Rect& p) {m_position = p;}
+
+	/** Record render commands in given struct
+	 * Also record appropriate child commands */
+	virtual void record_render_commands(RenderCommands& rc) = 0;
+
+};
 
 using namespace Core;
 
@@ -30,6 +84,7 @@ private:
 		Allocator::OwnedMemory mem;
 
 		std::uint32_t w, h;
+		std::uint32_t set_index;
 	};
 	
 	using texture_container_t = std::map<std::string, Texture>;
@@ -46,16 +101,15 @@ private:
 	char * m_mapped_buffer_ptr = nullptr;
 	texture_container_t m_textures;
 	
-	Pipeline m_fill_pipe;
+	Pipeline m_fill_pipe, m_textured_pipe;
 	RenderCommands m_render_commands;
 	VkHandle<VkCommandPool> m_cmd_pool;
 	std::vector<VkCommandBuffer> m_cmd_bufs;
-
-	void init_command_buffers();
-
-	void build_render_buffer();
+	VkHandle<VkDescriptorPool> m_desc_pool;
+	VkDescriptorSet m_tex_des_set;
 
 public:
+	using texture_ptr_t = Texture*;
 
 	~Base() {
 		destroy();
@@ -87,10 +141,15 @@ public:
 		m_first_element = elem;
 	}
 
+	/** Require a texture to be loaded for future use. Should be called before or during base / element initialization
+	 * \param pth path of the texture to load
+	 * \warning Does not load the texture immediately. Texture is loaded after all required textures have been gathered and all elements initialized.
+	 * */
+
 	template<typename T>
-	void require_texture(T&& pth)
+	texture_ptr_t require_texture(T&& pth)
 	{
-		m_textures.emplace(std::forward<T>(pth));
+		return &m_textures.emplace(std::forward<T>(pth), Texture{}).first->second;
 	}
 
 	void render();
@@ -98,6 +157,9 @@ public:
 private:
 	void assign_buffer_space();
 	void allocate_buffer();
+	void init_command_buffers();
+	void build_render_buffer();
+	void create_descriptor_set();
 };
 
 }

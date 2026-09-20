@@ -14,8 +14,8 @@ int main(int, char*[])
 	PipelineResource pr(inst);
 
 	Base b(inst, pr);
-	Frame f(&b, 4, 4);
-	b.set_root_elem(&f);
+	Image i(&b, "gfx/fox.jpg");
+	b.set_root_elem(&i);
 
 	b.init();
 
@@ -25,12 +25,17 @@ int main(int, char*[])
 		SDL_Event evnt;
 		while(SDL_PollEvent(&evnt))
 		{
-			if(evnt.type == SDL_EVENT_QUIT)
+			switch(evnt.type)
 			{
+			case SDL_EVENT_QUIT:
 				run = false;
+				break;
+			case SDL_EVENT_WINDOW_RESIZED:
+				b.arrange();
 				break;
 			}
 		}
+		if(!run) break;
 		
 		if(inst.render_done())
 			b.render();

@@ -127,16 +127,30 @@ struct Rect : Point, Extent {
 
 struct RenderCommands
 {
-	struct RenderFill
+	struct Fill
 	{
 		VkDeviceSize buffer_ofs, n_vertex;
 	};
 
-	std::vector<RenderFill> fills;
+	struct Textured
+	{
+		VkDeviceSize buffer_ofs, n_vertex;
+		std::uint32_t texture_id;
+	};
+
+	std::vector<Fill> fills;
+	std::vector<Textured> textures;
+
+	template<typename ... Args>
+	void fill(Args&&... ags) {fills.emplace_back(std::forward<Args>(ags)...);}
+
+	template<typename ... Args>
+	void texture(Args&&... ags) {textures.emplace_back(std::forward<Args>(ags)...);}
 
 	void clear()
 	{
 		fills.clear();
+		textures.clear();
 	}
 };
 

@@ -24,6 +24,9 @@ class PipelineResource : public AssignDestroy<PipelineResource>
 	VkDevice m_device;
 	VkFormat m_color_format, m_depth_format;
 public:
+	
+	constexpr static std::uint32_t c_variable_binding_max_size = 1 << 16;
+
 	struct ShaderModule
 	{
 		VkHandle<VkShaderModule> vk_mod;
@@ -37,6 +40,7 @@ public:
 			VkDescriptorType descriptorType;
 			std::uint32_t descriptorCount;
 			VkShaderStageFlags stageFlags;
+			bool immusamp = false;
 		};
 
 		std::map<std::uint32_t, BindingInfo> bindings;
@@ -121,6 +125,10 @@ private:
 
 	pipeline_layouts_t m_pipeline_layouts;
 
+	constexpr static std::size_t c_n_immutable_samplers = 1;
+
+	std::array<VkHandle<VkSampler>, c_n_immutable_samplers> m_immutable_samplers;
+
 public:
 
   class PipelineLayouts : pipeline_layouts_t::iterator
@@ -152,6 +160,9 @@ public:
 
 	void destroy()
 	{
+		for(auto& elem : m_immutable_samplers)
+			elem.destroy_with([&](auto samp){vkDestroySampler(device(), samp, nullptr);});
+
 		write_cache();
 
 		m_cache.destroy_with([&](auto cache){vkDestroyPipelineCache(m_device, cache, nullptr);});
@@ -200,6 +211,33 @@ private:
 	void init_cache();
 
 	void write_cache();
+
+	void require_immutable_samplers(std::size_t n_samplers);
+
+	constexpr static const char* c_immutable_samplers_name = "u_immutable_samplers";
+	constexpr static std::array<VkSamplerCreateInfo, c_n_immutable_samplers> c_immutable_sampler_info = {{
+		{
+			VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+			nullptr,
+			0,
+			VK_FILTER_LINEAR,
+			VK_FILTER_LINEAR,
+			VK_SAMPLER_MIPMAP_MODE_LINEAR,
+			VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			0.0f,
+			VK_FALSE,
+			0.0f,
+			VK_FALSE,
+			VK_COMPARE_OP_EQUAL,
+			0.0f,
+			0.0f,
+			VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
+			VK_FALSE
+		}
+		}};
+
 };
 
 /** Base pipeline holder class */
@@ -232,7 +270,7 @@ public:
   VkPipelineLayout layout() const {return m_layouts.layout();}
   const auto& descriptor_set_layouts() const {return m_layouts.descriptor_set_layouts();}
 
-  VkDescriptorSetLayout descriptor_set_layout(auto idx) const {return m_descriptor_set_layouts[idx];}
+  VkDescriptorSetLayout descriptor_set_layout(auto idx) const {return m_layouts.descriptor_set_layouts()[idx];}
 
 private:
 	VkDevice m_device;
@@ -240,7 +278,6 @@ private:
 	VkHandle<VkPipeline> m_pipeline;
   
   PipelineLayouts m_layouts;
-  std::unique_ptr<VkDescriptorSetLayout[]> m_descriptor_set_layouts;
 };
 
 }

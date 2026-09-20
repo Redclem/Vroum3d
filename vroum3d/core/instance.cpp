@@ -243,9 +243,14 @@ void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR 
 	vk13feats.dynamicRendering = VK_TRUE;
 	vk13feats.synchronization2 = VK_TRUE;
 
+	VkPhysicalDeviceVulkan12Features vk12feats{};
+	vk12feats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+	vk12feats.pNext = &vk13feats;
+	vk12feats.runtimeDescriptorArray = VK_TRUE;
+
 	VkDeviceCreateInfo di{
 		VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-		&vk13feats,
+		&vk12feats,
 		0,
 		std::uint32_t(dqis.size()),
 		dqis.data(),

@@ -1,4 +1,5 @@
 #include "pipeline.h"
+#include <algorithm>
 #include <spirv_reflect.h>
 #include <cstdint>
 #include <fstream>
@@ -114,14 +115,21 @@ VkDescriptorSetLayout PipelineResource::get_descriptor_set_layout(DescriptorSetD
 
 	std::transform(des_ref.bindings.begin(), des_ref.bindings.end(), binds.begin(),
 		[&](const auto& bind_info) -> VkDescriptorSetLayoutBinding
-		{
-			return {
+		{	
+			VkDescriptorSetLayoutBinding res{
 				bind_info.first,
 				bind_info.second.descriptorType,
 				bind_info.second.descriptorCount,
 				bind_info.second.stageFlags,
-				nullptr
+				bind_info.second.immusamp ? &m_immutable_samplers[0] : nullptr
 			};
+
+			if(res.pImmutableSamplers)
+			{
+				require_immutable_samplers(bind_info.second.descriptorCount);
+			}
+
+			return res;
 		}
 	);
 
@@ -132,6 +140,27 @@ VkDescriptorSetLayout PipelineResource::get_descriptor_set_layout(DescriptorSetD
 		std::uint32_t(binds.size()),
 		binds.data()
 	};
+
+	std::vector<VkDescriptorBindingFlags> flags;
+	VkDescriptorSetLayoutBindingFlagsCreateInfo fi;
+
+	constexpr VkDescriptorBindingFlags c_null_desc_flags = VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;
+
+	if(binds.back().descriptorCount == 0)
+	{
+		flags.reserve(binds.size());
+		flags.assign(binds.size(), 0);
+		flags.back() = c_null_desc_flags;
+
+		binds.back().descriptorCount = c_variable_binding_max_size;
+
+		fi = VkDescriptorSetLayoutBindingFlagsCreateInfo{
+			VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+			nullptr,
+			std::uint32_t(flags.size()),
+			flags.data()
+		};
+	}
 
 	vk_check(vkCreateDescriptorSetLayout(m_device, &dsi, nullptr, &iter->second));
 
@@ -144,12 +173,14 @@ void PipelineResource::DescriptorSetDescription::load_descriptor_set(const SpvRe
 	for(auto* ds_iter = ds->bindings, *end = ds->bindings + ds->binding_count; ds_iter != end; ++ds_iter)
 	{
 		auto& ds_binding = **ds_iter;
+
 		auto [iter, ins] = bindings.emplace(
 			ds_binding.binding,
 			BindingInfo{
 			static_cast<VkDescriptorType>(ds_binding.descriptor_type),
 			ds_binding.count,
-			stage
+			stage,
+			std::strcmp(ds_binding.name, c_immutable_samplers_name) == 0
 			}
 		);
 		if(!ins)
@@ -164,3 +195,15 @@ void PipelineResource::DescriptorSetDescription::load_descriptor_set(const SpvRe
 	}
 }
 
+void PipelineResource::require_immutable_samplers(std::size_t n_samplers)
+{
+	if(n_samplers > c_n_immutable_samplers)
+		throw std::runtime_error("Required more immutable samplers than available");
+
+	for(std::size_t sampler(0); sampler != n_samplers; ++sampler)
+	{
+		if(m_immutable_samplers[sampler] != VK_NULL_HANDLE) continue;
+
+		vk_check(vkCreateSampler(device(), &c_immutable_sampler_info[sampler], nullptr, &m_immutable_samplers[sampler]));
+	}
+}

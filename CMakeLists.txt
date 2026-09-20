@@ -20,7 +20,14 @@ mingw-w64-ucrt-x86_64-neovim
   GIT_TAG main
 )
 
+FetchContent_Declare(
+	ktx_software
+	GIT_REPOSITORY https://github.com/khronosgroup/ktx-software
+	GIT_TAG main
+)
+
 FetchContent_MakeAvailable(spirv_reflect)
+FetchContent_MakeAvailable(ktx_software)
 
 set(VULKAN_LIB "vulkan")
 
@@ -176,3 +183,5 @@ endif()
 
 add_shader(gui_simple.vert)
 add_shader(gui_fill.frag)
+add_shader(gui_uv.vert)
+add_shader(gui_textured.frag)

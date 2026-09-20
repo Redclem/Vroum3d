@@ -2,6 +2,9 @@
 #define VROUM3D_GUI_ELEMENT_H_INCLUDED
 
 #include "common.h"
+#include "base.h"
+
+#include "../math/vec.hpp"
 
 #include <vulkan/vulkan.h>
 
@@ -12,61 +15,10 @@
 namespace Vroum3d::Gui
 {
 
-class Base;
-
-class Element
+struct TexturedPoint
 {
-	friend class Base;
-
-protected:
-	Base* m_base;
-	Rect m_position;
-	VkDeviceSize m_buffer_offset;
-	Element* m_next_element;
-	
-public:
-
-	auto next_element() const {return m_next_element;}
-
-	void set_buffer_offset(VkDeviceSize offset) {m_buffer_offset = offset;}
-
-	constexpr Element(Base* base) : m_base(base) {
-	}
-
-	Base* base() const {return m_base;}
-
-	constexpr static VkDeviceSize c_buffer_size = 0;
-
-	/** Get required buffer size for this element
-	 * Does not include child elements!
-	 * Should be constant or at least fixed after init */
-	constexpr virtual VkDeviceSize buffer_size() const {return c_buffer_size;};
-
-	/** Init Element : 
-	 * - Call ancestor's init function (including if deriving directly from Element !)
-	 * - Init child elements
-	 * - Require needed textures from base using require_texture
-	 * - Build required vk objects
-	 */
-	virtual void init();
-
-	/** Record upload commands for data upload on initialization / size change
-	 * Do not call on child elements
-	 * \param buffer_data_ptr Pointer to area of memory mapped to buffer. Does not account of offset of current element.
-	 */
-	virtual void upload_buffer(char * buffer_data_ptr) = 0;
-
-	/** Update inner state on position change.
-	 * Should arrange child elements / elements contained */
-	virtual void arrange();
-
-	const Rect& position() const {return m_position;}
-	void set_position(const Rect& p) {m_position = p;}
-
-	/** Record render commands in given struct
-	 * Also record appropriate child commands */
-	virtual void record_render_commands(RenderCommands& rc) = 0;
-
+	Point pos;
+	Math::vec2 uv;
 };
 
 class Frame : public Element
@@ -93,6 +45,30 @@ public:
 	virtual void upload_buffer(char * buffer_data_ptr) override;
 
 	virtual void record_render_commands(RenderCommands& rc) override;
+};
+
+class Image : public Element
+{
+	Math::vec2 m_texture_offset, m_texture_extent;
+
+	struct RenderData{
+		std::array<TexturedPoint, 4> points;
+	};
+
+	Base::texture_ptr_t m_texture;
+
+public:
+	Image(Base* base, const char* pth) : Element::Element(base), m_texture_offset(0.0f, 0.0f), m_texture_extent(1.0f, 1.0f), m_texture(base->require_texture(pth))
+	{
+	}
+
+	constexpr static VkDeviceSize c_buffer_size = sizeof(RenderData);
+	constexpr virtual VkDeviceSize buffer_size() const override {return c_buffer_size;}
+
+	virtual void init() override;
+	virtual void upload_buffer(char* buffer_data_ptr) override;
+	virtual void record_render_commands(RenderCommands& rc) override;
+	virtual void arrange() override;
 };
 
 }
