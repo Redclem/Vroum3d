@@ -68,6 +68,7 @@ add_library(vroum3d STATIC
   vroum3d/core/allocator.cpp
 	vroum3d/gui/base.cpp
 	vroum3d/gui/element.cpp
+	vroum3d/gui/font.cpp
 	ext/stb_impl.cpp
 )
 

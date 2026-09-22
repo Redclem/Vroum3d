@@ -65,6 +65,13 @@ void Base::destroy()
 		instance()->unmap(m_buffer_mem);
 		instance()->free(m_buffer_mem);
 	}
+
+  for(auto& [_, font] : m_fonts)
+  {
+    font.view.destroy_with([&](auto v){vkDestroyImageView(m_device, v, nullptr);});
+    font.img.destroy_with([&](auto im){vkDestroyImage(m_device, im, nullptr);});
+    m_instance->free(font.mem);
+  }
 }
 
 void Base::init()
@@ -72,58 +79,12 @@ void Base::init()
 	if(m_root_elem)
 		m_root_elem->init();
 
-	struct FreeDel {void operator()(unsigned char* ptr) {stbi_image_free(ptr);}};
-	using Tptr = std::unique_ptr<unsigned char, FreeDel>;
-
 	/** Gather texture and buffer memory requirements */
 
-	std::vector<Tptr> textures;
-	textures.reserve(m_textures.size());
+	std::vector<StbiPtr> textures;
 
-	VkDeviceSize buffer_upl_size = 0;
-
-	constexpr int chan = 4;
-
-	VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
-
-	for(auto& [name, tex] : m_textures)
-	{
-		int channels;
-		int w, h;
-		textures.emplace_back(stbi_load(name.c_str(), &w, &h, &channels, chan));
-		tex.w = w;
-		tex.h = h;
-
-		buffer_upl_size += tex.w * tex.h * chan;
-
-		// TODO : add direct upload on relevant platforms
-		VkImageCreateInfo imnfo{
-			VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-			nullptr,
-			0,
-			VK_IMAGE_TYPE_2D,
-			format,
-			{tex.w, tex.h, 1},
-			1,
-			1,
-			VK_SAMPLE_COUNT_1_BIT,
-			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-			VK_SHARING_MODE_EXCLUSIVE,
-			0,
-			nullptr,
-			VK_IMAGE_LAYOUT_UNDEFINED
-		};
-
-		vk_check(vkCreateImage(m_device, &imnfo, nullptr, &tex.img));
-
-		VkMemoryRequirements imr;
-		vkGetImageMemoryRequirements(m_device, tex.img, &imr);
-
-		tex.mem = m_instance->allocate(imr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		vk_check(vkBindImageMemory(device(), tex.img, tex.mem.memory(), tex.mem.offset()));
-	}
-	
+	VkDeviceSize buffer_upl_size = load_textures(textures);
+		
 	for(auto elem = m_first_element; elem; elem = elem->next_element())
 	{
 		elem->set_buffer_offset(m_buffer_size);
@@ -159,96 +120,10 @@ void Base::init()
 
 	/** Bind and upload data */
 
-	VkDeviceSize upl_ofs(0);
 	CommandBuffer upl_cmd(*m_instance);
 	upl_cmd.begin_primary();
 
-	std::array<VkImageMemoryBarrier2, 2> imb{{{
-		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-		nullptr,
-		VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
-		0,
-		VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-		VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR,
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		0,
-		0,
-		VK_NULL_HANDLE,
-		vkutil::color_subres_plain
-	}, {
-		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-		nullptr,
-		VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-		VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR,
-		VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-		VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
-		0,
-		0,
-		VK_NULL_HANDLE,
-		vkutil::color_subres_plain
-	}}};
-
-	VkDependencyInfo di{
-		VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-		nullptr,
-		0,
-		0,
-		nullptr,
-		0,
-		nullptr,
-		1,
-		nullptr
-	};
-
-	{
-		auto mri = textures.begin();
-
-		for(auto& [_, tex] : m_textures)
-		{
-			VkImageViewCreateInfo vnfo{
-				VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-				nullptr,
-				0,
-				tex.img,
-				VK_IMAGE_VIEW_TYPE_2D,
-				format,
-				vkutil::components_id,
-				vkutil::color_subres_plain
-			};
-
-			vk_check(vkCreateImageView(m_device, &vnfo, nullptr, &tex.view));
-			
-			std::uint64_t size = tex.w * tex.h * chan;
-
-			std::memcpy(dt, mri->get(), size);
-
-			VkBufferImageCopy bic{
-				upl_ofs,
-				tex.w,
-				tex.h,
-				{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
-				{0, 0, 0},
-				{tex.w, tex.h, 1}
-			};
-
-			dt += size;
-			upl_ofs += size;
-			imb[0].image = imb[1].image = tex.img;
-
-			di.pImageMemoryBarriers = &imb[0];
-			upl_cmd.cmd<vkCmdPipelineBarrier2>(&di);
-
-			upl_cmd.cmd<vkCmdCopyBufferToImage>(buf, tex.img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bic);
-
-			di.pImageMemoryBarriers = &imb[1];
-			upl_cmd.cmd<vkCmdPipelineBarrier2>(&di);
-			
-			mri++;
-		}
-	}
+  write_texture_upload_commands(upl_cmd, textures, dt, buf);
 
 	upl_cmd.end();
 
@@ -463,4 +338,147 @@ void Base::create_descriptor_set()
 	vkUpdateDescriptorSets(device(), 1, &w, 0, nullptr);
 }
 
+void Base::write_texture_upload_commands(CommandBuffer& cmd_buffer, const std::vector<StbiPtr>& textures, char* dt, VkBuffer upl_buffer)
+{
+	VkDeviceSize upl_ofs(0);
 
+	std::array<VkImageMemoryBarrier2, 2> imb{{{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+		nullptr,
+		VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+		0,
+		VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+		VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		0,
+		0,
+		VK_NULL_HANDLE,
+		vkutil::color_subres_plain
+	}, {
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+		nullptr,
+		VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+		VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR,
+		VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+		0,
+		0,
+		VK_NULL_HANDLE,
+		vkutil::color_subres_plain
+	}}};
+
+	VkDependencyInfo di{
+		VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+		nullptr,
+		0,
+		0,
+		nullptr,
+		0,
+		nullptr,
+		1,
+		nullptr
+	};
+
+  constexpr uint32_t chan = 4;
+
+	{
+		auto mri = textures.begin();
+
+		for(auto& [_, tex] : m_textures)
+		{
+			VkImageViewCreateInfo vnfo{
+				VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+				nullptr,
+				0,
+				tex.img,
+				VK_IMAGE_VIEW_TYPE_2D,
+				tex.format,
+				vkutil::components_id,
+				vkutil::color_subres_plain
+			};
+
+			vk_check(vkCreateImageView(m_device, &vnfo, nullptr, &tex.view));
+			
+			std::uint64_t size = tex.w * tex.h * chan;
+
+			std::memcpy(dt, mri->get(), size);
+
+			VkBufferImageCopy bic{
+				upl_ofs,
+				tex.w,
+				tex.h,
+				{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+				{0, 0, 0},
+				{tex.w, tex.h, 1}
+			};
+
+			dt += size;
+			upl_ofs += size;
+			imb[0].image = imb[1].image = tex.img;
+
+			di.pImageMemoryBarriers = &imb[0];
+			cmd_buffer.cmd<vkCmdPipelineBarrier2>(&di);
+
+			cmd_buffer.cmd<vkCmdCopyBufferToImage>(upl_buffer, tex.img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bic);
+
+			di.pImageMemoryBarriers = &imb[1];
+			cmd_buffer.cmd<vkCmdPipelineBarrier2>(&di);
+			
+			mri++;
+		}
+	}
+}
+
+
+VkDeviceSize Base::load_textures(std::vector<StbiPtr>& textures)
+{
+  textures.reserve(m_textures.size());
+
+	VkDeviceSize buffer_upl_size = 0;
+
+	constexpr int chan = 4;
+	constexpr VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
+
+	for(auto& [name, tex] : m_textures)
+	{
+		int channels;
+		int w, h;
+		textures.emplace_back(stbi_load(name.c_str(), &w, &h, &channels, chan));
+		tex.w = w;
+		tex.h = h;
+
+		buffer_upl_size += tex.w * tex.h * chan;
+
+		// TODO : add direct upload on relevant platforms
+		VkImageCreateInfo imnfo{
+			VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+			nullptr,
+			0,
+			VK_IMAGE_TYPE_2D,
+			format,
+			{tex.w, tex.h, 1},
+			1,
+			1,
+			VK_SAMPLE_COUNT_1_BIT,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			VK_SHARING_MODE_EXCLUSIVE,
+			0,
+			nullptr,
+			VK_IMAGE_LAYOUT_UNDEFINED
+		};
+
+		vk_check(vkCreateImage(m_device, &imnfo, nullptr, &tex.img));
+
+		VkMemoryRequirements imr;
+		vkGetImageMemoryRequirements(m_device, tex.img, &imr);
+
+		tex.mem = m_instance->allocate(imr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		vk_check(vkBindImageMemory(device(), tex.img, tex.mem.memory(), tex.mem.offset()));
+	}
+
+  return buffer_upl_size;
+}

@@ -5,6 +5,10 @@
 
 #include "../core/pipeline.h"
 #include "../core/instance.h"
+#include "../core/objects.h"
+
+#include "../../ext/stb_image.h"
+#include "font.h"
 
 #include <vulkan/vulkan_core.h>
 
@@ -75,8 +79,6 @@ using namespace Core;
 class Base : public AssignDestroy<Base>
 {
 public:
-
-private:
 	struct Texture
 	{
 		VkHandle<VkImage> img;
@@ -85,9 +87,22 @@ private:
 
 		std::uint32_t w, h;
 		std::uint32_t set_index;
-	};
+    VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
+  };
+
+  struct FontAtlas
+  {
+    VkHandle<VkImage> img;
+    VkHandle<VkImageView> view;
+    Allocator::OwnedMemory mem;
+  
+    std::map<uint32_t, Font::Glyph> glyphs;
+  };
+
+private:
 	
 	using texture_container_t = std::map<std::string, Texture>;
+  using font_container_t = std::map<std::string, FontAtlas>;
 
 	Element *m_root_elem = nullptr, *m_first_element = nullptr;
 
@@ -100,6 +115,7 @@ private:
 	VkDeviceSize m_buffer_size = 0;
 	char * m_mapped_buffer_ptr = nullptr;
 	texture_container_t m_textures;
+  font_container_t m_fonts;
 	
 	Pipeline m_fill_pipe, m_textured_pipe;
 	RenderCommands m_render_commands;
@@ -152,14 +168,27 @@ public:
 		return &m_textures.emplace(std::forward<T>(pth), Texture{}).first->second;
 	}
 
+  template<typename Pth>
+  void require_font(Pth&& pth)
+  {
+    m_fonts.emplace(std::forward<Pth>(pth), FontAtlas{});
+  }
+
 	void render();
 
 private:
+
+	struct StbiDeleter {void operator()(unsigned char* ptr) {stbi_image_free(ptr);}};
+	using StbiPtr = std::unique_ptr<unsigned char, StbiDeleter>;
+
 	void assign_buffer_space();
 	void allocate_buffer();
 	void init_command_buffers();
 	void build_render_buffer();
 	void create_descriptor_set();
+
+  VkDeviceSize load_textures(std::vector<StbiPtr>& textures);
+  void write_texture_upload_commands(CommandBuffer& cmd_buffer, const std::vector<StbiPtr>& textures, char* dt, VkBuffer upl_buffer);
 };
 
 }
