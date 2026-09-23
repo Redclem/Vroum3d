@@ -28,9 +28,11 @@ std::pair<Bitmap<Font::font_px_t>, Font::atlas_glyphs_t> Font::render_char_atlas
 
   std::vector<stbtt_packedchar> packed_chars(0x80 - 0x21 + 0x100 - 0xc0);
 
+  constexpr std::size_t font_size = 24;
+
   std::array<stbtt_pack_range, 2> ranges = {{
     {
-      12,
+      font_size,
       0x21,
       nullptr,
       0x80 - 0x21,
@@ -38,7 +40,7 @@ std::pair<Bitmap<Font::font_px_t>, Font::atlas_glyphs_t> Font::render_char_atlas
       0, 0
     },
     {
-      12,
+      font_size,
       0xc0,
       nullptr,
       0x100 - 0xc0,

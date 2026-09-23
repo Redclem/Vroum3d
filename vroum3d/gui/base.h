@@ -9,6 +9,7 @@
 
 #include "../../ext/stb_image.h"
 #include "font.h"
+#include "bitmap.hpp"
 
 #include <vulkan/vulkan_core.h>
 
@@ -188,7 +189,12 @@ private:
 	void create_descriptor_set();
 
   VkDeviceSize load_textures(std::vector<StbiPtr>& textures);
-  void write_texture_upload_commands(CommandBuffer& cmd_buffer, const std::vector<StbiPtr>& textures, char* dt, VkBuffer upl_buffer);
+  void write_texture_upload_commands(CommandBuffer& cmd_buffer, const std::vector<StbiPtr>& textures, char* dt, VkBuffer upl_buffer, VkDeviceSize ofs);
+
+  using font_bitmap_t = Bitmap<uint8_t>;
+
+  VkDeviceSize load_font_bitmaps(std::vector<font_bitmap_t>& bitmaps);
+  void write_font_upload_commands(CommandBuffer& cmd_buffer, const std::vector<font_bitmap_t>& bitmaps, char* dt, VkBuffer upl_buffer, VkDeviceSize ofs);
 };
 
 }

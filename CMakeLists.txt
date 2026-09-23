@@ -110,6 +110,7 @@ endfunction()
 
 if(VROUM3D_EXAMPLES)
   add_example(gui)
+  add_example(gui_font)
   add_example(empty_pipeline)
   add_example(instance)
   add_example(pipeman)

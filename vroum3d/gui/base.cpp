@@ -15,7 +15,6 @@
 #include <vulkan/vulkan_core.h>
 
 using namespace Vroum3d::Gui;
-using namespace Vroum3d::Gui;
 
 struct FillPipeInfo : public RenderPipelineInformation
 {
@@ -82,8 +81,12 @@ void Base::init()
 	/** Gather texture and buffer memory requirements */
 
 	std::vector<StbiPtr> textures;
+  std::vector<font_bitmap_t> bitmaps;
 
-	VkDeviceSize buffer_upl_size = load_textures(textures);
+	VkDeviceSize textures_size = load_textures(textures);
+  VkDeviceSize fonts_size = load_font_bitmaps(bitmaps);
+
+  VkDeviceSize buffer_upl_size = textures_size + fonts_size;
 		
 	for(auto elem = m_first_element; elem; elem = elem->next_element())
 	{
@@ -122,8 +125,12 @@ void Base::init()
 
 	CommandBuffer upl_cmd(*m_instance);
 	upl_cmd.begin_primary();
+  
+  VkDeviceSize ofs(0);
 
-  write_texture_upload_commands(upl_cmd, textures, dt, buf);
+  write_texture_upload_commands(upl_cmd, textures, dt, buf, ofs);
+  ofs += textures_size;
+  write_font_upload_commands(upl_cmd, bitmaps, dt, buf, ofs);
 
 	upl_cmd.end();
 
@@ -338,10 +345,73 @@ void Base::create_descriptor_set()
 	vkUpdateDescriptorSets(device(), 1, &w, 0, nullptr);
 }
 
-void Base::write_texture_upload_commands(CommandBuffer& cmd_buffer, const std::vector<StbiPtr>& textures, char* dt, VkBuffer upl_buffer)
+VkDeviceSize Base::load_textures(std::vector<StbiPtr>& textures)
 {
-	VkDeviceSize upl_ofs(0);
+  textures.reserve(m_textures.size());
 
+	VkDeviceSize buffer_upl_size = 0;
+
+	constexpr int chan = 4;
+	constexpr VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
+
+	for(auto& [name, tex] : m_textures)
+	{
+		int channels;
+		int w, h;
+		textures.emplace_back(stbi_load(name.c_str(), &w, &h, &channels, chan));
+		tex.w = w;
+		tex.h = h;
+
+		buffer_upl_size += tex.w * tex.h * chan;
+
+		VkImageCreateInfo imnfo{
+			VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+			nullptr,
+			0,
+			VK_IMAGE_TYPE_2D,
+			format,
+			{tex.w, tex.h, 1},
+			1,
+			1,
+			VK_SAMPLE_COUNT_1_BIT,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			VK_SHARING_MODE_EXCLUSIVE,
+			0,
+			nullptr,
+			VK_IMAGE_LAYOUT_UNDEFINED
+		};
+
+		vk_check(vkCreateImage(m_device, &imnfo, nullptr, &tex.img));
+
+		VkMemoryRequirements imr;
+		vkGetImageMemoryRequirements(m_device, tex.img, &imr);
+
+		tex.mem = m_instance->allocate(imr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		vk_check(vkBindImageMemory(device(), tex.img, tex.mem.memory(), tex.mem.offset()));
+
+
+    VkImageViewCreateInfo vnfo{
+      VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+      nullptr,
+      0,
+      tex.img,
+      VK_IMAGE_VIEW_TYPE_2D,
+      tex.format,
+      vkutil::components_id,
+      vkutil::color_subres_plain
+    };
+
+    vk_check(vkCreateImageView(m_device, &vnfo, nullptr, &tex.view));
+	}
+
+  return buffer_upl_size;
+}
+
+
+void Base::write_texture_upload_commands(CommandBuffer& cmd_buffer, const std::vector<StbiPtr>& textures, char* dt, VkBuffer upl_buffer, VkDeviceSize ofs)
+{
+  dt += ofs;
 	std::array<VkImageMemoryBarrier2, 2> imb{{{
 		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 		nullptr,
@@ -389,25 +459,13 @@ void Base::write_texture_upload_commands(CommandBuffer& cmd_buffer, const std::v
 
 		for(auto& [_, tex] : m_textures)
 		{
-			VkImageViewCreateInfo vnfo{
-				VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-				nullptr,
-				0,
-				tex.img,
-				VK_IMAGE_VIEW_TYPE_2D,
-				tex.format,
-				vkutil::components_id,
-				vkutil::color_subres_plain
-			};
-
-			vk_check(vkCreateImageView(m_device, &vnfo, nullptr, &tex.view));
 			
 			std::uint64_t size = tex.w * tex.h * chan;
 
 			std::memcpy(dt, mri->get(), size);
 
 			VkBufferImageCopy bic{
-				upl_ofs,
+				ofs,
 				tex.w,
 				tex.h,
 				{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
@@ -416,7 +474,7 @@ void Base::write_texture_upload_commands(CommandBuffer& cmd_buffer, const std::v
 			};
 
 			dt += size;
-			upl_ofs += size;
+			ofs += size;
 			imb[0].image = imb[1].image = tex.img;
 
 			di.pImageMemoryBarriers = &imb[0];
@@ -433,33 +491,27 @@ void Base::write_texture_upload_commands(CommandBuffer& cmd_buffer, const std::v
 }
 
 
-VkDeviceSize Base::load_textures(std::vector<StbiPtr>& textures)
+VkDeviceSize Base::load_font_bitmaps(std::vector<Base::font_bitmap_t>& bitmaps)
 {
-  textures.reserve(m_textures.size());
+  bitmaps.reserve(m_fonts.size());
+  VkDeviceSize size(0);
 
-	VkDeviceSize buffer_upl_size = 0;
+  constexpr VkFormat format = VK_FORMAT_R8_UNORM;
 
-	constexpr int chan = 4;
-	constexpr VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
+  for(auto& [name, font] : m_fonts)
+  {
+    Font f(name.c_str());
+    auto [bmp, atlas] = f.render_char_atlas();
 
-	for(auto& [name, tex] : m_textures)
-	{
-		int channels;
-		int w, h;
-		textures.emplace_back(stbi_load(name.c_str(), &w, &h, &channels, chan));
-		tex.w = w;
-		tex.h = h;
-
-		buffer_upl_size += tex.w * tex.h * chan;
-
-		// TODO : add direct upload on relevant platforms
-		VkImageCreateInfo imnfo{
+    font.glyphs = std::move(atlas);
+    
+    VkImageCreateInfo imnfo{
 			VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 			nullptr,
 			0,
 			VK_IMAGE_TYPE_2D,
 			format,
-			{tex.w, tex.h, 1},
+			{bmp.w(), bmp.h(), 1},
 			1,
 			1,
 			VK_SAMPLE_COUNT_1_BIT,
@@ -471,14 +523,112 @@ VkDeviceSize Base::load_textures(std::vector<StbiPtr>& textures)
 			VK_IMAGE_LAYOUT_UNDEFINED
 		};
 
-		vk_check(vkCreateImage(m_device, &imnfo, nullptr, &tex.img));
+		vk_check(vkCreateImage(m_device, &imnfo, nullptr, &font.img));
 
 		VkMemoryRequirements imr;
-		vkGetImageMemoryRequirements(m_device, tex.img, &imr);
+		vkGetImageMemoryRequirements(m_device, font.img, &imr);
 
-		tex.mem = m_instance->allocate(imr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		vk_check(vkBindImageMemory(device(), tex.img, tex.mem.memory(), tex.mem.offset()));
-	}
+		font.mem = m_instance->allocate(imr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		vk_check(vkBindImageMemory(device(), font.img, font.mem.memory(), font.mem.offset()));
 
-  return buffer_upl_size;
+
+    VkImageViewCreateInfo vnfo{
+      VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+      nullptr,
+      0,
+      font.img,
+      VK_IMAGE_VIEW_TYPE_2D,
+      format,
+      vkutil::components_id,
+      vkutil::color_subres_plain
+    };
+
+    vk_check(vkCreateImageView(m_device, &vnfo, nullptr, &font.view));
+
+    size += bmp.w() * bmp.h();
+
+    bitmaps.push_back(std::move(bmp));
+  }
+
+  return size;
 }
+
+void Base::write_font_upload_commands(CommandBuffer& cmd_buffer, const std::vector<Base::font_bitmap_t>& bitmaps, char* dt, VkBuffer upl_buffer, VkDeviceSize ofs)
+{
+  dt += ofs;
+	std::array<VkImageMemoryBarrier2, 2> imb{{{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+		nullptr,
+		VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+		0,
+		VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+		VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		0,
+		0,
+		VK_NULL_HANDLE,
+		vkutil::color_subres_plain
+	}, {
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+		nullptr,
+		VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+		VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR,
+		VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+		0,
+		0,
+		VK_NULL_HANDLE,
+		vkutil::color_subres_plain
+	}}};
+
+	VkDependencyInfo di{
+		VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+		nullptr,
+		0,
+		0,
+		nullptr,
+		0,
+		nullptr,
+		1,
+		nullptr
+	};
+
+	{
+		auto mri = bitmaps.begin();
+
+		for(auto& [_, font] : m_fonts)
+		{
+			std::uint64_t size = mri->w() * mri->h();
+
+			std::memcpy(dt, mri->data(), size);
+
+			VkBufferImageCopy bic{
+				ofs,
+				mri->w(),
+				mri->h(),
+				{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+				{0, 0, 0},
+				{mri->w(), mri->h(), 1}
+			};
+
+			dt += size;
+			ofs += size;
+			imb[0].image = imb[1].image = font.img;
+
+			di.pImageMemoryBarriers = &imb[0];
+			cmd_buffer.cmd<vkCmdPipelineBarrier2>(&di);
+
+			cmd_buffer.cmd<vkCmdCopyBufferToImage>(upl_buffer, font.img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bic);
+
+			di.pImageMemoryBarriers = &imb[1];
+			cmd_buffer.cmd<vkCmdPipelineBarrier2>(&di);
+			
+			mri++;
+		}
+	}
+}
+
+
