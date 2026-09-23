@@ -30,6 +30,7 @@ public:
     Math::vec2 start, end;
     Math::vec2 offset;
     float adv;
+    uint16_t w, h;
   };
 
   using atlas_glyphs_t = std::map<uint32_t, Glyph>;

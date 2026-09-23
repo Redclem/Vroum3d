@@ -1,5 +1,6 @@
 #include "font.h"
 #include <array>
+#include <cstdint>
 #include <fstream>
 #include <memory>
 #include <algorithm>
@@ -73,7 +74,9 @@ std::pair<Bitmap<Font::font_px_t>, Font::atlas_glyphs_t> Font::render_char_atlas
         {float(iter->x0) / wf, float(iter->y0) / hf},
         {float(iter->x1) / wf, float(iter->y1) / hf},
         {iter->xoff, iter->yoff},
-        iter->xadvance
+        iter->xadvance,
+        uint16_t(iter->x1 - iter->x0),
+        uint16_t(iter->y1 - iter->y0)
       });
     }
   }

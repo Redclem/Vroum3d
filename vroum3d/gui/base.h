@@ -11,6 +11,7 @@
 #include "font.h"
 #include "bitmap.hpp"
 
+#include <string_view>
 #include <vulkan/vulkan_core.h>
 
 #include <map>
@@ -97,10 +98,14 @@ public:
     VkHandle<VkImageView> view;
     Allocator::OwnedMemory mem;
   
-    std::map<uint32_t, Font::Glyph> glyphs;
+    Font::atlas_glyphs_t glyphs;
+
+    float compute_text_size(std::string_view str) const;
   };
 
 private:
+	using texture_ptr_t = Texture*;
+  using font_ptr_t = FontAtlas*;
 	
 	using texture_container_t = std::map<std::string, Texture>;
   using font_container_t = std::map<std::string, FontAtlas>;
@@ -125,8 +130,9 @@ private:
 	VkHandle<VkDescriptorPool> m_desc_pool;
 	VkDescriptorSet m_tex_des_set;
 
+  font_ptr_t m_default_font = nullptr;
+
 public:
-	using texture_ptr_t = Texture*;
 
 	~Base() {
 		destroy();
@@ -138,6 +144,8 @@ public:
 
 	void destroy();
 	auto instance() const {return m_instance;}
+
+  font_ptr_t default_font() const {return m_default_font;}
 
 	Base(DisplayInstance& inst, PipelineResource& pr);
 
@@ -170,9 +178,15 @@ public:
 	}
 
   template<typename Pth>
-  void require_font(Pth&& pth)
+  font_ptr_t require_font(Pth&& pth)
   {
-    m_fonts.emplace(std::forward<Pth>(pth), FontAtlas{});
+    &m_fonts.emplace(std::forward<Pth>(pth), FontAtlas{}).first->second;
+  }
+
+  template<typename Pth>
+  void set_default_font(Pth&& pth)
+  {
+    m_default_font = require_font(std::forward<Pth>(pth));
   }
 
 	void render();
