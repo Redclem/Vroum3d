@@ -101,11 +101,13 @@ public:
     Font::atlas_glyphs_t glyphs;
 
     float compute_text_size(std::string_view str) const;
+    std::size_t glyph_count(std::string_view str) const;
   };
 
-private:
 	using texture_ptr_t = Texture*;
   using font_ptr_t = FontAtlas*;
+
+private:
 	
 	using texture_container_t = std::map<std::string, Texture>;
   using font_container_t = std::map<std::string, FontAtlas>;
@@ -180,7 +182,7 @@ public:
   template<typename Pth>
   font_ptr_t require_font(Pth&& pth)
   {
-    &m_fonts.emplace(std::forward<Pth>(pth), FontAtlas{}).first->second;
+    return &m_fonts.emplace(std::forward<Pth>(pth), FontAtlas{}).first->second;
   }
 
   template<typename Pth>

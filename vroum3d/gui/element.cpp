@@ -92,3 +92,53 @@ void Image::arrange()
 		m_position.h -= h_red;
 	}
 }
+
+void Label::init()
+{
+  Element::init();
+  if(m_font == nullptr)
+    m_font = base()->default_font();
+}
+
+void Label::upload_buffer(char* buffer_data_ptr)
+{
+  auto* glyph_out_iter(reinterpret_cast<GlyphData*>(buffer_data_ptr));
+
+  float adv(0.0f);
+
+  auto proc_point = [&](char32_t point)
+    {
+      auto iter = m_font->glyphs.find(point);
+      if(iter == m_font->glyphs.end()) return;
+
+      const auto& g = iter->second;
+
+      glyph_out_iter->pts[0] = {{m_text_orig.x + g.offset.x, g.offset.y + m_text_orig.y}, g.start};
+      glyph_out_iter->pts[1] = {{m_text_orig.x + g.offset.x + g.w, g.offset.y + m_text_orig.y}, {g.end.x, g.start.y}};
+      glyph_out_iter->pts[2] = {{m_text_orig.x + g.offset.x, g.offset.y + g.h + m_text_orig.y}, {g.start.x, g.end.y}};
+      glyph_out_iter->pts[3] = {{m_text_orig.x + g.offset.x + g.w, g.offset.y + g.h + m_text_orig.y}, {g.start.x, g.start.y}};
+
+      glyph_out_iter++;
+      adv += g.adv;
+    };
+
+  m_font->glyphs.iterate_unicode_points(m_text, proc_point);
+}
+
+void Label::arrange()
+{
+  Rect bbox = m_font->glyphs.compute_text_size(m_text);
+
+  m_text_orig = 
+  {
+    position().x + position().w / 2 - bbox.w / 2, 
+    position().y + position().h / 2 - bbox.h / 2
+  };
+
+  m_text_orig -= Math::vec2{bbox.x, bbox.y};
+}
+
+void Label::record_render_commands(RenderCommands& rc)
+{
+  (void)rc;
+}

@@ -10,7 +10,7 @@
 namespace Vroum3d::Gui
 {
 
-using px_t = std::uint32_t;
+using px_t = float;
 
 struct Extent
 {
@@ -75,6 +75,7 @@ using rect_points_t = std::array<Point, 4>;
 struct Rect : Point, Extent {
 	
 	constexpr Rect(px_t _x, px_t _y, px_t _w, px_t _h) : Point(_x, _y), Extent(_w, _h) {}
+	constexpr Rect(std::uint32_t _x, std::uint32_t _y, std::uint32_t _w, std::uint32_t _h) : Point(_x, _y), Extent(_w, _h) {}
 	constexpr Rect(Point p, Extent e) : Point(p), Extent(e) {}
 	constexpr Rect() {}
 

@@ -83,3 +83,50 @@ std::pair<Bitmap<Font::font_px_t>, Font::atlas_glyphs_t> Font::render_char_atlas
 
   return {res.sub(0, 0, req_w, req_h), glyphs};
 }
+
+using cvrt_t = std::codecvt<char32_t, char, std::mbstate_t>;
+struct Converter : cvrt_t
+{
+  using cvrt_t::cvrt_t;
+  ~Converter() {}
+};
+
+Rect Font::GlyphAtlas::compute_text_size(std::string_view str) const
+{
+  float xmin(0.0f), xmax(0.0f), adv(0.0f);
+  float ymin(0.0f), ymax(0.0f);
+
+  auto proc_fun = [&](char32_t out)
+  {
+    if(auto iter = find(out); iter != end())
+    {
+      xmax = std::max(xmax, adv + float(iter->second.w) + iter->second.offset.x);
+      xmin = std::min(xmin, adv + iter->second.offset.x);
+
+      ymin = std::min(ymin, iter->second.offset.y);
+      ymin = std::min(ymin, iter->second.offset.y + float(iter->second.h));
+      adv += iter->second.adv;
+
+    }
+  };
+
+  iterate_unicode_points(str, proc_fun);
+
+  return {xmin, ymin, xmax-xmin, ymax - ymin};
+}
+
+std::size_t Font::GlyphAtlas::glyph_count(std::string_view str) const
+{
+  std::size_t res(0);
+
+  auto fun = [&](char32_t out){
+
+    if(auto iter = find(out); iter != end())
+      res++;
+
+  }; 
+
+  iterate_unicode_points(str, fun);
+
+  return res;
+}

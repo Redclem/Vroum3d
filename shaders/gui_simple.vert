@@ -1,6 +1,6 @@
 #version 450
 
-layout(location=0) in uvec2 i_pos;
+layout(location=0) in vec2 i_pos;
 
 layout(push_constant) uniform Pc 
 {

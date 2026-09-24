@@ -71,6 +71,32 @@ public:
 	virtual void arrange() override;
 };
 
+class Label : public Element
+{
+  struct GlyphData
+  {
+    TexturedPoint pts[4];
+  };
+private:
+  std::string m_text;
+  Base::font_ptr_t m_font;
+
+  Math::vec2 m_text_orig;
+public:
+
+  template<typename T>
+  Label(Base* base, T&& text) : Element::Element(base), m_text(std::forward<T>(text)) {}
+
+  virtual VkDeviceSize buffer_size() const override {
+    return m_font->glyphs.glyph_count(m_text) * sizeof(GlyphData);
+  }
+  
+  virtual void init() override;
+  virtual void upload_buffer(char* buffer_data_ptr) override;
+  virtual void record_render_commands(RenderCommands& rc) override;
+  virtual void arrange() override;
+};
+
 }
 
 #endif

@@ -635,47 +635,4 @@ void Base::write_font_upload_commands(CommandBuffer& cmd_buffer, const std::vect
 	}
 }
 
-float Base::FontAtlas::compute_text_size(std::string_view str) const
-{
-  using cvrt_t = std::codecvt<char32_t, char, std::mbstate_t>;
-  struct Converter : cvrt_t
-  {
-    using cvrt_t::cvrt_t;
-    ~Converter() {}
-  };
-
-  Converter cvrt;
-  std::mbstate_t state;
-
-  char32_t out;
-
-  auto iter = str.data();
-  auto end = iter + str.length();
-
-  std::codecvt_base::result code;
-
-  float width(0.0f);
-
-  Font::atlas_glyphs_t::const_iterator last_valid_iter = glyphs.end();
-
-  do {
-    char32_t *ptr;
-    code = cvrt.in(state, iter, end, iter, &out, &out+1, ptr);
-
-    if(code == std::codecvt_base::result::error) return 0.0f;
-    if(code == std::codecvt_base::result::noconv) return 0.0f;
-
-    if(auto iter = glyphs.find(out); iter != glyphs.end())
-    {
-      last_valid_iter = iter;
-      width += iter->second.adv;
-    }
-
-  }while (code != std::codecvt_base::result::ok);
-
-  if(last_valid_iter != glyphs.end()) 
-    width += float(last_valid_iter->second.w);
-
-  return width;
-}
 
