@@ -30,10 +30,7 @@ void DisplayInstance::destroy()
 		frame_sync.render_done_fence.destroy_with([&](VkFence fnc){vkDestroyFence(device(), fnc, nullptr);});
 	}
 
-	m_depth_view.destroy_with([&](auto dv){vkDestroyImageView(m_dev, dv, nullptr);});
-	m_depth_image.destroy_with([&](auto di){vkDestroyImage(m_dev, di, nullptr);});
-
-  free(m_depth_mem);
+  destroy_depth_images();
 
 	for(auto& elem : m_sw_views)
 		if(elem != VK_NULL_HANDLE)
@@ -362,7 +359,7 @@ void DisplayInstance::create_sw_views()
 	}
 }
 
-void DisplayInstance::create_depth_image()
+void DisplayInstance::create_depth_images()
 {
 
 	VkImageCreateInfo ii{
@@ -383,27 +380,11 @@ void DisplayInstance::create_depth_image()
 		VK_IMAGE_LAYOUT_UNDEFINED
 	};
 
-	vk_check(vkCreateImage(m_dev, &ii, nullptr, &m_depth_image));
-
-	VkMemoryRequirements mr;
-	vkGetImageMemoryRequirements(m_dev, m_depth_image, &mr);
-
-	/*VkMemoryAllocateInfo mai{
-		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		nullptr,
-		mr.size,
-		vkutil::find_mem_index(m_pdev, mr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
-	};*/
-
-  m_depth_mem = allocate(vkutil::find_mem_index(m_pdev, mr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), mr.size, mr.alignment);
-
-	vk_check(vkBindImageMemory(m_dev, m_depth_image, m_depth_mem.memory(), m_depth_mem.offset()));
-
 	VkImageViewCreateInfo vi{
 		VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 		nullptr,
 		0,
-		m_depth_image,
+		VK_NULL_HANDLE,
 		VK_IMAGE_VIEW_TYPE_2D,
 		m_depth_format,
 		vkutil::components_id,
@@ -416,8 +397,20 @@ void DisplayInstance::create_depth_image()
 		}
 	};
 
-	vk_check(vkCreateImageView(m_dev, &vi, nullptr, &m_depth_view));
+	VkMemoryRequirements mr;
 
+  for(auto& elem : m_frame_sync)
+  {
+    vk_check(vkCreateImage(m_dev, &ii, nullptr, &elem.depth_image));
+    vkGetImageMemoryRequirements(m_dev, elem.depth_image, &mr);
+
+    elem.depth_mem = allocate(vkutil::find_mem_index(m_pdev, mr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), mr.size, mr.alignment);
+
+    vi.image = elem.depth_image;
+    vk_check(vkBindImageMemory(m_dev, elem.depth_image, elem.depth_mem.memory(), elem.depth_mem.offset()));
+
+    vk_check(vkCreateImageView(m_dev, &vi, nullptr, &elem.depth_view));
+  }
 }
 
 void DisplayInstance::find_depth_format()
@@ -573,8 +566,8 @@ void DisplayInstance::begin_rendering(VkCommandBuffer cmd_buf, bool secondary_co
 	{
 		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 		nullptr,
-		0,
-		0,
+    0,
+    0,
 		VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
 		VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
 		VK_IMAGE_LAYOUT_UNDEFINED,
@@ -648,7 +641,7 @@ void DisplayInstance::end_rendering(VkCommandBuffer cmd_buf)
 {
 	vkCmdEndRendering(cmd_buf);
 
-	VkImageMemoryBarrier2 bar = {
+  std::array<VkImageMemoryBarrier2, 1> bars = {{{
 		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 		nullptr,
 		VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -661,7 +654,7 @@ void DisplayInstance::end_rendering(VkCommandBuffer cmd_buf)
 		0,
 		sw_image(next_swapchain_frame()),
 		{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
-	};
+	}}};
 
 	VkDependencyInfo di{
 		VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
@@ -671,8 +664,8 @@ void DisplayInstance::end_rendering(VkCommandBuffer cmd_buf)
 		nullptr,
 		0,
 		nullptr,
-		1,
-		&bar
+		bars.size(),
+		bars.data()
 	};
 
 	vkCmdPipelineBarrier2(cmd_buf, &di);
@@ -711,30 +704,34 @@ void DisplayInstance::resize()
   vk_check(vkQueueWaitIdle(m_pq));
 
   destroy_swapchain();
-  destroy_depth_image();
+  destroy_depth_images();
 
   create_sw();
   create_sw_views();
-  create_depth_image();
+  create_depth_images();
 }
 
 void DisplayInstance::destroy_swapchain()
 {
   for(auto& elem : m_sw_views)
+  {
     vkDestroyImageView(device(), elem, nullptr);
+  }
 
-  m_sw_views.clear();
   m_sw_images.clear();
 
   m_sw.destroy_with([&]{vkDestroySwapchainKHR(device(), m_sw, nullptr);});
 }
 
-void DisplayInstance::destroy_depth_image()
+void DisplayInstance::destroy_depth_images()
 {
-  m_depth_view.destroy_with([&]{vkDestroyImageView(device(), m_depth_view, nullptr);});
-  m_depth_image.destroy_with([&]{vkDestroyImage(device(), m_depth_image, nullptr);});
+  for(auto& elem : m_frame_sync)
+  {
+    elem.depth_view.destroy_with([&](auto v){vkDestroyImageView(device(), v, nullptr);});
+    elem.depth_image.destroy_with([&](auto im){vkDestroyImage(device(), im, nullptr);});
 
-  free(m_depth_mem);
+    free(elem.depth_mem);
+  }
 }
 
 void DisplayInstance::create_frame_sync()
@@ -758,4 +755,6 @@ void DisplayInstance::create_frame_sync()
 
 		vk_check(vkCreateFence(device(), &fi, nullptr, &elem.render_done_fence));
 	}
+
+  create_depth_images();
 }

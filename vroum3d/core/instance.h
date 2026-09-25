@@ -26,8 +26,6 @@ constexpr bool c_enable_syncval = true;
 constexpr bool c_enable_syncval = false;
 #endif
 
-constexpr std::size_t c_frames_in_flight = 2; // AKA number of buffered frames
-
 template<bool enable = false>
 class InstanceDebugData {
 public:
@@ -71,6 +69,8 @@ protected:
 
 
 public:
+
+  static constexpr std::size_t c_frames_in_flight = 3; // AKA number of buffered frames
 
 	struct ExtensionsLayers
 	{
@@ -242,12 +242,10 @@ class DisplayInstance : public Instance {
 	VkQueue m_pq;
 	VkHandle<VkSwapchainKHR> m_sw;
 
+  
+
   std::vector<VkImage> m_sw_images;
 	std::vector<VkHandle<VkImageView>> m_sw_views;
-	VkHandle<VkImage> m_depth_image;
-
-	VkHandle<VkImageView> m_depth_view;
-  owned_memory_t m_depth_mem;
 
 	struct FrameSync
 	{
@@ -255,6 +253,10 @@ class DisplayInstance : public Instance {
 		VkHandle<VkFence> render_done_fence;
 
 		std::uint32_t image_index;
+
+    VkHandle<VkImage> depth_image;
+    VkHandle<VkImageView> depth_view;
+    owned_memory_t depth_mem;
 	};
 
 	std::array<FrameSync, c_frames_in_flight> m_frame_sync; // Frame sync primitives, one per buffered frame
@@ -288,8 +290,8 @@ public:
 	VkImageView sw_view(std::uint32_t idx) const {return m_sw_views[idx];}
 	VkImage sw_image(std::uint32_t idx) const {return m_sw_images[idx];}
 
-	VkImageView depth_view() const {return m_depth_view;}
-	VkImage depth_image() const {return m_depth_image;}
+	VkImageView depth_view() const {return m_frame_sync[m_next_frame].depth_view;}
+	VkImage depth_image() const {return m_frame_sync[m_next_frame].depth_image;}
 	
 
 	const VkFormat& color_format() const {return m_sw_format.format;}
@@ -342,7 +344,6 @@ public:
 
     m_depth_image_usage = ii.depth_image_additional_usage() | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-		create_depth_image();
 		create_frame_sync();
 	}
 
@@ -422,7 +423,7 @@ private:
 	void create_surf(SDL_Window* wind);
 
 	void create_sw_views();
-	void create_depth_image();
+	void create_depth_images();
 
 	void find_depth_format();
 	void create_transfer_pool();
@@ -436,7 +437,7 @@ private:
   void resize();
 
   void destroy_swapchain();
-  void destroy_depth_image();
+  void destroy_depth_images();
 
 	void create_frame_sync();
 };
