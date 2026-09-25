@@ -104,7 +104,7 @@ void Base::init()
 		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		nullptr,
 		0,
-		c_frames_in_flight * m_buffer_size,
+		Instance::c_frames_in_flight * m_buffer_size,
 		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 		VK_SHARING_MODE_EXCLUSIVE,
 		0,
@@ -171,7 +171,7 @@ void Base::init_command_buffers()
 
 	vk_check(vkCreateCommandPool(m_device, &pi, nullptr, &m_cmd_pool));
 
-	m_cmd_bufs.resize(c_frames_in_flight);
+	m_cmd_bufs.resize(Instance::c_frames_in_flight);
 
 	VkCommandBufferAllocateInfo cmdai{
 		VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -262,6 +262,10 @@ void Base::build_render_buffer()
 			vkCmdDraw(cmd_buf, cmd.n_vertex, 1, 0, 0);
 		}
 	}
+
+  if(m_render_commands.texts.size())
+  {
+  }
 
 	instance()->end_rendering(cmd_buf);
 

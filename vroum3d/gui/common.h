@@ -139,8 +139,14 @@ struct RenderCommands
 		std::uint32_t texture_id;
 	};
 
+  struct Text
+  {
+    VkDeviceSize buffer_ofs, n_vertex;
+  };
+
 	std::vector<Fill> fills;
 	std::vector<Textured> textures;
+  std::vector<Text> texts;
 
 	template<typename ... Args>
 	void fill(Args&&... ags) {fills.emplace_back(std::forward<Args>(ags)...);}
@@ -148,10 +154,14 @@ struct RenderCommands
 	template<typename ... Args>
 	void texture(Args&&... ags) {textures.emplace_back(std::forward<Args>(ags)...);}
 
+  template<typename ... Args>
+  void text(Args&&... ags) {texts.emplace_back(std::forward<Args>(ags)...);}
+
 	void clear()
 	{
 		fills.clear();
 		textures.clear();
+    texts.clear();
 	}
 };
 

@@ -14,10 +14,10 @@ int main(int, char*[])
 	PipelineResource pr(inst);
 
 	Base b(inst, pr);
-	Image i(&b, "gfx/fox.jpg");
-	b.set_root_elem(&i);
+  b.set_default_font("fonts/font.ttf");
 
-  b.require_font("fonts/font.ttf");
+	Label l(&b, "Hello world!");
+	b.set_root_elem(&l);
 	b.init();
 
 	bool run(true);

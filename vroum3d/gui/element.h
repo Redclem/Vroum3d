@@ -85,7 +85,8 @@ private:
 public:
 
   template<typename T>
-  Label(Base* base, T&& text) : Element::Element(base), m_text(std::forward<T>(text)) {}
+  Label(Base* base, T&& text) : Element::Element(base), m_text(std::forward<T>(text)),
+   m_font(base->default_font()) {}
 
   virtual VkDeviceSize buffer_size() const override {
     return m_font->glyphs.glyph_count(m_text) * sizeof(GlyphData);

@@ -16,6 +16,8 @@ class Buffer : public AssignDestroy<Buffer>
   static constexpr VkDeviceSize c_max_atom_size = 256;
 public:
 
+  Buffer() {}
+
 	/** Buffer constructor : creates buffer and allocs mem
 	* \param alloc Allocator to create buffer with
 	* \param use Buffer usage
@@ -95,7 +97,11 @@ class CommandBuffer : public AssignDestroy<CommandBuffer>
 {
 public:
 
+  CommandBuffer() {}
+
 	~CommandBuffer() {destroy();}
+
+  CommandBuffer(CommandBuffer&&) = default;
 
 	CommandBuffer(const Instance& inst, VkCommandPool cmd_pool, bool primary = true) : m_dev(inst.device()), m_cmd_pool(cmd_pool)
 	{
@@ -167,6 +173,8 @@ private:
 class Fence : public AssignDestroy<Fence>
 {
 public:
+  Fence() {}
+  
 	Fence(const Instance& inst) : m_device(inst.device())
 	{
 		VkFenceCreateInfo fi{

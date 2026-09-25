@@ -1,7 +1,10 @@
 
 #include "../vroum3d/vroum3d.h"
+#include "core/instance.h"
+#include "core/objects.h"
 #include <SDL3/SDL.h>
 #include <chrono>
+#include <memory>
 #include <thread>
 #include <vulkan/vulkan_core.h>
 
@@ -30,7 +33,12 @@ int main(int, char*[])
 	vk_check(vkCreateCommandPool(inst.device(), &cpi, nullptr, &pool));
 
 	bool run = true;
-	std::array<CommandBuffer, 2> cmd_bufs = {{{inst, pool}, {inst, pool}}};
+	std::array<CommandBuffer, Instance::c_frames_in_flight> cmd_bufs;
+
+  for(auto& buf : cmd_bufs)
+  {
+    std::construct_at(&buf, inst, pool);
+  }
 
 	while(run)
 	{
