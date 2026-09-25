@@ -140,5 +140,5 @@ void Label::arrange()
 
 void Label::record_render_commands(RenderCommands& rc)
 {
-  (void)rc;
+
 }

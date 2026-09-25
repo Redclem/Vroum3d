@@ -8,7 +8,6 @@ layout(location=0) out vec2 o_uv;
 layout(push_constant) uniform Pc 
 {
 	vec2 twice_inv_size;
-	uint texture_index;
 } pc;
 
 void main()

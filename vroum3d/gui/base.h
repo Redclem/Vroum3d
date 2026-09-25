@@ -99,6 +99,7 @@ public:
     Allocator::OwnedMemory mem;
   
     Font::atlas_glyphs_t glyphs;
+    std::uint32_t set_index;
 
     float compute_text_size(std::string_view str) const;
     std::size_t glyph_count(std::string_view str) const;

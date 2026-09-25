@@ -246,17 +246,25 @@ void Base::build_render_buffer()
 	}
 
 	if(m_render_commands.textures.size())
-	{
+	{		struct Pc
+		{
+			Math::vec2 twice_inv_size;
+      std::uint32_t texture_id;
+		} pc;
+
 		vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_textured_pipe.pipeline());
 		vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_textured_pipe.layout(), 0, 1, &m_tex_des_set, 0, nullptr);
 
 		vkCmdSetViewport(cmd_buf, 0, 1, &vp);
 		vkCmdSetScissor(cmd_buf, 0, 1, &scissor);
 		
-		vkCmdPushConstants(cmd_buf, m_textured_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(twice_inv_size), &twice_inv_size);
+		vkCmdPushConstants(cmd_buf, m_textured_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Pc), &pc);
 
 		for(auto& cmd : m_render_commands.textures)
 		{
+		  vkCmdPushConstants(cmd_buf, m_textured_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(pc.texture_id), &pc.texture_id);
+
 			cmd.buffer_ofs += buffer_ofs;
 			vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_buffer, &cmd.buffer_ofs);
 			vkCmdDraw(cmd_buf, cmd.n_vertex, 1, 0, 0);
@@ -265,6 +273,35 @@ void Base::build_render_buffer()
 
   if(m_render_commands.texts.size())
   {
+		struct Pc
+		{
+			Math::vec4 color;
+			Math::vec2 twice_inv_size;
+      std::uint32_t texture_id;
+		} pc;
+
+    pc.color = {0, 0, 0, 1};
+    pc.twice_inv_size = twice_inv_size;
+
+		vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_textured_pipe.pipeline());
+		vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_textured_pipe.layout(), 0, 1, &m_tex_des_set, 0, nullptr);
+
+		vkCmdSetViewport(cmd_buf, 0, 1, &vp);
+		vkCmdSetScissor(cmd_buf, 0, 1, &scissor);
+		
+		vkCmdPushConstants(cmd_buf, m_textured_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(twice_inv_size), &twice_inv_size);
+
+    for(auto& cmd : m_render_commands.texts)
+    {
+      cmd.vertex_buffer_ofs += buffer_ofs;
+		  vkCmdPushConstants(cmd_buf, m_textured_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(pc.texture_id), &pc.texture_id);
+
+      vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_buffer, &cmd.vertex_buffer_ofs);
+      vkCmdBindIndexBuffer(cmd_buf, m_buffer, cmd.index_buffer_ofs, VK_INDEX_TYPE_UINT32);
+
+      vkCmdDrawIndexed(cmd_buf, cmd.n_vertex, 1, 0, 0, 0);
+    }
   }
 
 	instance()->end_rendering(cmd_buf);
@@ -327,7 +364,7 @@ void Base::create_descriptor_set()
 
 	vk_check(vkAllocateDescriptorSets(device(), &ai, &m_tex_des_set));
 
-	std::vector<VkDescriptorImageInfo> img_infos(m_textures.size());
+	std::vector<VkDescriptorImageInfo> img_infos(m_textures.size() + m_fonts.size());
 
 	std::uint32_t index(0);
 	std::transform(m_textures.begin(), m_textures.end(), img_infos.begin(),
@@ -337,13 +374,20 @@ void Base::create_descriptor_set()
 									return {VK_NULL_HANDLE, tex.second.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
 								});
 
+	std::transform(m_fonts.begin(), m_fonts.end(), img_infos.begin() + m_textures.size(),
+								[&index](font_container_t::value_type& font) -> VkDescriptorImageInfo
+								{
+									font.second.set_index = index++;
+									return {VK_NULL_HANDLE, font.second.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+								});
+
 	VkWriteDescriptorSet w{
 		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 		nullptr,
 		m_tex_des_set,
 		1,
 		0,
-		std::uint32_t(m_textures.size()),
+		std::uint32_t(img_infos.size()),
 		VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
 		img_infos.data(),
 		nullptr,
