@@ -26,7 +26,6 @@ void DisplayInstance::destroy()
 	for(auto& frame_sync : m_frame_sync)
 	{
 		frame_sync.image_avail_sem.destroy_with([&](VkSemaphore sem){vkDestroySemaphore(device(), sem, nullptr);});
-		frame_sync.render_done_sem.destroy_with([&](VkSemaphore sem){vkDestroySemaphore(device(), sem, nullptr);});
 		frame_sync.render_done_fence.destroy_with([&](VkFence fnc){vkDestroyFence(device(), fnc, nullptr);});
 	}
 
@@ -35,15 +34,14 @@ void DisplayInstance::destroy()
 
   free(m_depth_mem);
 
-	for(auto& elem : m_sw_views)
-		if(elem != VK_NULL_HANDLE)
-			vkDestroyImageView(m_dev, elem, nullptr);
+	for(auto& elem : m_sw_frames)
+  {
+    elem.view.destroy_with([&](auto v){vkDestroyImageView(device(), v, nullptr);});
+    elem.render_done_sem.destroy_with([&](auto s){vkDestroySemaphore(device(), s, nullptr);});
+  }
 
-	m_sw_views.clear();
-
+  m_sw_frames.clear();
 	m_sw.destroy_with([&](auto sw) {vkDestroySwapchainKHR(m_dev, sw, nullptr);});
-
-
 	m_surf.destroy_with([&](auto surf){vkDestroySurfaceKHR(m_inst, surf, nullptr);});
 
   Instance::destroy();
@@ -345,25 +343,38 @@ void DisplayInstance::find_sw_info()
 
 void DisplayInstance::create_sw_views()
 {
-	m_sw_images = wrap_enumerate<vkGetSwapchainImagesKHR>(m_dev, m_sw);
+	auto sw_images = wrap_enumerate<vkGetSwapchainImagesKHR>(m_dev, m_sw);
 
-	m_sw_views.reserve(m_sw_images.size());
+	m_sw_frames.reserve(sw_images.size());
 
-	for(auto elem : m_sw_images)
+	VkSemaphoreCreateInfo si{
+		VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+		nullptr,
+		0
+	};
+
+  VkImageViewCreateInfo vi{
+    VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+    nullptr,
+    0,
+    VK_NULL_HANDLE,
+    VK_IMAGE_VIEW_TYPE_2D,
+    m_sw_format.format,
+    vkutil::components_id,
+    vkutil::color_subres_plain
+  };
+
+	for(auto elem : sw_images)
 	{
-		VkImageViewCreateInfo vi{
-			VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-			nullptr,
-			0,
-			elem,
-			VK_IMAGE_VIEW_TYPE_2D,
-			m_sw_format.format,
-			vkutil::components_id,
-			vkutil::color_subres_plain
-		};
+    vi.image = elem;
 
-		m_sw_views.emplace_back(VK_NULL_HANDLE);
-		vk_check(vkCreateImageView(m_dev, &vi, nullptr, &m_sw_views.back()));
+		m_sw_frames.emplace_back();
+    auto& frame = m_sw_frames.back();
+
+    frame.img = elem;
+		vk_check(vkCreateImageView(m_dev, &vi, nullptr, &frame.view));
+
+		vk_check(vkCreateSemaphore(device(), &si, nullptr, &frame.render_done_sem));
 	}
 }
 
@@ -453,6 +464,7 @@ void Instance::create_transfer_pool()
 void DisplayInstance::submit_render_present(VkCommandBuffer cmd_buf)
 {	
 	auto& sync = m_frame_sync[m_next_frame];
+  auto& frame = m_sw_frames[sync.image_index];
 	m_next_frame = (m_next_frame + 1) % c_frames_in_flight;
 
 	vk_check(vkResetFences(m_dev, 1, &sync.render_done_fence));
@@ -476,7 +488,7 @@ void DisplayInstance::submit_render_present(VkCommandBuffer cmd_buf)
 	VkSemaphoreSubmitInfo ssis{
 		VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
 		nullptr,
-		sync.render_done_sem,
+		frame.render_done_sem,
 		0,
 		VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 		0
@@ -500,7 +512,7 @@ void DisplayInstance::submit_render_present(VkCommandBuffer cmd_buf)
 		VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 		nullptr,
 		1,
-		&sync.render_done_sem,
+		&frame.render_done_sem,
 		1,
 		&m_sw,
 		&sync.image_index,
@@ -725,11 +737,13 @@ void DisplayInstance::resize()
 
 void DisplayInstance::destroy_swapchain()
 {
-  for(auto& elem : m_sw_views)
-    vkDestroyImageView(device(), elem, nullptr);
+  for(auto& elem : m_sw_frames)
+  {
+    elem.view.destroy_with([&](auto v){vkDestroyImageView(device(), v, nullptr);});
+    elem.render_done_sem.destroy_with([&](auto s){vkDestroySemaphore(device(), s, nullptr);});
+  }
 
-  m_sw_views.clear();
-  m_sw_images.clear();
+  m_sw_frames.clear();
 
   m_sw.destroy_with([&]{vkDestroySwapchainKHR(device(), m_sw, nullptr);});
 }
@@ -744,23 +758,21 @@ void DisplayInstance::destroy_depth_image()
 
 void DisplayInstance::create_frame_sync()
 {
-	VkSemaphoreCreateInfo si{
-		VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-		nullptr,
-		0
-	};
-
 	VkFenceCreateInfo fi{
 		VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
 		nullptr,
 		VK_FENCE_CREATE_SIGNALED_BIT
 	};
 
+	VkSemaphoreCreateInfo si{
+		VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+		nullptr,
+		0
+	};
+
 	for(auto& elem : m_frame_sync)
 	{
-		vk_check(vkCreateSemaphore(device(), &si, nullptr, &elem.image_avail_sem));
-		vk_check(vkCreateSemaphore(device(), &si, nullptr, &elem.render_done_sem));
-
+    vk_check(vkCreateSemaphore(device(), &si, nullptr, &elem.image_avail_sem));
 		vk_check(vkCreateFence(device(), &fi, nullptr, &elem.render_done_fence));
 	}
 }

@@ -241,10 +241,8 @@ class DisplayInstance : public Instance {
 	
   VkHandle<VkSurfaceKHR> m_surf;
 	VkQueue m_pq;
-	VkHandle<VkSwapchainKHR> m_sw;
 
-  std::vector<VkImage> m_sw_images;
-	std::vector<VkHandle<VkImageView>> m_sw_views;
+	VkHandle<VkSwapchainKHR> m_sw;
 	VkHandle<VkImage> m_depth_image;
 
 	VkHandle<VkImageView> m_depth_view;
@@ -252,13 +250,21 @@ class DisplayInstance : public Instance {
 
 	struct FrameSync
 	{
-		VkHandle<VkSemaphore> image_avail_sem, render_done_sem;
 		VkHandle<VkFence> render_done_fence;
-
 		std::uint32_t image_index;
+		VkHandle<VkSemaphore> image_avail_sem;
 	};
 
 	std::array<FrameSync, c_frames_in_flight> m_frame_sync; // Frame sync primitives, one per buffered frame
+  
+  struct SwapchainFrame
+  {
+    VkImage img;
+    VkHandle<VkImageView> view;
+		VkHandle<VkSemaphore> render_done_sem;
+  };
+  
+  std::vector<SwapchainFrame> m_sw_frames;
 
 	VkFormat m_depth_format;
 	VkSurfaceFormatKHR m_sw_format;
@@ -284,10 +290,10 @@ public:
 
   float aspect_ratio() const {return float(m_w) / float(m_h);}
 
-  std::uint32_t n_swapchain_images() const {return m_sw_images.size();}
+  std::uint32_t n_swapchain_images() const {return m_sw_frames.size();}
 
-	VkImageView sw_view(std::uint32_t idx) const {return m_sw_views[idx];}
-	VkImage sw_image(std::uint32_t idx) const {return m_sw_images[idx];}
+	VkImageView sw_view(std::uint32_t idx) const {return m_sw_frames[idx].view;}
+	VkImage sw_image(std::uint32_t idx) const {return m_sw_frames[idx].img;}
 
 	VkImageView depth_view() const {return m_depth_view;}
 	VkImage depth_image() const {return m_depth_image;}
