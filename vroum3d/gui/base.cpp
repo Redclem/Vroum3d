@@ -36,11 +36,40 @@ struct TexturedPipeInfo : public RenderPipelineInformation
 	auto get_primitive_topology() const {return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;}
 };
 
+struct TextPipeInfo : public RenderPipelineInformation
+{
+	TextPipeInfo(PipelineResource& pr) : RenderPipelineInformation(pr, "gui_uv.vert.spv", "gui_text.frag.spv",
+				{{sizeof(TexturedPoint)}}, {{0, 0}, {0, sizeof(Point)}}) {}
+
+	auto get_primitive_topology() const {return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;}
+  VkBool32 get_primitive_restart_enable() const {return VK_TRUE;}
+
+  std::array<VkPipelineColorBlendAttachmentState, 1> blend_attachment_states() const
+  {
+    VkPipelineColorBlendAttachmentState cbas = {
+			VK_TRUE,
+			VK_BLEND_FACTOR_SRC_ALPHA,
+			VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+			VK_BLEND_OP_ADD,
+			VK_BLEND_FACTOR_ONE,
+			VK_BLEND_FACTOR_ONE,
+			VK_BLEND_OP_ADD,
+			VK_COLOR_COMPONENT_R_BIT | 
+      VK_COLOR_COMPONENT_G_BIT | 
+      VK_COLOR_COMPONENT_B_BIT | 
+      VK_COLOR_COMPONENT_A_BIT
+		};
+    
+    return {cbas};
+  }
+};
+
 Base::Base(DisplayInstance& inst, PipelineResource& pr) : m_instance(&inst), m_pipe_res(&pr), m_device(inst.device()),
 	m_fill_pipe(pr, 
 		FillPipeInfo(pr)
 	),
-	m_textured_pipe(pr, TexturedPipeInfo(pr))
+	m_textured_pipe(pr, TexturedPipeInfo(pr)),
+  m_text_pipe(pr, TextPipeInfo(pr))
 {
 	init_command_buffers();
 }
@@ -219,18 +248,19 @@ void Base::build_render_buffer()
 	VkViewport vp{0, 0, float(instance()->w()), float(instance()->h()), 0.0, 1.0};
 	VkRect2D scissor{{0, 0}, {instance()->w(), instance()->h()}};
 
+  struct Pc
+  {
+    Math::vec4 color;
+    Math::vec2 twice_inv_size;
+    std::uint32_t texture_index;
+  } pc;
+		pc.twice_inv_size = twice_inv_size;
+
 	if(m_render_commands.fills.size())
 	{
 		vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_fill_pipe.pipeline());
 
-		struct Pc
-		{
-			Math::vec4 color;
-			Math::vec2 twice_inv_size;
-		} pc;
-
 		pc.color = {0, 0, 0, 1};
-		pc.twice_inv_size = twice_inv_size;
 
 		vkCmdPushConstants(cmd_buf, m_fill_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
 
@@ -246,11 +276,8 @@ void Base::build_render_buffer()
 	}
 
 	if(m_render_commands.textures.size())
-	{		struct Pc
-		{
-			Math::vec2 twice_inv_size;
-      std::uint32_t texture_id;
-		} pc;
+	{
+		pc.color = {1, 1, 1, 1};
 
 		vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_textured_pipe.pipeline());
 		vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_textured_pipe.layout(), 0, 1, &m_tex_des_set, 0, nullptr);
@@ -262,8 +289,7 @@ void Base::build_render_buffer()
 
 		for(auto& cmd : m_render_commands.textures)
 		{
-		  vkCmdPushConstants(cmd_buf, m_textured_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                       sizeof(pc.texture_id), &pc.texture_id);
+		  vkCmdPushConstants(cmd_buf, m_textured_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 24, sizeof(pc.texture_index), &pc.texture_index);
 
 			cmd.buffer_ofs += buffer_ofs;
 			vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_buffer, &cmd.buffer_ofs);
@@ -273,32 +299,24 @@ void Base::build_render_buffer()
 
   if(m_render_commands.texts.size())
   {
-		struct Pc
-		{
-			Math::vec4 color;
-			Math::vec2 twice_inv_size;
-      std::uint32_t texture_id;
-		} pc;
-
     pc.color = {0, 0, 0, 1};
     pc.twice_inv_size = twice_inv_size;
 
-		vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_textured_pipe.pipeline());
-		vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_textured_pipe.layout(), 0, 1, &m_tex_des_set, 0, nullptr);
+		vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_text_pipe.pipeline());
+		vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_text_pipe.layout(), 0, 1, &m_tex_des_set, 0, nullptr);
 
 		vkCmdSetViewport(cmd_buf, 0, 1, &vp);
 		vkCmdSetScissor(cmd_buf, 0, 1, &scissor);
 		
-		vkCmdPushConstants(cmd_buf, m_textured_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(twice_inv_size), &twice_inv_size);
+		vkCmdPushConstants(cmd_buf, m_text_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Pc), &pc);
 
     for(auto& cmd : m_render_commands.texts)
     {
       cmd.vertex_buffer_ofs += buffer_ofs;
-		  vkCmdPushConstants(cmd_buf, m_textured_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                       sizeof(pc.texture_id), &pc.texture_id);
+		  vkCmdPushConstants(cmd_buf, m_text_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 24, sizeof(pc.texture_index), &pc.texture_index);
 
       vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_buffer, &cmd.vertex_buffer_ofs);
-      vkCmdBindIndexBuffer(cmd_buf, m_buffer, cmd.index_buffer_ofs, VK_INDEX_TYPE_UINT32);
+      vkCmdBindIndexBuffer(cmd_buf, m_buffer, cmd.index_buffer_ofs, VK_INDEX_TYPE_UINT16);
 
       vkCmdDrawIndexed(cmd_buf, cmd.n_vertex, 1, 0, 0, 0);
     }
@@ -320,7 +338,9 @@ void Base::render()
 
 void Base::create_descriptor_set()
 {
-	if(!m_textures.size()) return;
+	std::uint32_t n_tex(m_textures.size() + m_fonts.size());
+
+	if(n_tex == 0) return;
 
 	std::array<VkDescriptorPoolSize, 2> sizes = {{
 		{
@@ -345,8 +365,6 @@ void Base::create_descriptor_set()
 	vk_check(vkCreateDescriptorPool(device(), &dpi, nullptr, &m_desc_pool));
 
 	auto dsl = m_textured_pipe.descriptor_set_layout(0);
-
-	std::uint32_t n_tex(m_textures.size());
 	VkDescriptorSetVariableDescriptorCountAllocateInfo vdcai{
 		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO,
 		nullptr,
@@ -364,7 +382,7 @@ void Base::create_descriptor_set()
 
 	vk_check(vkAllocateDescriptorSets(device(), &ai, &m_tex_des_set));
 
-	std::vector<VkDescriptorImageInfo> img_infos(m_textures.size() + m_fonts.size());
+	std::vector<VkDescriptorImageInfo> img_infos(n_tex);
 
 	std::uint32_t index(0);
 	std::transform(m_textures.begin(), m_textures.end(), img_infos.begin(),

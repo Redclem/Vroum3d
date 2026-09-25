@@ -82,6 +82,9 @@ private:
   Base::font_ptr_t m_font;
 
   Math::vec2 m_text_orig;
+
+protected:
+  std::size_t m_n_glyphs = 0;
 public:
 
   template<typename T>
@@ -89,7 +92,7 @@ public:
    m_font(base->default_font()) {}
 
   virtual VkDeviceSize buffer_size() const override {
-    return m_font->glyphs.glyph_count(m_text) * sizeof(GlyphData);
+    return m_font->glyphs.glyph_count(m_text) * (sizeof(GlyphData) + 5 * sizeof(std::uint16_t)) - sizeof(std::uint16_t);
   }
   
   virtual void init() override;

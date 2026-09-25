@@ -6,6 +6,7 @@ layout(push_constant) uniform Pc
 {
 	vec4 color;
 	vec2 twice_inv_size;
+  uint texture_index;
 } pc;
 
 void main()

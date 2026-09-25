@@ -126,7 +126,7 @@ private:
 	texture_container_t m_textures;
   font_container_t m_fonts;
 	
-	Pipeline m_fill_pipe, m_textured_pipe;
+	Pipeline m_fill_pipe, m_textured_pipe, m_text_pipe;
 	RenderCommands m_render_commands;
 	VkHandle<VkCommandPool> m_cmd_pool;
 	std::vector<VkCommandBuffer> m_cmd_bufs;

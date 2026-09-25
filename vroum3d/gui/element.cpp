@@ -104,25 +104,43 @@ void Label::upload_buffer(char* buffer_data_ptr)
 {
   auto* glyph_out_iter(reinterpret_cast<GlyphData*>(buffer_data_ptr));
 
+  std::uint16_t idx(0);
+
   float adv(0.0f);
 
-  auto proc_point = [&](char32_t point)
+  m_n_glyphs = 0;
+
+  auto proc_vert = [&](char32_t point)
     {
       auto iter = m_font->glyphs.find(point);
       if(iter == m_font->glyphs.end()) return;
 
       const auto& g = iter->second;
 
-      glyph_out_iter->pts[0] = {{m_text_orig.x + g.offset.x, g.offset.y + m_text_orig.y}, g.start};
-      glyph_out_iter->pts[1] = {{m_text_orig.x + g.offset.x + g.w, g.offset.y + m_text_orig.y}, {g.end.x, g.start.y}};
-      glyph_out_iter->pts[2] = {{m_text_orig.x + g.offset.x, g.offset.y + g.h + m_text_orig.y}, {g.start.x, g.end.y}};
-      glyph_out_iter->pts[3] = {{m_text_orig.x + g.offset.x + g.w, g.offset.y + g.h + m_text_orig.y}, {g.start.x, g.start.y}};
+      glyph_out_iter->pts[0] = {{adv + m_text_orig.x + g.offset.x, g.offset.y + m_text_orig.y}, g.start};
+      glyph_out_iter->pts[1] = {{adv + m_text_orig.x + g.offset.x + g.w, g.offset.y + m_text_orig.y}, {g.end.x, g.start.y}};
+      glyph_out_iter->pts[2] = {{adv + m_text_orig.x + g.offset.x, g.offset.y + g.h + m_text_orig.y}, {g.start.x, g.end.y}};
+      glyph_out_iter->pts[3] = {{adv + m_text_orig.x + g.offset.x + g.w, g.offset.y + g.h + m_text_orig.y}, g.end};
 
       glyph_out_iter++;
       adv += g.adv;
+      m_n_glyphs++;
     };
 
-  m_font->glyphs.iterate_unicode_points(m_text, proc_point);
+  m_font->glyphs.iterate_unicode_points(m_text, proc_vert);
+
+  std::uint16_t * index_iter = reinterpret_cast<std::uint16_t*>(glyph_out_iter);
+  
+  for(std::size_t g(0); g != m_n_glyphs; ++g)
+  {
+    if(g)
+      *(index_iter++) = 0xFFFF;
+
+    *(index_iter++) = idx++;
+    *(index_iter++) = idx++;
+    *(index_iter++) = idx++;
+    *(index_iter++) = idx++;
+  }
 }
 
 void Label::arrange()
@@ -140,5 +158,7 @@ void Label::arrange()
 
 void Label::record_render_commands(RenderCommands& rc)
 {
-
+  if(m_n_glyphs)
+    rc.text(m_buffer_offset, m_buffer_offset + m_n_glyphs * sizeof(GlyphData),
+            m_n_glyphs * 5 - 1, m_font->set_index);
 }
