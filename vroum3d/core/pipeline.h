@@ -4,6 +4,7 @@
 #include "instance.h"
 #include "../utility.h"
 #include <algorithm>
+#include <compare>
 #include <memory>
 #include <set>
 #include <string_view>
@@ -41,49 +42,32 @@ public:
 			std::uint32_t descriptorCount;
 			VkShaderStageFlags stageFlags;
 			bool immusamp = false;
+
+      auto operator<=>(const BindingInfo& rhs) const
+      {
+        if(auto cmp = descriptorType <=> rhs.descriptorType; cmp != std::strong_ordering::equal) return cmp;
+        if(auto cmp = descriptorCount <=> rhs.descriptorCount; cmp != std::strong_ordering::equal) return cmp;
+        if(auto cmp = stageFlags <=> rhs.stageFlags; cmp != std::strong_ordering::equal) return cmp;
+        return immusamp <=> rhs.immusamp;
+      }
 		};
+
+
 
 		std::map<std::uint32_t, BindingInfo> bindings;
 
 		void load_descriptor_set(const SpvReflectDescriptorSet*, VkShaderStageFlags);
 
 		void add_binding(std::uint32_t binding, VkDescriptorType tpe, std::uint32_t descriptorCount, VkShaderStageFlags stages)
-	{
-		bindings.emplace(binding, BindingInfo{tpe, descriptorCount, stages});
-	}
-
-		struct Less
-		{
-			bool operator()(const DescriptorSetDescription& a, const DescriptorSetDescription& b) const
-			{
-				auto sizecmp = a.bindings.size() <=> b.bindings.size();
-
-				if(0 != sizecmp) return sizecmp < 0;
-				
-
-				for(auto itera = a.bindings.begin(), iterb = b.bindings.begin(); itera != a.bindings.end(); itera++, iterb++)
-				{
-					auto res = memcmp(&*itera, &*iterb, sizeof(*itera));
-					if(res) return res < 0;
-				}
-				return false;
-			}
-		};
-
-		struct Equal
-		{
-			bool operator()(const DescriptorSetDescription& a, const DescriptorSetDescription& b) const
-			{
-				if(a.bindings.size() != b.bindings.size()) return false;
-
-				for(auto itera = a.bindings.begin(), iterb = b.bindings.begin(); itera != a.bindings.end(); itera++, iterb++)
-				{
-					auto res = memcmp(&*itera, &*iterb, sizeof(*itera));
-					if(res) return false;
-				}
-				return true;
-			}
-		};
+    {
+      bindings.emplace(binding, BindingInfo{tpe, descriptorCount, stages});
+    }
+		
+    auto operator<=>(const DescriptorSetDescription& rhs) const
+    {
+      return std::lexicographical_compare_three_way(bindings.begin(), bindings.end(), rhs.bindings.begin(), rhs.bindings.end(),
+                                                    [](const auto&a, const auto& b){return a.second <=> b.second;});
+    }
 	};
 
 	using shader_module_t = ShaderModule;
@@ -93,7 +77,7 @@ private:
 
 	
 	using descriptor_set_description_t = DescriptorSetDescription;
-	using descriptor_set_layouts_t = std::map<DescriptorSetDescription, VkHandle<VkDescriptorSetLayout>, DescriptorSetDescription::Less>;
+	using descriptor_set_layouts_t = std::map<DescriptorSetDescription, VkHandle<VkDescriptorSetLayout>>;
 
 	descriptor_set_layouts_t m_descriptor_set_layouts;
 
@@ -102,26 +86,26 @@ private:
 		std::vector<VkDescriptorSetLayout> layouts;
 		std::vector<VkPushConstantRange> pranges;
 
-		struct Less
-		{
-			bool operator()(const PipelineLayoutDescription& a, const PipelineLayoutDescription& b) const
-			{
-				if(auto cmp_res = a.layouts <=> b.layouts; 0 != cmp_res) return cmp_res < 0;
-				
-				if(auto res = memcmp(
-					a.pranges.data(),
-					b.pranges.data(),
-					std::min(a.pranges.size(), b.pranges.size()) * sizeof(a.pranges.front()));
-					res)
-					return res < 0;
+    struct PushConstantRangeThreeWayCompare
+    {
+      auto operator()(const VkPushConstantRange& a, const VkPushConstantRange& b)
+      {
+        if(auto cmp = a.stageFlags <=> b.stageFlags; cmp != std::strong_ordering::equal) return cmp;
+        if(auto cmp = a.offset <=> b.offset; cmp != std::strong_ordering::equal) return cmp;
+        return a.size <=> b.size;
+      }
+    };
 
-				return a.pranges.size() < b.pranges.size();
-			}
-		};
+    auto operator<=>(const PipelineLayoutDescription& rhs) const
+    {
+      if(auto cmp = std::lexicographical_compare_three_way(layouts.begin(), layouts.end(), rhs.layouts.begin(), rhs.layouts.end());
+        cmp != std::strong_ordering::equal) return cmp;
+      return std::lexicographical_compare_three_way(pranges.begin(), pranges.end(), rhs.pranges.begin(), rhs.pranges.end(), PushConstantRangeThreeWayCompare());
+    }
 	};
 
 	using pipeline_layout_description_t = PipelineLayoutDescription;
-	using pipeline_layouts_t = std::map<PipelineLayoutDescription, VkHandle<VkPipelineLayout>, PipelineLayoutDescription::Less>;
+	using pipeline_layouts_t = std::map<PipelineLayoutDescription, VkHandle<VkPipelineLayout>>;
 
 	pipeline_layouts_t m_pipeline_layouts;
 

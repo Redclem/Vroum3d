@@ -14,9 +14,11 @@
 #include <cstring>
 #include <cwchar>
 #include <locale>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vulkan/vulkan_core.h>
+#include <format>
 
 using namespace Vroum3d::Gui;
 
@@ -428,7 +430,10 @@ VkDeviceSize Base::load_textures(std::vector<StbiPtr>& textures)
 	{
 		int channels;
 		int w, h;
-		textures.emplace_back(stbi_load(name.c_str(), &w, &h, &channels, chan));
+    StbiPtr p(stbi_load(name.c_str(), &w, &h, &channels, chan));
+    if(!p) throw std::runtime_error(std::format("Could not load texture at path {}", name));
+
+		textures.emplace_back(std::move(p));
 		tex.w = w;
 		tex.h = h;
 
