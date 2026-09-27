@@ -14,8 +14,8 @@ int main(int, char*[])
 	PipelineResource pr(inst);
 
 	Base b(inst, pr);
-	Image i(&b, "gfx/fox.jpg");
-	b.set_root_elem(&i);
+	Frame fr(&b);
+	b.set_root_elem(&fr);
 
 	b.init();
 

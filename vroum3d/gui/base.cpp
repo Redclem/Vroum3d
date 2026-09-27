@@ -126,7 +126,14 @@ void Base::init()
 	for(auto elem = m_first_element; elem; elem = elem->next_element())
 	{
 		elem->set_buffer_offset(m_buffer_size);
-		m_buffer_size += elem->buffer_size();
+
+    VkDeviceSize buf_size = elem->buffer_size();
+    if(buf_size & (c_element_buffer_alignment - 1))
+    {
+      buf_size &= ~(c_element_buffer_alignment - 1);
+      buf_size += c_element_buffer_alignment;
+    }
+		m_buffer_size += buf_size;
 	}
 
 	buffer_upl_size += m_buffer_size;
@@ -244,7 +251,7 @@ void Base::build_render_buffer()
 	};
 
 	vk_check(vkBeginCommandBuffer(cmd_buf, &bi));	
-	m_instance->begin_rendering(cmd_buf);
+	m_instance->begin_rendering(cmd_buf, false, {{1.0f, 1.0f, 1.0f, 0.0f}});
 
 	Math::vec2 twice_inv_size = 2.0f / Math::vec2(instance()->w(), instance()->h());
 	VkViewport vp{0, 0, float(instance()->w()), float(instance()->h()), 0.0, 1.0};
@@ -315,12 +322,14 @@ void Base::build_render_buffer()
     for(auto& cmd : m_render_commands.texts)
     {
       cmd.vertex_buffer_ofs += buffer_ofs;
-		  vkCmdPushConstants(cmd_buf, m_text_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 24, sizeof(pc.texture_index), &pc.texture_index);
+      cmd.index_buffer_ofs += buffer_ofs;
+      pc.texture_index = cmd.texture_id;
+		  vkCmdPushConstants(cmd_buf, m_text_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
 
       vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_buffer, &cmd.vertex_buffer_ofs);
       vkCmdBindIndexBuffer(cmd_buf, m_buffer, cmd.index_buffer_ofs, VK_INDEX_TYPE_UINT16);
 
-      vkCmdDrawIndexed(cmd_buf, cmd.n_vertex, 1, 0, 0, 0);
+      vkCmdDrawIndexed(cmd_buf, cmd.n_index, 1, 0, 0, 0);
     }
   }
 

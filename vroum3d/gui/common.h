@@ -141,7 +141,7 @@ struct RenderCommands
 
   struct Text
   {
-    VkDeviceSize vertex_buffer_ofs, index_buffer_ofs, n_vertex;
+    VkDeviceSize vertex_buffer_ofs, index_buffer_ofs, n_index;
     std::uint32_t texture_id;
   };
 

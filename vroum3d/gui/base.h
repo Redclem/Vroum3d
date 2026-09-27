@@ -108,6 +108,10 @@ public:
 	using texture_ptr_t = Texture*;
   using font_ptr_t = FontAtlas*;
 
+  constexpr static VkDeviceSize c_element_buffer_alignment = 4;
+
+  static_assert((c_element_buffer_alignment & (c_element_buffer_alignment - 1)) == 0);
+
 private:
 	
 	using texture_container_t = std::map<std::string, Texture>;
@@ -199,8 +203,6 @@ private:
 	struct StbiDeleter {void operator()(unsigned char* ptr) {stbi_image_free(ptr);}};
 	using StbiPtr = std::unique_ptr<unsigned char, StbiDeleter>;
 
-	void assign_buffer_space();
-	void allocate_buffer();
 	void init_command_buffers();
 	void build_render_buffer();
 	void create_descriptor_set();

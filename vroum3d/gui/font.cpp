@@ -27,16 +27,16 @@ std::pair<Bitmap<Font::font_px_t>, Font::atlas_glyphs_t> Font::render_char_atlas
   check(stbtt_PackBegin(&ctx, res.data(), res.w(), res.h(), res.w(), 1, nullptr));
   stbtt_PackSetSkipMissingCodepoints(&ctx, 1);
 
-  std::vector<stbtt_packedchar> packed_chars(0x80 - 0x21 + 0x100 - 0xc0);
+  std::vector<stbtt_packedchar> packed_chars(0x80 - 0x20 + 0x100 - 0xc0);
 
   constexpr std::size_t font_size = 24;
 
   std::array<stbtt_pack_range, 2> ranges = {{
     {
       font_size,
-      0x21,
+      0x20,
       nullptr,
-      0x80 - 0x21,
+      0x80 - 0x20,
       packed_chars.data(),
       0, 0
     },
@@ -45,7 +45,7 @@ std::pair<Bitmap<Font::font_px_t>, Font::atlas_glyphs_t> Font::render_char_atlas
       0xc0,
       nullptr,
       0x100 - 0xc0,
-      packed_chars.data() + 0x80 - 0x21,
+      packed_chars.data() + 0x80 - 0x20,
       0, 0
     }
   }};
