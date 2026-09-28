@@ -298,7 +298,8 @@ void Base::build_render_buffer()
 
 		for(auto& cmd : m_render_commands.textures)
 		{
-		  vkCmdPushConstants(cmd_buf, m_textured_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 24, sizeof(pc.texture_index), &pc.texture_index);
+      pc.texture_index = cmd.texture_id;
+		  vkCmdPushConstants(cmd_buf, m_text_pipe.layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
 
 			cmd.buffer_ofs += buffer_ofs;
 			vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_buffer, &cmd.buffer_ofs);

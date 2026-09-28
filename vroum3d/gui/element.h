@@ -44,7 +44,7 @@ public:
 	virtual void init() override;
 	virtual void upload_buffer(char * buffer_data_ptr) override;
 
-  virtual Extent get_min_dimensions() const override {return {m_border + m_margin, m_border + m_margin};}
+  virtual Extent get_min_dimensions() override {return {m_border + m_margin, m_border + m_margin};}
 
 	virtual void record_render_commands(RenderCommands& rc) override;
 };
@@ -102,7 +102,7 @@ public:
   virtual void record_render_commands(RenderCommands& rc) override;
   virtual void arrange() override;
 
-  virtual Extent get_min_dimensions() const override;
+  virtual Extent get_min_dimensions() override;
 };
 
 class Grid : public Element
@@ -122,13 +122,22 @@ public:
   virtual void init() override;
   virtual VkDeviceSize buffer_size() const override {return 0;}
   virtual void upload_buffer(char *) override {}
-  virtual Extent get_min_dimensions() const override;
+  virtual Extent get_min_dimensions() override;
   virtual void arrange() override;
   virtual void record_render_commands(RenderCommands&) override;
 
+  void compute_min_dimensions();
+
+  void add_element(Element* elem, std::uint32_t col, std::uint32_t row) {m_grid_elements.emplace_back(elem, col, row);}
+
 private:
 
+  bool min_dimensions_computed() const {return m_grid_elements.empty() || !m_min_col_width.empty();}
+
   grid_elements_t m_grid_elements;
+  std::vector<px_t> m_min_col_width, m_min_row_height;
+
+  px_t m_min_width, m_min_height;
 };
 
 }

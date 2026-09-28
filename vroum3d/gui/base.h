@@ -63,7 +63,10 @@ public:
 	 */
 	virtual void upload_buffer(char * buffer_data_ptr) = 0;
 
-  virtual Extent get_min_dimensions() const {return {0, 0};}
+  /** Get minimal element dimension.
+   * This function is usually called before arrange to gather information about sizes of child elements.
+   */
+  virtual Extent get_min_dimensions() {return {0, 0};}
 
 	/** Update inner state on position change.
 	 * Should arrange child elements / elements contained */

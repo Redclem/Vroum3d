@@ -164,7 +164,7 @@ void Label::record_render_commands(RenderCommands& rc)
             m_n_glyphs * 5 - 1, m_font->set_index);
 }
 
-Extent Label::get_min_dimensions() const
+Extent Label::get_min_dimensions()
 {
   return m_font->glyphs.compute_text_size(m_text).extent();
 }
@@ -176,23 +176,73 @@ void Grid::init()
     elem.elem->init();
 }
 
-Extent Grid::get_min_dimensions() const
+Extent Grid::get_min_dimensions() 
 {
-  std::vector<px_t> min_row, min_col;
+  if(!min_dimensions_computed())
+    compute_min_dimensions();
+
+  m_min_width = std::accumulate(m_min_col_width.begin(), m_min_col_width.end(), 0.0f);
+  m_min_height = std::accumulate(m_min_row_height.begin(), m_min_row_height.end(), 0.0f);
+
+  return {
+    m_min_width,
+    m_min_height
+  };
+}
+
+void Grid::arrange()
+{
+  if(!min_dimensions_computed())
+    compute_min_dimensions();
+
+  px_t exceed_w_per_col = (position().w - m_min_width) / float(m_min_col_width.size());
+  px_t exceed_h_per_row = (position().h - m_min_height) / float(m_min_row_height.size());
+
+  std::vector<px_t> row_x(m_min_col_width.size()), col_y(m_min_row_height.size());
+
+  std::exclusive_scan(m_min_col_width.begin(), m_min_col_width.end(), row_x.begin(), 0.0f,
+    [exceed_w_per_col](auto a, auto b) {return a + b + exceed_w_per_col;}
+  );
+
+  std::exclusive_scan(m_min_row_height.begin(), m_min_row_height.end(), col_y.begin(), 0.0f,
+    [exceed_h_per_row](auto a, auto b) {return a + b + exceed_h_per_row;}
+  );
 
   for(auto& elem : m_grid_elements)
   {
-    Extent ex = elem.elem->get_min_dimensions();
+    auto x = row_x[elem.row], y = col_y[elem.col];
+    elem.elem->set_position({
+      x,
+      y,
+      m_min_col_width[elem.row] + exceed_w_per_col,
+      m_min_row_height[elem.row] + exceed_h_per_row
+    });
 
-    if(min_row.size() <= elem.row)
-      min_row.resize(elem.row + 1, 0);
-    if(min_col.size() <= elem.col)
-      min_col.resize(elem.col + 1, 0);
-
-    min_row[elem.row] = std::max(min_row[elem.row], ex.w);
-    min_col[elem.col] = std::max(min_col[elem.col], ex.h);
+    elem.elem->arrange();
   }
+}
 
-  return Extent{std::accumulate(min_row.begin(), min_row.end(), 0.f),
-                std::accumulate(min_col.begin(), min_col.end(), 0.f)};
+void Grid::record_render_commands(RenderCommands& rc)
+{
+  for(auto& elem : m_grid_elements)
+    elem.elem->record_render_commands(rc);
+}
+
+void Grid::compute_min_dimensions()
+{
+  m_min_col_width.clear();
+  m_min_row_height.clear();
+
+  for(auto& elem : m_grid_elements)
+  {
+    auto [w, h] = elem.elem->get_min_dimensions();
+
+    if(m_min_col_width.size() <= elem.col)
+      m_min_col_width.resize(elem.col + 1);
+    if(m_min_row_height.size() <= elem.row)
+      m_min_row_height.resize(elem.row + 1);
+
+    m_min_col_width[elem.col] = std::min(m_min_col_width[elem.col], w);
+    m_min_row_height[elem.row] = std::min(m_min_row_height[elem.row], h);
+  }
 }
