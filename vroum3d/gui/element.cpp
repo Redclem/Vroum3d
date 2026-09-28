@@ -3,6 +3,7 @@
 #include "base.h"
 #include "common.h"
 #include <cassert>
+#include <numeric>
 #include <vulkan/vulkan_core.h>
 
 using namespace Vroum3d::Gui;
@@ -161,4 +162,37 @@ void Label::record_render_commands(RenderCommands& rc)
   if(m_n_glyphs)
     rc.text(m_buffer_offset, m_buffer_offset + m_n_glyphs * sizeof(GlyphData),
             m_n_glyphs * 5 - 1, m_font->set_index);
+}
+
+Extent Label::get_min_dimensions() const
+{
+  return m_font->glyphs.compute_text_size(m_text).extent();
+}
+
+void Grid::init()
+{
+  Element::init();
+  for(auto& elem : m_grid_elements)
+    elem.elem->init();
+}
+
+Extent Grid::get_min_dimensions() const
+{
+  std::vector<px_t> min_row, min_col;
+
+  for(auto& elem : m_grid_elements)
+  {
+    Extent ex = elem.elem->get_min_dimensions();
+
+    if(min_row.size() <= elem.row)
+      min_row.resize(elem.row + 1, 0);
+    if(min_col.size() <= elem.col)
+      min_col.resize(elem.col + 1, 0);
+
+    min_row[elem.row] = std::max(min_row[elem.row], ex.w);
+    min_col[elem.col] = std::max(min_col[elem.col], ex.h);
+  }
+
+  return Extent{std::accumulate(min_row.begin(), min_row.end(), 0.f),
+                std::accumulate(min_col.begin(), min_col.end(), 0.f)};
 }

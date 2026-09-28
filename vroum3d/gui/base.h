@@ -47,7 +47,7 @@ public:
 	/** Get required buffer size for this element
 	 * Does not include child elements!
 	 * Should be constant or at least fixed after init */
-	constexpr virtual VkDeviceSize buffer_size() const {return c_buffer_size;};
+	virtual VkDeviceSize buffer_size() const {return c_buffer_size;};
 
 	/** Init Element : 
 	 * - Call ancestor's init function (including if deriving directly from Element !)
@@ -62,6 +62,8 @@ public:
 	 * \param buffer_data_ptr Pointer to area of memory mapped to buffer. Does not account of offset of current element.
 	 */
 	virtual void upload_buffer(char * buffer_data_ptr) = 0;
+
+  virtual Extent get_min_dimensions() const {return {0, 0};}
 
 	/** Update inner state on position change.
 	 * Should arrange child elements / elements contained */
