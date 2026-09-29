@@ -22,7 +22,9 @@ int main(int, char*[])
   g.add_element(&im1, 0, 0);
   g.add_element(&im2, 1, 1);
 
-  b.set_root_elem(&g);
+  FramedElement f(&b, &g, 4, 4);
+
+  b.set_root_elem(&f);
 
 	b.init();
 

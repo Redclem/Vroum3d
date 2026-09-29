@@ -200,11 +200,11 @@ void Grid::arrange()
 
   std::vector<px_t> row_x(m_min_col_width.size()), col_y(m_min_row_height.size());
 
-  std::exclusive_scan(m_min_col_width.begin(), m_min_col_width.end(), row_x.begin(), 0.0f,
+  std::exclusive_scan(m_min_col_width.begin(), m_min_col_width.end(), row_x.begin(), position().x,
     [exceed_w_per_col](auto a, auto b) {return a + b + exceed_w_per_col;}
   );
 
-  std::exclusive_scan(m_min_row_height.begin(), m_min_row_height.end(), col_y.begin(), 0.0f,
+  std::exclusive_scan(m_min_row_height.begin(), m_min_row_height.end(), col_y.begin(), position().y,
     [exceed_h_per_row](auto a, auto b) {return a + b + exceed_h_per_row;}
   );
 
@@ -245,4 +245,37 @@ void Grid::compute_min_dimensions()
     m_min_col_width[elem.col] = std::min(m_min_col_width[elem.col], w);
     m_min_row_height[elem.row] = std::min(m_min_row_height[elem.row], h);
   }
+}
+
+void FramedElement::init()
+{
+  Frame::init();
+  m_contained_element->init();
+}
+
+Extent FramedElement::get_min_dimensions()
+{
+  Extent inner = m_contained_element->get_min_dimensions();
+  inner.w += 2 * border();
+  inner.h += 2 * margin();
+  
+  return inner;
+}
+
+void FramedElement::record_render_commands(RenderCommands& rc)
+{
+  Frame::record_render_commands(rc);
+  m_contained_element->record_render_commands(rc);
+}
+
+void FramedElement::arrange()
+{
+  auto bord_marg = border() + margin();
+  m_contained_element->set_position({
+    position().x + bord_marg,
+    position().y + bord_marg,
+    position().w - 2.0f * bord_marg,
+    position().h - 2.0f * bord_marg
+  });
+  m_contained_element->arrange();
 }

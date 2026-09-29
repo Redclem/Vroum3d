@@ -4,7 +4,6 @@
 #include <iostream>
 #include <source_location>
 #include <stdexcept>
-#include <type_traits>
 
 #include <SDL3/SDL.h>
 

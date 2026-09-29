@@ -140,6 +140,21 @@ private:
   px_t m_min_width, m_min_height;
 };
 
+class FramedElement : public Frame
+{
+public:
+  template<typename ... FArgs>
+  FramedElement(Base* b, Element* contained_elem, FArgs ... frame_args) : Frame::Frame(b, std::forward<FArgs>(frame_args)...), m_contained_element(contained_elem) {}
+
+  virtual void init() override;
+  virtual Extent get_min_dimensions() override;
+  virtual void arrange() override;
+  virtual void record_render_commands(RenderCommands& rc) override ;
+
+private:
+  Element* m_contained_element;
+};
+
 }
 
 #endif

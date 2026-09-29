@@ -1,9 +1,4 @@
-
-
-
-#include <iterator>
 #include <random>
-
 #include <chrono>
 
 #include "../vroum3d/vroum3d.h"
@@ -68,6 +63,8 @@ int main(int, char*[])
 
     tot_free_time += end - start;
   }
+
+  
 
   std::cout << "Avg alloc time : " << std::chrono::duration_cast<std::chrono::nanoseconds>(tot_alloc_time).count() / n_blocks << std::endl;
   std::cout << "Avg free time : " << std::chrono::duration_cast<std::chrono::nanoseconds>(tot_free_time).count() / n_blocks << std::endl;
