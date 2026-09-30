@@ -26,27 +26,12 @@ void Frame::upload_buffer(char * buffer_data_ptr )
 {
 	RenderData& rd = *reinterpret_cast<RenderData*>(buffer_data_ptr + Element::c_buffer_size + m_buffer_offset);
 
-	Rect r(position());
-	r.shrink(m_margin);
-	auto pts_outer = r.rect_points();
-	r.shrink(m_border);
-	auto pts_inner = r.rect_points();
-
-	rd.points[0] = pts_outer[0];
-	rd.points[1] = pts_inner[0];
-	rd.points[2] = pts_outer[1];
-	rd.points[3] = pts_inner[1];
-	rd.points[4] = pts_outer[2];
-	rd.points[5] = pts_inner[2];
-	rd.points[6] = pts_outer[3];
-	rd.points[7] = pts_inner[3];
-	rd.points[8] = pts_outer[0];
-	rd.points[9] = pts_inner[0];
+  frame_write_renderdata(rd, Rect(position()).shrink(m_margin), m_border);
 }
 
 void Frame::record_render_commands(RenderCommands& rc)
 {
-	rc.fill(m_buffer_offset + Element::c_buffer_size, 10);
+  frame_render(rc, m_buffer_offset + Element::c_buffer_size);
 }
 
 void Image::init()
@@ -103,45 +88,7 @@ void Label::init()
 
 void Label::upload_buffer(char* buffer_data_ptr)
 {
-  auto* glyph_out_iter(reinterpret_cast<GlyphData*>(buffer_data_ptr));
-
-  std::uint16_t idx(0);
-
-  float adv(0.0f);
-
-  m_n_glyphs = 0;
-
-  auto proc_vert = [&](char32_t point)
-    {
-      auto iter = m_font->glyphs.find(point);
-      if(iter == m_font->glyphs.end()) return;
-
-      const auto& g = iter->second;
-
-      glyph_out_iter->pts[0] = {{adv + m_text_orig.x + g.offset.x, g.offset.y + m_text_orig.y}, g.start};
-      glyph_out_iter->pts[1] = {{adv + m_text_orig.x + g.offset.x + g.w, g.offset.y + m_text_orig.y}, {g.end.x, g.start.y}};
-      glyph_out_iter->pts[2] = {{adv + m_text_orig.x + g.offset.x, g.offset.y + g.h + m_text_orig.y}, {g.start.x, g.end.y}};
-      glyph_out_iter->pts[3] = {{adv + m_text_orig.x + g.offset.x + g.w, g.offset.y + g.h + m_text_orig.y}, g.end};
-
-      glyph_out_iter++;
-      adv += g.adv;
-      m_n_glyphs++;
-    };
-
-  m_font->glyphs.iterate_unicode_points(m_text, proc_vert);
-
-  std::uint16_t * index_iter = reinterpret_cast<std::uint16_t*>(glyph_out_iter);
-  
-  for(std::size_t g(0); g != m_n_glyphs; ++g)
-  {
-    if(g)
-      *(index_iter++) = 0xFFFF;
-
-    *(index_iter++) = idx++;
-    *(index_iter++) = idx++;
-    *(index_iter++) = idx++;
-    *(index_iter++) = idx++;
-  }
+  m_n_glyphs = text_write_buffer(m_font->glyphs, m_text, buffer_data_ptr, m_text_orig);
 }
 
 void Label::arrange()

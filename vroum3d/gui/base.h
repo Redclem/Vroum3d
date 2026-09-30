@@ -79,6 +79,128 @@ public:
 	 * Also record appropriate child commands */
 	virtual void record_render_commands(RenderCommands& rc) = 0;
 
+  /**
+   * Utility functions and structs for rendering
+   * Frame structure
+   */
+
+  // Data required to render a frame
+	struct FrameRenderData
+	{
+		std::array<Point, 10> points;
+	};
+
+  /**
+   * Write data for frame rendering
+   *
+   * @param rd render data
+   * @param out_pos Rectangle describing the outside of the frame
+   * @param width Frame width
+   *
+   */
+  static void frame_write_renderdata(FrameRenderData& rd, Rect outer_pos, px_t width)
+  {
+    auto pts_outer = outer_pos.rect_points();
+    outer_pos.shrink(width);
+    auto pts_inner = outer_pos.rect_points();
+
+    rd.points[0] = pts_outer[0];
+    rd.points[1] = pts_inner[0];
+    rd.points[2] = pts_outer[1];
+    rd.points[3] = pts_inner[1];
+    rd.points[4] = pts_outer[2];
+    rd.points[5] = pts_inner[2];
+    rd.points[6] = pts_outer[3];
+    rd.points[7] = pts_inner[3];
+    rd.points[8] = pts_outer[0];
+    rd.points[9] = pts_inner[0];
+  }
+
+  static void frame_render(RenderCommands& rc, VkDeviceSize offset)
+  {
+    rc.fill(offset, 10);
+  }
+  /**
+   * Text utility functions
+   */
+
+  struct TexturedPoint
+  {
+    Point pos;
+    Math::vec2 uv;
+  };
+
+  struct GlyphData
+  {
+    TexturedPoint pts[4];
+  };
+
+  /**
+   * Compute buffer size to reserve to render text
+   *
+   * @param glyphs Glyphs to use to check if code point is rendered
+   * @param str The UTF-8 string to be rendered
+   *
+   */
+  static VkDeviceSize text_byte_size(const Font::GlyphAtlas& glyphs, std::string_view str) 
+  {
+    return glyphs.glyph_count(str) * (sizeof(Element::GlyphData) + 5 * sizeof(std::uint16_t)) - sizeof(std::uint16_t);
+  }
+
+  /**
+   * Export text buffer data
+   *
+   * @param glyphs Glyphs to use
+   * @param str String to be rendered
+   * @param buffer_data_ptr Pointer to buffer space receiving data. Minimal size can be computed using text_byte_size
+   * @param text_origin Origin of the text (position of first glyph)
+   * @return The number of glyphs to render
+   *
+   */
+  static std::uint32_t text_write_buffer(const Font::GlyphAtlas& glyphs, std::string_view str, char* buffer_data_ptr, Math::vec2 text_origin) 
+  {
+    auto* glyph_out_iter(reinterpret_cast<GlyphData*>(buffer_data_ptr));
+
+    std::uint16_t idx(0);
+
+    float adv(0.0f);
+
+    std::uint32_t n_glyphs = 0;
+
+    auto proc_vert = [&](char32_t point)
+      {
+        auto iter = glyphs.find(point);
+        if(iter == glyphs.end()) return;
+
+        const auto& g = iter->second;
+
+        glyph_out_iter->pts[0] = {{adv + text_origin.x + g.offset.x, g.offset.y + text_origin.y}, g.start};
+        glyph_out_iter->pts[1] = {{adv + text_origin.x + g.offset.x + g.w, g.offset.y + text_origin.y}, {g.end.x, g.start.y}};
+        glyph_out_iter->pts[2] = {{adv + text_origin.x + g.offset.x, g.offset.y + g.h + text_origin.y}, {g.start.x, g.end.y}};
+        glyph_out_iter->pts[3] = {{adv + text_origin.x + g.offset.x + g.w, g.offset.y + g.h + text_origin.y}, g.end};
+
+        glyph_out_iter++;
+        adv += g.adv;
+        n_glyphs++;
+      };
+
+    glyphs.iterate_unicode_points(str, proc_vert);
+
+    std::uint16_t * index_iter = reinterpret_cast<std::uint16_t*>(glyph_out_iter);
+    
+    for(std::size_t g(0); g != n_glyphs; ++g)
+    {
+      if(g)
+        *(index_iter++) = 0xFFFF;
+
+      *(index_iter++) = idx++;
+      *(index_iter++) = idx++;
+      *(index_iter++) = idx++;
+      *(index_iter++) = idx++;
+    }
+
+    return n_glyphs;
+  }
 };
 
 using namespace Core;
@@ -105,9 +227,6 @@ public:
   
     Font::atlas_glyphs_t glyphs;
     std::uint32_t set_index;
-
-    float compute_text_size(std::string_view str) const;
-    std::size_t glyph_count(std::string_view str) const;
   };
 
 	using texture_ptr_t = Texture*;

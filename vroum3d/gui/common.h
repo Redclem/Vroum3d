@@ -79,7 +79,7 @@ struct Rect : Point, Extent {
 	constexpr Rect(Point p, Extent e) : Point(p), Extent(e) {}
 	constexpr Rect() {}
 
-	void shrink(px_t amount)
+	Rect& shrink(px_t amount)
 	{
 		if(amount * 2 <= w)
 			x += amount, w -= 2 * amount;
@@ -96,6 +96,7 @@ struct Rect : Point, Extent {
 			y += h / 2;
 			h = 0;
 		}
+    return *this;
 	}
 
 	Point& origin()

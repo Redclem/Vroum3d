@@ -15,20 +15,11 @@
 namespace Vroum3d::Gui
 {
 
-struct TexturedPoint
-{
-	Point pos;
-	Math::vec2 uv;
-};
-
 class Frame : public Element
 {
 	px_t m_border, m_margin;
 
-	struct RenderData
-	{
-		std::array<Point, 10> points;
-	};
+  using RenderData = FrameRenderData;
 
 public:
 	auto border() const {return m_border;}
@@ -75,10 +66,6 @@ public:
 
 class Label : public Element
 {
-  struct GlyphData
-  {
-    TexturedPoint pts[4];
-  };
 private:
   std::string m_text;
   Base::font_ptr_t m_font;
@@ -94,7 +81,7 @@ public:
    m_font(base->default_font()) {}
 
   virtual VkDeviceSize buffer_size() const override {
-    return m_font->glyphs.glyph_count(m_text) * (sizeof(GlyphData) + 5 * sizeof(std::uint16_t)) - sizeof(std::uint16_t);
+    return text_byte_size(m_font->glyphs, m_text);
   }
   
   virtual void init() override;
