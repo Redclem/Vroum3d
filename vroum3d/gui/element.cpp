@@ -22,11 +22,9 @@ void Frame::init()
 	Element::init();
 }
 
-void Frame::upload_buffer(char * buffer_data_ptr )
+void Frame::upload_buffer(char * buffer_data_ptr)
 {
-	RenderData& rd = *reinterpret_cast<RenderData*>(buffer_data_ptr + Element::c_buffer_size + m_buffer_offset);
-
-  frame_write_renderdata(rd, Rect(position()).shrink(m_margin), m_border);
+  frame_write_buffer(buffer_data_ptr, Rect(position()).shrink(m_margin), m_border);
 }
 
 void Frame::record_render_commands(RenderCommands& rc)
@@ -88,7 +86,7 @@ void Label::init()
 
 void Label::upload_buffer(char* buffer_data_ptr)
 {
-  m_n_glyphs = text_write_buffer(m_font->glyphs, m_text, buffer_data_ptr, m_text_orig);
+  m_n_glyphs = text_write_buffer(buffer_data_ptr, m_font->glyphs, m_text, m_text_orig);
 }
 
 void Label::arrange()
@@ -106,9 +104,7 @@ void Label::arrange()
 
 void Label::record_render_commands(RenderCommands& rc)
 {
-  if(m_n_glyphs)
-    rc.text(m_buffer_offset, m_buffer_offset + m_n_glyphs * sizeof(GlyphData),
-            m_n_glyphs * 5 - 1, m_font->set_index);
+  text_render(rc, m_buffer_offset, m_n_glyphs, m_font->set_index);
 }
 
 Extent Label::get_min_dimensions()

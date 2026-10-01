@@ -98,8 +98,10 @@ public:
    * @param width Frame width
    *
    */
-  static void frame_write_renderdata(FrameRenderData& rd, Rect outer_pos, px_t width)
+  static void frame_write_buffer(char* buffer_data_ptr, Rect outer_pos, px_t width)
   {
+    FrameRenderData& rd = *reinterpret_cast<FrameRenderData*>(buffer_data_ptr);
+
     auto pts_outer = outer_pos.rect_points();
     outer_pos.shrink(width);
     auto pts_inner = outer_pos.rect_points();
@@ -157,7 +159,7 @@ public:
    * @return The number of glyphs to render
    *
    */
-  static std::uint32_t text_write_buffer(const Font::GlyphAtlas& glyphs, std::string_view str, char* buffer_data_ptr, Math::vec2 text_origin) 
+  static std::uint32_t text_write_buffer(char* buffer_data_ptr, const Font::GlyphAtlas& glyphs, std::string_view str, Math::vec2 text_origin) 
   {
     auto* glyph_out_iter(reinterpret_cast<GlyphData*>(buffer_data_ptr));
 
@@ -200,6 +202,22 @@ public:
     }
 
     return n_glyphs;
+  }
+
+  /**
+   * Record label render commands
+   *
+   * @param rc RenderCommands to record into
+   * @param buffer offset for label data
+   * @param n_glyphs number of glyphs to render
+   * @param set_index index of the glyph atlas into the descriptor set
+   * @return Type and description of the returned value.
+   */
+  static void text_render(RenderCommands& rc, VkDeviceSize offset, std::size_t n_glyphs, std::uint32_t set_index)
+  {
+    if(n_glyphs)
+      rc.text(offset, offset + n_glyphs * sizeof(GlyphData),
+              n_glyphs * 5 - 1, set_index);
   }
 };
 
