@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.25)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(Vroum3d)
-set(CMAKE_CXX_STANDARD 20)
 
 include(FetchContent)
 include(CTest)
@@ -47,6 +46,7 @@ if(${MSYS})
 	set(VULKAN_LIB "vulkan-1")
 	set(EXEC_LINK_OPTS "-mconsole")
   set(VROUM3D_COMPILE_DEF ${VROUM3D_COMPILE_DEF} MSYS)
+set(CMAKE_CXX_STANDARD 20)
 endif()
 
 if(VROUM3D_ALLOCATOR_DRY_ALLOC)
@@ -71,6 +71,8 @@ add_library(vroum3d STATIC
 	vroum3d/gui/font.cpp
 	ext/stb_impl.cpp
 )
+
+target_compile_features(vroum3d PUBLIC cxx_std_20)
 
 if(DEFINED VULKAN_SDK_DIR)
 	target_include_directories(vroum3d PUBLIC ${VULKAN_SDK_DIR}/include)
