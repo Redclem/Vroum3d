@@ -323,7 +323,7 @@ public:
     friend Allocator;
 
   public:
-    using base_t::memory, base_t::offset, base_t::size, base_t::operator bool;
+    using base_t::memory, base_t::offset, base_t::size, base_t::visible, base_t::coherent, base_t::operator bool;
     OwnedMemory() {}
 
     OwnedMemory(OwnedMemory&& from) : allocated_memory_t(std::exchange(from.base(), {})) {}
