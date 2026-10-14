@@ -185,7 +185,14 @@ public:
 	VkDescriptorSetLayout get_descriptor_set_layout(DescriptorSetDescription&&);
 
 	template<typename ... Shaders>
-	PipelineLayouts get_shader_layouts(Shaders&& ... shaders);
+	PipelineLayouts get_shader_layouts(Shaders&& ... shaders)
+  {
+	  std::array<const ShaderModule*, sizeof...(shaders)> shad_array({&shaders...});
+    return get_shader_layouts(shad_array.begin(), shad_array.end());
+  }
+
+  template<typename Iter, std::enable_if_t<!std::is_same_v<Iter, ShaderModule>, bool> = true>
+  PipelineLayouts get_shader_layouts(Iter first, Iter last);
 
 	const ShaderModule& require_shader(std::string_view path);
 
@@ -224,27 +231,20 @@ private:
 
 };
 
-/** Base pipeline holder class */
-class Pipeline : public AssignDestroy<Pipeline>
+/** Base pipeline class equipped to store a reference to its layout and relevant descriptor set layouts */
+class BasePipeline : public AssignDestroy<BasePipeline>
 {
 public:
   using PipelineLayouts = PipelineResource::PipelineLayouts;
 
-	template<typename PipelineInformation>
-	Pipeline(PipelineResource& pr, const PipelineInformation& pi) : m_device(pr.device())
-	{
-		create_pipeline(pr, pi);
-	}
-
-	template<typename PipelineInformation>
-	void create_pipeline(PipelineResource &pr, PipelineInformation& pi);
+  BasePipeline(VkDevice device) : m_device(device) {}
 
 	void destroy()
 	{
 		m_pipeline.destroy_with([&](auto pipe){vkDestroyPipeline(m_device, pipe, nullptr);});
 	}
 
-	~Pipeline()
+	~BasePipeline()
 	{
 		destroy();
 	}
@@ -256,12 +256,28 @@ public:
 
   VkDescriptorSetLayout descriptor_set_layout(auto idx) const {return m_layouts.descriptor_set_layouts()[idx];}
 
-private:
+protected:
 	VkDevice m_device;
 
 	VkHandle<VkPipeline> m_pipeline;
   
   PipelineLayouts m_layouts;
+};
+
+/** Base graphics pipeline class */
+class Pipeline : public BasePipeline
+{
+public:
+
+	template<typename PipelineInformation>
+	Pipeline(PipelineResource& pr, const PipelineInformation& pi) : BasePipeline(pr.device())
+	{
+		create_pipeline(pr, pi);
+	}
+
+	template<typename PipelineInformation>
+	void create_pipeline(PipelineResource &pr, PipelineInformation& pi);
+private:
 };
 
 }
@@ -274,17 +290,16 @@ private:
 
 using namespace Vroum3d::Core;
 
-template<typename ... Shaders>
-PipelineResource::PipelineLayouts PipelineResource::get_shader_layouts(Shaders&& ... shaders)
+template<typename Iter, std::enable_if_t<!std::is_same_v<Iter, PipelineResource::ShaderModule>, bool>>
+PipelineResource::PipelineLayouts PipelineResource::get_shader_layouts(Iter first, Iter last)
 {
-
 	std::vector<DescriptorSetDescription> descriptions;
 	std::map<std::pair<std::uint32_t, std::uint32_t>, VkShaderStageFlags> push_consts;
 
-	std::array<const ShaderModule*, sizeof...(shaders)> shad_array({&shaders...});
-
-	for(const ShaderModule* smod : shad_array)
+	for(; first != last; ++first)
 	{
+    const ShaderModule* smod = *first;
+
 		std::uint32_t n_ds;
 		spvr_check(spvReflectEnumerateDescriptorSets(&smod->spv_module, &n_ds, nullptr));
 		VkShaderStageFlags stage = static_cast<VkShaderStageFlags>(smod->spv_module.shader_stage);
@@ -494,7 +509,6 @@ void Pipeline::create_pipeline(PipelineResource& pr, PipelineInformation& pi)
 
 	gpi.layout = layout();
 	gpi.renderPass = VK_NULL_HANDLE;
-	gpi.basePipelineHandle = VK_NULL_HANDLE;
 
 	VkPipelineRenderingCreateInfo pri = pi.rendering_info();
 
