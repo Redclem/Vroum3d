@@ -1,5 +1,4 @@
 #include "../vroum3d/vroum3d.h"
-#include <vulkan/vulkan_core.h>
 #include <random>
 
 

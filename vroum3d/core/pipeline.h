@@ -8,8 +8,7 @@
 #include <memory>
 #include <set>
 #include <string_view>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
 
 #include <spirv_reflect.h>
 

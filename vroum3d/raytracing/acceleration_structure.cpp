@@ -3,9 +3,12 @@
 
 using namespace Vroum3d::Raytracing;
 
-void AccelerationStructure::destroy()
+void SimpleTriangleAccelerationStructure::destroy()
 {
   m_blas.destroy_with([&](VkAccelerationStructureKHR as){
+    vkDestroyAccelerationStructureKHR(device(), as, nullptr);
+      });
+  m_tlas.destroy_with([&](VkAccelerationStructureKHR as){
     vkDestroyAccelerationStructureKHR(device(), as, nullptr);
       });
 
@@ -13,7 +16,7 @@ void AccelerationStructure::destroy()
   m_instance->free(m_buffer_mem);
 }
 
-void AccelerationStructure::create_as(VkBuffer data_source, uint32_t n_vertex, uint32_t n_index)
+void SimpleTriangleAccelerationStructure::create_as(VkBuffer data_source, uint32_t n_vertex, uint32_t n_index)
 {
   VkBufferDeviceAddressInfo bdai{
     VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
@@ -21,9 +24,9 @@ void AccelerationStructure::create_as(VkBuffer data_source, uint32_t n_vertex, u
     data_source
   };
 
-  VkDeviceAddress input_buffer_address = vkGetBufferDeviceAddress(device(), &bdai);
+  //VkDeviceAddress input_buffer_address = vkGetBufferDeviceAddress(device(), &bdai);
 
-  VkAccelerationStructureGeometryKHR geom{
+  VkAccelerationStructureGeometryKHR bl_geom{
     VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
     nullptr,
     VK_GEOMETRY_TYPE_TRIANGLES_KHR,
@@ -34,7 +37,7 @@ void AccelerationStructure::create_as(VkBuffer data_source, uint32_t n_vertex, u
         VK_FORMAT_R32G32B32_SFLOAT,
         {},
         sizeof(vertex_t),
-        n_vertex,
+        n_vertex - 1,
         VK_INDEX_TYPE_UINT32,
         {},
         {.hostAddress = nullptr}
@@ -43,7 +46,7 @@ void AccelerationStructure::create_as(VkBuffer data_source, uint32_t n_vertex, u
     0
   };
 
-  VkAccelerationStructureBuildGeometryInfoKHR bgi{
+  VkAccelerationStructureBuildGeometryInfoKHR bl_bgi{
     VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
       nullptr,
       VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
@@ -52,18 +55,58 @@ void AccelerationStructure::create_as(VkBuffer data_source, uint32_t n_vertex, u
       VK_NULL_HANDLE,
       VK_NULL_HANDLE,
       1,
-      &geom,
+      &bl_geom,
+      nullptr,
+      {}
+  };
+  
+  VkAccelerationStructureInstanceKHR bl_instance{
+    VkTransformMatrixKHR(),
+    0,
+    0xFF,
+    0,
+    0xFF,
+    0
+  };
+
+  VkAccelerationStructureGeometryKHR tl_geom{
+    VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+    nullptr,
+    VK_GEOMETRY_TYPE_INSTANCES_KHR,
+    {
+      .instances = {
+        VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
+        nullptr,
+        VK_FALSE,
+        {.hostAddress = &bl_instance}
+      }
+    },
+    0
+  };
+
+  VkAccelerationStructureBuildGeometryInfoKHR tl_bgi{
+    VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+      nullptr,
+      VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+      0,
+      VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
+      VK_NULL_HANDLE,
+      VK_NULL_HANDLE,
+      1,
+      &tl_geom,
       nullptr,
       {}
   };
 
-  VkAccelerationStructureBuildSizesInfoKHR size_info;
+  VkAccelerationStructureBuildSizesInfoKHR bl_size_info, tl_size_info;
 
-  uint32_t prim_count = n_index / 3;
+  uint32_t prim_count = n_index / 3, one = 1;
 
-  vkGetAccelerationStructureBuildSizesKHR(device(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &bgi, &prim_count, &size_info);
+  vkGetAccelerationStructureBuildSizesKHR(device(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &bl_bgi, &prim_count, &bl_size_info);
 
-  create_buffer(size_info.accelerationStructureSize);
+  vkGetAccelerationStructureBuildSizesKHR(device(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &tl_bgi, &one, &tl_size_info);
+
+  create_buffer(bl_size_info.accelerationStructureSize + tl_size_info.accelerationStructureSize);
 
   bdai.buffer = m_buffer;
 
@@ -73,15 +116,20 @@ void AccelerationStructure::create_as(VkBuffer data_source, uint32_t n_vertex, u
     VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
     nullptr,
     0,
-    {as_buffer_address, size_info.accelerationStructureSize},
+    {as_buffer_address, bl_size_info.accelerationStructureSize},
     0,
     VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR
   };
 
   vk_check(vkCreateAccelerationStructure2KHR(device(), &asci, nullptr, &m_blas));
+
+  asci.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+  asci.addressRange = {as_buffer_address + bl_size_info.accelerationStructureSize, tl_size_info.accelerationStructureSize};
+
+  vk_check(vkCreateAccelerationStructure2KHR(device(), &asci, nullptr, &m_tlas));
 }
 
-void AccelerationStructure::create_buffer(VkDeviceSize size)
+void SimpleTriangleAccelerationStructure::create_buffer(VkDeviceSize size)
 {
   VkBufferCreateInfo bi
   {

@@ -5,7 +5,7 @@
 #include "../version.h"
 
 #include <limits>
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
 #include <vulkan/vk_enum_string_helper.h>
 #include <SDL3/SDL_vulkan.h>
 
@@ -59,7 +59,7 @@ void Instance::destroy()
 void Instance::create_instance(ExtensionsLayers&& el, void* instance_pnext)
 {
 	std::vector<VkLayerProperties> lprops =
-		wrap_enumerate<vkEnumerateInstanceLayerProperties>();
+		wrap_enumerate(vkEnumerateInstanceLayerProperties);
 
 	auto proc_lay = [&](const char* elem){
 
@@ -69,7 +69,7 @@ void Instance::create_instance(ExtensionsLayers&& el, void* instance_pnext)
 			throw std::runtime_error("Missing extension");
 		}
 
-		auto lay_exts = wrap_enumerate<vkEnumerateInstanceExtensionProperties>(elem);
+		auto lay_exts = wrap_enumerate(vkEnumerateInstanceExtensionProperties, elem);
 
 		for(const auto& ext : lay_exts)
 			if(!std::any_of(el.exts.begin(), el.exts.end(), [ext](const std::string& s) {return s == ext.extensionName;}))
@@ -125,7 +125,7 @@ void InstanceDebugData<true>::create_dbg_mesg(VkInstance inst, const VkDebugUtil
 
 void Instance::choose_pdev()
 {
-	std::vector<VkPhysicalDevice> pdevs = wrap_enumerate<vkEnumeratePhysicalDevices>(m_inst);
+	std::vector<VkPhysicalDevice> pdevs = wrap_enumerate(vkEnumeratePhysicalDevices, m_inst);
 
 	check(pdevs.size());
 
@@ -164,7 +164,7 @@ void Instance::choose_pdev()
 
 void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR surf, void* device_pnext)
 {
-	auto queues = wrap_enumerate<vkGetPhysicalDeviceQueueFamilyProperties>(m_pdev);
+	auto queues = wrap_enumerate(vkGetPhysicalDeviceQueueFamilyProperties, m_pdev);
 
 	int it(-1), ip(-1), ig(-1);
   {
@@ -311,7 +311,7 @@ void DisplayInstance::create_sw()
 
 void DisplayInstance::find_sw_info()
 {
-	auto forms = wrap_enumerate<vkGetPhysicalDeviceSurfaceFormatsKHR>(m_pdev, m_surf);
+	auto forms = wrap_enumerate(vkGetPhysicalDeviceSurfaceFormatsKHR, m_pdev, m_surf);
 
 	m_sw_format = forms[0];
 
@@ -324,7 +324,7 @@ void DisplayInstance::find_sw_info()
 		}
 	}
 
-	auto modes = wrap_enumerate<vkGetPhysicalDeviceSurfacePresentModesKHR>(m_pdev, m_surf);
+	auto modes = wrap_enumerate(vkGetPhysicalDeviceSurfacePresentModesKHR, m_pdev, m_surf);
 
 	m_sw_pres_mode = VK_PRESENT_MODE_FIFO_KHR;
 
@@ -340,7 +340,7 @@ void DisplayInstance::find_sw_info()
 
 void DisplayInstance::create_sw_views()
 {
-	auto sw_images = wrap_enumerate<vkGetSwapchainImagesKHR>(m_dev, m_sw);
+	auto sw_images = wrap_enumerate(vkGetSwapchainImagesKHR, m_dev, m_sw);
 
 	m_sw_frames.reserve(sw_images.size());
 

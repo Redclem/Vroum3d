@@ -2,8 +2,7 @@
 #define VROUMD3D_CORE_VKUTIL_H_INCLUDED
 
 #include <algorithm>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
 
 #include <cstdint>
 

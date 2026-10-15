@@ -4,7 +4,7 @@
 #include "instance.h"
 #include "../utility.h"
 #include <algorithm>
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
 
 namespace Vroum3d::Core
 {
@@ -119,10 +119,10 @@ public:
 		vkEndCommandBuffer(m_cmd_buf);
 	}
 
-	template<auto cmdfun, typename ... Args>
-	void cmd(Args&& ... ags)
+	template<typename CmdFun, typename ... Args>
+	void cmd(CmdFun cf, Args&& ... ags)
 	{
-		cmdfun(m_cmd_buf, std::forward<Args>(ags)...);
+		cf(m_cmd_buf, std::forward<Args>(ags)...);
 	}
 
 	const VkCommandBuffer & cmd_buf() const {return m_cmd_buf;}

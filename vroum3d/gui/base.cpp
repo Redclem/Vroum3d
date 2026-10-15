@@ -17,7 +17,8 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
+
 #include <format>
 
 using namespace Vroum3d::Gui;
@@ -562,12 +563,12 @@ void Base::write_texture_upload_commands(CommandBuffer& cmd_buffer, const std::v
 			imb[0].image = imb[1].image = tex.img;
 
 			di.pImageMemoryBarriers = &imb[0];
-			cmd_buffer.cmd<vkCmdPipelineBarrier2>(&di);
+			cmd_buffer.cmd(vkCmdPipelineBarrier2, &di);
 
-			cmd_buffer.cmd<vkCmdCopyBufferToImage>(upl_buffer, tex.img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bic);
+			cmd_buffer.cmd(vkCmdCopyBufferToImage, upl_buffer, tex.img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bic);
 
 			di.pImageMemoryBarriers = &imb[1];
-			cmd_buffer.cmd<vkCmdPipelineBarrier2>(&di);
+			cmd_buffer.cmd(vkCmdPipelineBarrier2, &di);
 			
 			mri++;
 		}
@@ -703,12 +704,12 @@ void Base::write_font_upload_commands(CommandBuffer& cmd_buffer, const std::vect
 			imb[0].image = imb[1].image = font.img;
 
 			di.pImageMemoryBarriers = &imb[0];
-			cmd_buffer.cmd<vkCmdPipelineBarrier2>(&di);
+			cmd_buffer.cmd(vkCmdPipelineBarrier2, &di);
 
-			cmd_buffer.cmd<vkCmdCopyBufferToImage>(upl_buffer, font.img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bic);
+			cmd_buffer.cmd(vkCmdCopyBufferToImage, upl_buffer, font.img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bic);
 
 			di.pImageMemoryBarriers = &imb[1];
-			cmd_buffer.cmd<vkCmdPipelineBarrier2>(&di);
+			cmd_buffer.cmd(vkCmdPipelineBarrier2, &di);
 			
 			mri++;
 		}

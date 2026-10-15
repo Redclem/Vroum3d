@@ -28,11 +28,6 @@ std::vector<VkPipelineShaderStageCreateInfo>& TrianglePipelineInformation::build
 
 std::vector<VkRayTracingShaderGroupCreateInfoKHR> TrianglePipelineInformation::get_shader_groups() const
 {
-  VkRayTracingShaderGroupCreateInfoKHR rtgi;
-  rtgi.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
-  rtgi.pNext = nullptr;
-  rtgi.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
-  
   uint32_t idx(2);
   std::vector<VkRayTracingShaderGroupCreateInfoKHR> res;
 

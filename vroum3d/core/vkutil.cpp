@@ -1,6 +1,6 @@
 #include "vkutil.h"
 #include <stdexcept>
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
 
 namespace Vroum3d::vkutil
 {

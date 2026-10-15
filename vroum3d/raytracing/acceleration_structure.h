@@ -4,22 +4,23 @@
 #include "../core/instance.h"
 #include "../math/vec.hpp"
 #include <cstdint>
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
+
 
 namespace Vroum3d::Raytracing
 {
 
-class AccelerationStructure : public AssignDestroy<AccelerationStructure>
+class SimpleTriangleAccelerationStructure : public AssignDestroy<SimpleTriangleAccelerationStructure>
 {
 public:
   
 
-  AccelerationStructure(Core::Instance& instance, VkBuffer data_source, uint32_t n_vertex, uint32_t n_index) : AccelerationStructure(instance) {
+  SimpleTriangleAccelerationStructure(Core::Instance& instance, VkBuffer data_source, uint32_t n_vertex, uint32_t n_index) : SimpleTriangleAccelerationStructure(instance) {
     create_as(data_source, n_vertex, n_index);
   }
 
 
-  AccelerationStructure(Core::Instance& instance) : m_instance(&instance), m_device(m_instance->device()) {}
+  SimpleTriangleAccelerationStructure(Core::Instance& instance) : m_instance(&instance), m_device(m_instance->device()) {}
 
   auto device() const {return m_device;}
 
@@ -30,7 +31,7 @@ public:
 
   void destroy();
 
-  ~AccelerationStructure() {destroy();}
+  ~SimpleTriangleAccelerationStructure() {destroy();}
 
   void create_buffer(VkDeviceSize size);
 
@@ -43,7 +44,7 @@ private:
   VkHandle<VkBuffer> m_buffer;
   Core::Allocator::OwnedMemory m_buffer_mem;
 
-  VkHandle<VkAccelerationStructureKHR> m_blas;
+  VkHandle<VkAccelerationStructureKHR> m_blas, m_tlas;
 };
 
 }

@@ -10,8 +10,7 @@
 
 #include <SDL3/SDL_vulkan.h>
 #include <cstdint>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
 
 #include <array>
 #include <vector>
@@ -172,8 +171,8 @@ struct InstanceInfoDebug<true>
     void*) 
   {
     Vroum3d::log("Vulkan Message:");
-    Vroum3d::log("Severity:", string_VkDebugUtilsMessageSeverityFlagsEXT(sever));
-    Vroum3d::log("Type:", string_VkDebugUtilsMessageTypeFlagsEXT(type));
+    Vroum3d::log("Severity:", Debug::String::VkDebugUtilsMessageSeverityFlagsEXT(sever));
+    Vroum3d::log("Type:", Debug::String::VkDebugUtilsMessageTypeFlagsEXT(type));
     Vroum3d::log(cbd->pMessage, "\n\n");
     return VK_FALSE;
   };

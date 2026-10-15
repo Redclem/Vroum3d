@@ -3,13 +3,14 @@
 
 #include "debug.h"
 
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
 
 #include <utility>
 #include <vector>
 #include <cstdint>
 #include <tuple>
 #include <type_traits>
+#include <vulkan/vulkan_core.h>
 
 namespace Vroum3d
 {
@@ -112,40 +113,39 @@ namespace enumerate
 	};
 }
 
-template<auto Func, typename ... Args,
-	std::enable_if_t<!enumerate::res<decltype(Func)>::void_res, bool> = true>
-std::vector<typename enumerate::res<decltype(Func)>::result_t> wrap_enumerate(Args&&...ags)
+template<typename Func, typename ... Args,
+	std::enable_if_t<!enumerate::res<Func>::void_res, bool> = true>
+std::vector<typename enumerate::res<Func>::result_t> wrap_enumerate(Func f,Args&&...ags)
 {
-	static_assert(enumerate::res<decltype(Func)>::is_enum_fun, "This function must be called with a Vulkan enumerator function");
+	static_assert(enumerate::res<Func>::is_enum_fun, "This function must be called with a Vulkan enumerator function");
 
-	using res = typename enumerate::res<decltype(Func)>::result_t;
+	using res = typename enumerate::res<Func>::result_t;
 	std::uint32_t size;
 	
-	auto_check(Func(ags..., &size, nullptr));
+	auto_check(f(ags..., &size, nullptr));
 
 	std::vector<res> vec(size);
 
-	auto_check(Func(ags..., &size, vec.data()));
+	auto_check(f(ags..., &size, vec.data()));
 
 	return vec;
-
 }
 
 
-template<auto Func, typename ... Args,
-	std::enable_if_t<enumerate::res<decltype(Func)>::void_res, bool> = true>
-std::vector<typename enumerate::res<decltype(Func)>::result_t> wrap_enumerate(Args&&...ags)
+template<typename Func, typename ... Args,
+	std::enable_if_t<enumerate::res<Func>::void_res, bool> = true>
+std::vector<typename enumerate::res<Func>::result_t> wrap_enumerate(Func f, Args&&...ags)
 {
-	static_assert(enumerate::res<decltype(Func)>::is_enum_fun, "This function must be called with a Vulkan enumerator function");
+	static_assert(enumerate::res<Func>::is_enum_fun, "This function must be called with a Vulkan enumerator function");
 
-	using res = typename enumerate::res<decltype(Func)>::result_t;
+	using res = typename enumerate::res<Func>::result_t;
 	std::uint32_t size;
 	
-	Func(ags..., &size, nullptr);
+	f(ags..., &size, nullptr);
 
 	std::vector<res> vec(size);
 
-	Func(ags..., &size, vec.data());
+	f(ags..., &size, vec.data());
 
 	return vec;
 

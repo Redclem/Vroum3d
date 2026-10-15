@@ -1,11 +1,7 @@
-
-
-
 #include <iterator>
 #include <random>
 #include <set>
 #include <spirv/unified1/spirv.h>
-#include <vulkan/vulkan_core.h>
 
 #include "../vroum3d/vroum3d.h"
 

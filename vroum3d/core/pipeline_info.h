@@ -2,7 +2,7 @@
 #define VROUM3D_CORE_PIPELINE_INFORMATION_HPP_INCLUDED
 
 #include "pipeline.h"
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
 
 namespace Vroum3d::Core
 {

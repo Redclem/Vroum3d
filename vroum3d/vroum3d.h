@@ -15,6 +15,9 @@
 #include "math/vec.hpp"
 #include "math/mat.hpp"
 
+#include "raytracing/pipeline.h"
+#include "raytracing/acceleration_structure.h"
+
 #include "debug.h"
 #include "utility"
 #include "version.h"

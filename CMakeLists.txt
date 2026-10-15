@@ -28,9 +28,8 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(spirv_reflect)
 FetchContent_MakeAvailable(ktx_software)
 
-set(VULKAN_LIB "vulkan")
-
 find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3)
+find_package(volk CONFIG REQUIRED)
 
 if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
   set(VROUM3D_TESTS ON)
@@ -38,12 +37,7 @@ if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 endif()
 
 
-if(WIN32)
-	set(VULKAN_LIB "vulkan-1")
-endif()
-
 if(${MSYS})
-	set(VULKAN_LIB "vulkan-1")
 	set(EXEC_LINK_OPTS "-mconsole")
   set(VROUM3D_COMPILE_DEF ${VROUM3D_COMPILE_DEF} MSYS)
 set(CMAKE_CXX_STANDARD 20)
@@ -66,18 +60,18 @@ add_library(vroum3d STATIC
 	vroum3d/core/objects.cpp
 	vroum3d/core/pipeline_info.cpp
   vroum3d/core/allocator.cpp
+
 	vroum3d/gui/base.cpp
 	vroum3d/gui/element.cpp
 	vroum3d/gui/font.cpp
+
+  vroum3d/raytracing/pipeline.cpp
+  vroum3d/raytracing/acceleration_structure.cpp
+
 	ext/stb_impl.cpp
 )
 
 target_compile_features(vroum3d PUBLIC cxx_std_20)
-
-if(DEFINED VULKAN_SDK_DIR)
-	target_include_directories(vroum3d PUBLIC ${VULKAN_SDK_DIR}/include)
-	target_link_directories(vroum3d PUBLIC ${VULKAN_SDK_DIR}/lib)
-endif()
 
 if(VROUM3D_ENABLE_SYNCVAL)
   set(VROUM3D_COMPILE_DEF ${VROUM3D_COMPILE_DEF} VROUM3D_ENABLE_SYNCVAL)
@@ -96,7 +90,7 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 endif()
 
 target_compile_options(vroum3d PRIVATE ${VROUM3D_CXXFLAGS})
-target_link_libraries(vroum3d PUBLIC SDL3::SDL3 ${VULKAN_LIB} spirv-reflect-static)
+target_link_libraries(vroum3d PUBLIC SDL3::SDL3  spirv-reflect-static volk::volk)
 target_include_directories(vroum3d INTERFACE vroum3d ext)
 
 function(add_example ex_name)
@@ -120,6 +114,7 @@ if(VROUM3D_EXAMPLES)
   add_example(simple_pipeline)
   add_example(static)
   add_example(bench_allocator)
+  add_example(accel_struct)
 
   set(VROUM3D_SHADERS ON)
 endif()

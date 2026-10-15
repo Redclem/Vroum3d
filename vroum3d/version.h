@@ -1,10 +1,11 @@
 #ifndef VROUM3D_VERSION_H_INCLUDED
 #define VROUM3D_VERSION_H_INCLUDED
 
-#include <vulkan/vulkan.h>
+
 
 #include <cstdint>
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
+
 
 namespace Vroum3d::Version
 {

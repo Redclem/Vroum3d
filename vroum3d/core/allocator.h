@@ -11,8 +11,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <unordered_set>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
+#include <volk.h>
 
 #include <cstdlib>
 #include <cstdint>

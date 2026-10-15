@@ -7,7 +7,8 @@
 
 using namespace Vroum3d::Gui;
 
-void Font::open(const char* pth)
+
+void Vroum3d::Gui::Font::open(const char* pth)
 {
   std::ifstream file(pth, std::ios::binary | std::ios::ate);
   std::size_t size = file.tellg();
@@ -19,7 +20,7 @@ void Font::open(const char* pth)
   stbtt_InitFont(&m_info, reinterpret_cast<unsigned char*>(m_buffer.get()), 0);
 }
 
-std::pair<Bitmap<Font::font_px_t>, Font::atlas_glyphs_t> Font::render_char_atlas()
+std::pair<Bitmap<Vroum3d::Gui::Font::font_px_t>, Vroum3d::Gui::Font::atlas_glyphs_t> Vroum3d::Gui::Font::render_char_atlas()
 {
   Bitmap<Font::font_px_t> res(1024, 1024);
   stbtt_pack_context ctx;
@@ -91,7 +92,7 @@ struct Converter : cvrt_t
   ~Converter() {}
 };
 
-Rect Font::GlyphAtlas::compute_text_size(std::string_view str) const
+Rect Vroum3d::Gui::Font::GlyphAtlas::compute_text_size(std::string_view str) const
 {
   float xmin(0.0f), xmax(0.0f), adv(0.0f);
   float ymin(0.0f), ymax(0.0f);
@@ -115,7 +116,7 @@ Rect Font::GlyphAtlas::compute_text_size(std::string_view str) const
   return {xmin, ymin, xmax-xmin, ymax - ymin};
 }
 
-std::size_t Font::GlyphAtlas::glyph_count(std::string_view str) const
+std::size_t Vroum3d::Gui::Font::GlyphAtlas::glyph_count(std::string_view str) const
 {
   std::size_t res(0);
 

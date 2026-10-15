@@ -2,7 +2,6 @@
 
 #include <iterator>
 #include <random>
-#include <vulkan/vulkan_core.h>
 
 #include "../vroum3d/vroum3d.h"
 

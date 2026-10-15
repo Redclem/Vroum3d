@@ -8,11 +8,9 @@
 
 #include <SDL3/SDL.h>
 
-#include <vulkan/vulkan.h>
-#include <vulkan/vk_enum_string_helper.h>
+#include <volk.h>
 
 #include <spirv_reflect.h>
-#include <vulkan/vulkan_core.h>
 
 namespace Vroum3d
 {
@@ -21,6 +19,13 @@ namespace Vroum3d
 #else
 	constexpr bool debug = true;
 #endif
+
+namespace Debug::String
+{
+  const char* VkResult(VkResult res);
+  std::string VkDebugUtilsMessageTypeFlagsEXT(VkDebugUtilsMessageTypeFlagsEXT flags);
+  std::string VkDebugUtilsMessageSeverityFlagsEXT(VkDebugUtilsMessageSeverityFlagsEXT flags);
+}
 
 template<bool enable = debug, typename Ag1, typename ... Args>
 void log(Ag1 && ag, Args && ... args)
@@ -47,7 +52,7 @@ public:
 
   ~VulkanError() override {}
 
-  const char * what() const noexcept override {return string_VkResult(m_result);}
+  const char * what() const noexcept override {return Debug::String::VkResult(m_result);}
 
   constexpr bool operator==(VkResult r) const {return r == m_result;}
 };
@@ -71,7 +76,7 @@ inline void vk_check(VkResult res, std::source_location loc = std::source_locati
 	{
 		log("vk_check failed at ", loc.file_name(), ":", loc.line(), " col ", loc.column());
 		log("In function ", loc.function_name());
-		log("Value : ", string_VkResult(res));
+		log("Value : ", Debug::String::VkResult(res));
 		throw VulkanError(res);
 	}
 }
