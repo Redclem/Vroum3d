@@ -218,23 +218,6 @@ private:
 	VkHandle<VkFence> m_fence;
 };
 
-/** Descriptor set
- * @warning Descriptor set is not automatically freed on release!
- */
-class DescriptorSet : public NonCopyable
-{
-public:
-
-  friend class DescriptorPool;
-
-  VkDescriptorSet descriptor_set() const {return m_descriptor_set;}
-
-private:
-  VkHandle<VkDescriptorSet> m_descriptor_set;
-
-  DescriptorSet(VkDescriptorSet ds) : m_descriptor_set(ds) {}
-};
-
 /** Descriptor pool */
 class DescriptorPool : public AssignDestroy<DescriptorPool>
 {

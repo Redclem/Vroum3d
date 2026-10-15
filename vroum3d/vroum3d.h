@@ -7,6 +7,7 @@
 #include "core/pipeline.h"
 #include "core/pipeline_info.h"
 #include "core/vkutil.h"
+#include "core/update_descriptor_set.hpp"
 
 #include "gui/base.h"
 #include "gui/element.h"
