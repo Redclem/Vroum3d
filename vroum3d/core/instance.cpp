@@ -4,8 +4,9 @@
 
 #include "../version.h"
 
+#include <format>
 #include <limits>
-#include <volk.h>
+#include "../volk_wrapper.h"
 #include <vulkan/vk_enum_string_helper.h>
 #include <SDL3/SDL_vulkan.h>
 
@@ -58,6 +59,8 @@ void Instance::destroy()
 
 void Instance::create_instance(ExtensionsLayers&& el, void* instance_pnext)
 {
+  vk_check(volkInitialize());
+
 	std::vector<VkLayerProperties> lprops =
 		wrap_enumerate(vkEnumerateInstanceLayerProperties);
 
@@ -112,6 +115,8 @@ void Instance::create_instance(ExtensionsLayers&& el, void* instance_pnext)
 		
 
   vk_check(vkCreateInstance(&nfo, nullptr, &m_inst));
+
+  volkLoadInstance(m_inst);
 }
 
 void InstanceDebugData<true>::create_dbg_mesg(VkInstance inst, const VkDebugUtilsMessengerCreateInfoEXT& ci)
@@ -226,26 +231,31 @@ void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR 
 		}
 	}
 
+  // Check device extension support and add dependencies
+  
+  auto extensions = wrap_enumerate(vkEnumerateDeviceExtensionProperties, m_pdev, nullptr);
+
 	std::vector<const char*> exts_c_str;
+
+  auto proc_ext = [&](const char* ext_name)
+  {
+    if(std::any_of(exts_c_str.begin(), exts_c_str.end(), [&](const char* name){return strcmp(ext_name, name) == 0;}))
+      return;
+
+    exts_c_str.push_back(ext_name);
+
+    if(auto ext_iter = std::find_if(extensions.begin(), extensions.end(), [&](VkExtensionProperties& props) {return strcmp(props.extensionName, ext_name) == 0;}); ext_iter == extensions.end())
+      throw std::runtime_error(std::format("Unsupported extension : {}", ext_name));
+  };
+
 	exts_c_str.reserve(exts.size());
 
-	for(auto& elem : exts)
-		exts_c_str.push_back(elem.c_str());
-
-	VkPhysicalDeviceVulkan13Features vk13feats{};
-	vk13feats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-  vk13feats.pNext = device_pnext;
-	vk13feats.dynamicRendering = VK_TRUE;
-	vk13feats.synchronization2 = VK_TRUE;
-
-	VkPhysicalDeviceVulkan12Features vk12feats{};
-	vk12feats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-	vk12feats.pNext = &vk13feats;
-	vk12feats.runtimeDescriptorArray = VK_TRUE;
+  for(const auto& elem : exts)
+    proc_ext(elem.c_str());
 
 	VkDeviceCreateInfo di{
 		VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-		&vk12feats,
+		device_pnext,
 		0,
 		std::uint32_t(dqis.size()),
 		dqis.data(),
@@ -257,6 +267,7 @@ void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR 
 	};
 
 	vk_check(vkCreateDevice(m_pdev, &di, nullptr, &m_dev));
+  volkLoadDevice(m_dev);
 
 	vkGetDeviceQueue(m_dev, it, 0, &m_tq);
 	vkGetDeviceQueue(m_dev, ig, 0, &m_gq);

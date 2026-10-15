@@ -3,9 +3,10 @@
 
 #include <filesystem>
 #include <stdexcept>
-#include <volk.h>
+#include "../volk_wrapper.h"
 
 #include <cassert>
+#include <vulkan/vulkan_core.h>
 
 namespace Vroum3d::Core
 {
@@ -43,6 +44,20 @@ Allocator::block_ptr_t Allocator::allocate_device_block(std::uint32_t idx)
       VkDeviceSize(c_largest_block_size),
       idx
     };
+
+    VkMemoryAllocateFlagsInfoKHR fi;
+
+    if(m_enable_device_address)
+    {
+      fi = {
+        VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+        nullptr,
+        VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR,
+        0
+      };
+
+      mai.pNext = &fi;
+    }
 
     vk_check(vkAllocateMemory(m_device, &mai, nullptr, &mh.dm));
   }

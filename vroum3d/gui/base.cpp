@@ -17,7 +17,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <volk.h>
+#include "../volk_wrapper.h"
 
 #include <format>
 

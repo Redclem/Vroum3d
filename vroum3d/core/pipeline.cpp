@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <vector>
-#include <volk.h>
+#include "../volk_wrapper.h"
 
 using namespace Vroum3d::Core;
 

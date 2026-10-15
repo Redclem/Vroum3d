@@ -1,7 +1,7 @@
 #include "objects.h"
 #include "instance.h"
 #include "vkutil.h"
-#include <volk.h>
+#include "../volk_wrapper.h"
 
 using namespace Vroum3d::Core;
 

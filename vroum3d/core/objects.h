@@ -4,7 +4,7 @@
 #include "instance.h"
 #include "../utility.h"
 #include <algorithm>
-#include <volk.h>
+#include "../volk_wrapper.h"
 
 namespace Vroum3d::Core
 {

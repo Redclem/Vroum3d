@@ -69,6 +69,8 @@ add_library(vroum3d STATIC
   vroum3d/raytracing/acceleration_structure.cpp
 
 	ext/stb_impl.cpp
+
+  vroum3d/debug.cpp
 )
 
 target_compile_features(vroum3d PUBLIC cxx_std_20)

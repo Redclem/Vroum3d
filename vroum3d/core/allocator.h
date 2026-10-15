@@ -11,7 +11,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <unordered_set>
-#include <volk.h>
+#include "../volk_wrapper.h"
 
 #include <cstdlib>
 #include <cstdint>
@@ -186,6 +186,8 @@ private:
   prim_bins_t m_prim_bins;
   block_bag_t m_bag;
 
+  bool m_enable_device_address = false;
+
   // Only call when associated memory index is empty. Returns a new block allocated through vk without inserting it in the pools.
   block_ptr_t allocate_device_block(std::uint32_t index);
 
@@ -230,6 +232,8 @@ private:
 	// Map 
 
 public:
+
+  void set_device_address_enabled(bool enabled = true) {m_enable_device_address = enabled;}
 
   // Raw Allocated Memory handle, exposing block property access
   class AllocatedMemory : block_ptr_t

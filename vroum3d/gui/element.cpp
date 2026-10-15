@@ -3,7 +3,7 @@
 #include "base.h"
 #include "common.h"
 #include <cassert>
-#include <volk.h>
+#include "../volk_wrapper.h"
 
 
 using namespace Vroum3d::Gui;

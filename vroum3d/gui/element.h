@@ -6,7 +6,7 @@
 
 #include "../math/vec.hpp"
 
-#include <volk.h>
+#include "../volk_wrapper.h"
 
 
 #include <array>

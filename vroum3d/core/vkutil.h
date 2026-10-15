@@ -2,7 +2,7 @@
 #define VROUMD3D_CORE_VKUTIL_H_INCLUDED
 
 #include <algorithm>
-#include <volk.h>
+#include "../volk_wrapper.h"
 
 #include <cstdint>
 

@@ -8,7 +8,7 @@
 
 #include <SDL3/SDL.h>
 
-#include <volk.h>
+#include "volk_wrapper.h"
 
 #include <spirv_reflect.h>
 

@@ -10,7 +10,7 @@ const char* Vroum3d::Debug::String::VkResult(enum VkResult res)
 
 std::string Vroum3d::Debug::String::VkDebugUtilsMessageTypeFlagsEXT(::VkDebugUtilsMessageTypeFlagsEXT flags)
 {
-  return string_VkDebugUtilsMessageSeverityFlagsEXT(flags);
+  return string_VkDebugUtilsMessageTypeFlagsEXT(flags);
 }
 
 std::string Vroum3d::Debug::String::VkDebugUtilsMessageSeverityFlagsEXT(::VkDebugUtilsMessageSeverityFlagsEXT flags)

@@ -6,11 +6,11 @@
 #include <chrono>
 #include <memory>
 #include <thread>
-#include <vulkan/vulkan_core.h>
 
 using namespace Vroum3d::Core;
 using namespace Vroum3d;
 
+using Vroum3d::Core::Display;
 
 int main(int, char*[])
 {
@@ -53,7 +53,7 @@ int main(int, char*[])
 			cmd_buf.bind_graphics_pipeline(inst, pipe.pipeline());
 			
 
-			cmd_buf.cmd<vkCmdDraw>(6, 1, 0, 0);
+			cmd_buf.cmd(vkCmdDraw, 6, 1, 0, 0);
 
 			cmd_buf.end_rendering(inst);
 			cmd_buf.end();

@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <limits>
-#include <volk.h>
+#include "../volk_wrapper.h"
 
 using namespace Vroum3d::Core;
 

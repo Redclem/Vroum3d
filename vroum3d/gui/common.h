@@ -1,7 +1,7 @@
 #ifndef VROUM3D_GUI_COMMON_H_INCLUDED
 #define VROUM3D_GUI_COMMON_H_INCLUDED
 
-#include <volk.h>
+#include "../volk_wrapper.h"
 
 
 #include <cstdint>

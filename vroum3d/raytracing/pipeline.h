@@ -2,7 +2,7 @@
 #define VROUM3D_RAYTRACING_PIPELINE_H_INCLUDED
 
 #include "../core/pipeline.h"
-#include <volk.h>
+#include "../volk_wrapper.h"
 
 
 namespace Vroum3d::Raytracing

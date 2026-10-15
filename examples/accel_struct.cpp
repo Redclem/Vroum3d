@@ -1,5 +1,6 @@
 #include "../vroum3d/vroum3d.h"
 #include "raytracing/acceleration_structure.h"
+#include "raytracing/instance_info.h"
 #include <cstring>
 #include <vulkan/vulkan_core.h>
 
@@ -8,8 +9,7 @@ using namespace Vroum3d;
 
 int main(int, char*[])
 {
-	Display disp;
-	DisplayInstance inst(disp);
+	Instance inst(Raytracing::InstanceInfo<>{});
 
   Math::vec3 data[] = {
     {0.0f, 0.0f, 0.0f},

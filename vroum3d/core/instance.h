@@ -10,12 +10,13 @@
 
 #include <SDL3/SDL_vulkan.h>
 #include <cstdint>
-#include <volk.h>
+#include "../volk_wrapper.h"
 
 #include <array>
 #include <vector>
 #include <cstring>
 #include <stdexcept>
+#include <vulkan/vulkan_core.h>
 
 namespace Vroum3d::Core
 {
@@ -33,7 +34,7 @@ public:
   void create_dbg_mesg(VkInstance, const VkDebugUtilsMessengerCreateInfoEXT&) {}
 };
 
-struct DefaultInstanceInfo;
+class DefaultInstanceInfo;
 
 template<>
 class InstanceDebugData<true>
@@ -83,11 +84,7 @@ public:
 		create_instance(ii.inst_exts_lays(), ii.instance_pnext());
     create_dbg_mesg(m_inst, *ii.debug_messenger_info());
 
-		choose_pdev();
-		create_device(ii.dev_exts(), VK_NULL_HANDLE, ii.device_pnext());
-
-		create_transfer_pool();
-
+		create_device(ii, VK_NULL_HANDLE);
 	}
 protected:
 	/** Create Instance with VkInstance only, to allow surface creation before device creation (for present queue) */
@@ -102,6 +99,8 @@ protected:
 	void create_device(InstanceInfo&& ii = {}, VkSurfaceKHR surf = VK_NULL_HANDLE)
 	{
 		choose_pdev();
+    ii.build_device_pnext_chain();
+    set_device_address_enabled(ii.enable_device_address());
 		create_device(ii.dev_exts(), surf, ii.device_pnext());
 
 		create_transfer_pool();
@@ -199,8 +198,33 @@ struct InstanceInfoDebug<true>
   const VkDebugUtilsMessengerCreateInfoEXT* debug_messenger_info() {return &dbi;}
 };
 
-struct DefaultInstanceInfo : InstanceInfoDebug<debug>
+class DefaultInstanceInfo : public InstanceInfoDebug<debug>
 {
+protected:
+
+	VkPhysicalDeviceVulkan13Features vk13feats{};
+	VkPhysicalDeviceVulkan12Features vk12feats{};
+
+private:
+
+  void ** m_device_next_pnext = nullptr;
+  void * m_device_first_pnext = nullptr;
+public:
+
+  VkBool32 enable_device_address() const {return vk12feats.bufferDeviceAddress;}
+
+  DefaultInstanceInfo() {
+    
+    vk13feats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    vk13feats.pNext = nullptr;
+    vk13feats.dynamicRendering = VK_TRUE;
+    vk13feats.synchronization2 = VK_TRUE;
+
+    vk12feats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    vk12feats.pNext = nullptr;
+    vk12feats.runtimeDescriptorArray = VK_TRUE;
+  }
+
 	template<bool dbg = false>
 	struct DefaultInstanceExtensions {
 		static constexpr std::array value = [](){
@@ -227,11 +251,43 @@ struct DefaultInstanceInfo : InstanceInfoDebug<debug>
 			{layarray.begin(), layarray.end()}};
 	}
 
+  void build_device_pnext_chain()
+  {
+    m_device_next_pnext = nullptr;
+    m_device_first_pnext = nullptr;
+
+    add_device_pnext(&vk12feats);
+    add_device_pnext(&vk13feats);
+  }
+
 	std::vector<std::string> dev_exts() {return {};}
 
-  void* device_pnext() {return nullptr;}
+  void* device_pnext() {return m_device_first_pnext;}
 
   using InstanceInfoDebug<debug>::instance_pnext;
+
+  template<typename NewStr>
+  static void check_add_string(std::vector<std::string>& strings, NewStr&& str)
+  {
+    if(std::find(strings.begin(), strings.end(), str) == strings.end())
+      strings.push_back(std::forward<NewStr>(str));
+  }
+
+  /** Add structure to pNext chain of device create info.
+   * Ensure the added struct will live for at least the same time as the instance info.
+   */
+  template<typename Struct>
+  void add_device_pnext(Struct* s)
+  {
+    if(m_device_next_pnext == nullptr)
+    {
+      m_device_first_pnext = s;
+    }
+    else
+      *m_device_next_pnext = s;
+
+    m_device_next_pnext = &s->pNext;
+  }
 };
 
 class DisplayInstance : public Instance {

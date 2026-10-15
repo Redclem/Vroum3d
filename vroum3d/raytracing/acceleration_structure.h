@@ -4,7 +4,7 @@
 #include "../core/instance.h"
 #include "../math/vec.hpp"
 #include <cstdint>
-#include <volk.h>
+#include "../volk_wrapper.h"
 
 
 namespace Vroum3d::Raytracing

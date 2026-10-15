@@ -1,6 +1,6 @@
 #include "vkutil.h"
 #include <stdexcept>
-#include <volk.h>
+#include "../volk_wrapper.h"
 
 namespace Vroum3d::vkutil
 {

@@ -3,14 +3,13 @@
 
 #include "debug.h"
 
-#include <volk.h>
+#include "volk_wrapper.h"
 
 #include <utility>
 #include <vector>
 #include <cstdint>
 #include <tuple>
 #include <type_traits>
-#include <vulkan/vulkan_core.h>
 
 namespace Vroum3d
 {
@@ -22,6 +21,14 @@ public:
 
 	constexpr NonCopyable(const NonCopyable& from) = delete;
 	constexpr NonCopyable& operator=(const NonCopyable& rhs) = delete;
+};
+
+class NonMovable : public NonCopyable
+{
+public:
+  constexpr NonMovable() {}
+  constexpr NonMovable(NonMovable&& from) = delete;
+  constexpr NonMovable& operator=(NonMovable&& from) = delete;
 };
 
 template<typename T>
