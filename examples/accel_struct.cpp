@@ -33,13 +33,13 @@ int main(int, char*[])
     0, 1, 2
   };
 
-  Buffer buf(inst, sizeof(data) + sizeof(indexes), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+  Buffer buf(inst, sizeof(data) + sizeof(indexes), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
   auto* dt = buf.map();
   memcpy(dt, data, sizeof(data));
   memcpy(dt + sizeof(data), indexes, sizeof(indexes));
 
-  buf.unmap();
+  buf.flush_unmap();
 
   Raytracing::SimpleTriangleAccelerationStructure as(inst);
 

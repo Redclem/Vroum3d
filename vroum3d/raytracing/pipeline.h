@@ -3,6 +3,7 @@
 
 #include "../core/pipeline.h"
 #include "../volk_wrapper.h"
+#include <vulkan/vulkan_core.h>
 
 
 namespace Vroum3d::Raytracing
@@ -83,7 +84,7 @@ public:
 
 };
 
-class Pipeline : Core::Pipeline
+class Pipeline : public Core::Pipeline
 {
 private:
   using base_pipeline_t = Core::Pipeline;
@@ -96,7 +97,7 @@ public:
 
 
 template<typename PipelineInformation>
-void Pipeline::create_pipeline(PipelineResource&, PipelineInformation& pi)
+void Pipeline::create_pipeline(PipelineResource& pr, PipelineInformation& pi)
 {
   m_layouts = pi.get_layouts();
 
@@ -143,6 +144,8 @@ void Pipeline::create_pipeline(PipelineResource&, PipelineInformation& pi)
   rtpi.basePipelineIndex = pi.base_pipeline_index();
 
   rtpi.layout = layout();
+
+  vk_check(vkCreateRayTracingPipelinesKHR(m_device, VK_NULL_HANDLE, pr.cache(), 1, &rtpi, nullptr, &m_pipeline));
 }
 
 };
