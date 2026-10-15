@@ -4,6 +4,7 @@
 #include "instance.h"
 #include "../utility.h"
 #include <algorithm>
+#include <type_traits>
 #include <vulkan/vulkan_core.h>
 #include "../volk_wrapper.h"
 
@@ -215,6 +216,99 @@ public:
 private:
 	VkDevice m_device;
 	VkHandle<VkFence> m_fence;
+};
+
+/** Descriptor set
+ * @warning Descriptor set is not automatically freed on release!
+ */
+class DescriptorSet : public NonCopyable
+{
+public:
+
+  friend class DescriptorPool;
+
+  VkDescriptorSet descriptor_set() const {return m_descriptor_set;}
+
+private:
+  VkHandle<VkDescriptorSet> m_descriptor_set;
+
+  DescriptorSet(VkDescriptorSet ds) : m_descriptor_set(ds) {}
+};
+
+/** Descriptor pool */
+class DescriptorPool : public AssignDestroy<DescriptorPool>
+{
+public:
+  DescriptorPool(Instance& inst, uint32_t max_sets, const std::vector<VkDescriptorPoolSize>& pool_sizes) : m_device(inst.device()) {
+    VkDescriptorPoolCreateInfo info{
+      VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+      nullptr,
+      0,
+      max_sets,
+      uint32_t(pool_sizes.size()),
+      pool_sizes.data()
+    };
+
+    vk_check(vkCreateDescriptorPool(m_device, &info, nullptr, &m_descriptor_pool));
+  }
+
+  void destroy()
+  {
+      m_descriptor_pool.destroy_with([&](auto dp) {vkDestroyDescriptorPool(m_device, dp, nullptr);});
+  }
+
+  template<typename ContainerIn, typename ContainerOut>
+  void allocate_descriptor_sets(const ContainerIn& layouts, ContainerOut& sets_out, const void* pnext = nullptr)
+  {
+    VkDescriptorSetAllocateInfo ai{
+      VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+      pnext,
+      m_descriptor_pool,
+      uint32_t(layouts.size()),
+      layouts.data()
+    };
+
+    vk_check(vkAllocateDescriptorSets(m_device, &ai, sets_out.data()));
+  }
+
+  template<typename ContainerIn, typename ContainerOut, typename VarSizes,
+    std::enable_if_t<!std::is_pointer_v<VarSizes>, bool> = true>
+  void allocate_descriptor_sets(const ContainerIn& layouts, ContainerOut& sets_out, const VarSizes& var_sizes)
+  {
+    VkDescriptorSetVariableDescriptorCountAllocateInfo vsi{
+      VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO,
+      nullptr,
+      uint32_t(var_sizes.size()),
+      var_sizes.data()
+    };
+
+    allocate_descriptor_sets(layouts, sets_out, &vsi);
+  }
+
+  VkDescriptorSet allocate_descriptor_set(VkDescriptorSetLayout lay)
+  {
+    std::array<VkDescriptorSetLayout, 1> lay_cont{{lay}};
+    std::array<VkDescriptorSet, 1> out;
+
+    allocate_descriptor_sets(lay_cont, out);
+
+    return out[0];
+  }
+
+  VkDescriptorSet allocate_descriptor_set(VkDescriptorSetLayout lay, uint32_t varsize)
+  {
+    std::array<uint32_t, 1> varsize_arr{{varsize}};
+    std::array<VkDescriptorSetLayout, 1> lay_cont{{lay}};
+    std::array<VkDescriptorSet, 1> out;
+
+    allocate_descriptor_sets(lay_cont, out, varsize_arr);
+
+    return out[0];
+  }
+
+private:
+  VkDevice m_device;
+  VkHandle<VkDescriptorPool> m_descriptor_pool;
 };
 
 }

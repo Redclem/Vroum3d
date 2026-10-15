@@ -18,8 +18,18 @@ public:
   PipelineInformation(PipelineResource& pr, const char* shader) : m_pr(pr),
     m_shader(&m_pr.require_shader(shader)) {}
 
-
-
+  VkPipelineShaderStageCreateInfo get_stage()
+  {
+    return {
+      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+      nullptr,
+      0,
+      VK_SHADER_STAGE_COMPUTE_BIT,
+      m_shader->vk_mod,
+      "main",
+      nullptr
+    };
+  }
 };
 
 class Pipeline : public Core::Pipeline

@@ -45,8 +45,13 @@ struct AssignDestroy : public NonCopyable
 	}
 };
 
+/**
+ * Handle class for fundamental type objects owned in a struct to prohibit copy and avoid duplication on move
+ *
+ * Do not derive from NonMovable to not hinder EBO (Empty Base Optimization)
+ */
 template<typename T, T Def = 0>
-class Handle : public NonCopyable
+class Handle
 {
 	T m_hdl = def;
 public:
@@ -55,6 +60,9 @@ public:
 	constexpr Handle() : m_hdl(def) {}
 	constexpr Handle(T val) : m_hdl(val) {}
 	constexpr Handle(Handle&& rhs) : m_hdl(std::exchange(rhs.m_hdl, def)) {}
+
+  constexpr Handle(const Handle&) = delete;
+  constexpr Handle& operator=(const Handle&) = delete;
 
 	constexpr Handle& operator=(Handle&& rhs)
 	{
