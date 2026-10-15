@@ -4,6 +4,7 @@
 #include "instance.h"
 #include "../utility.h"
 #include <algorithm>
+#include <vulkan/vulkan_core.h>
 #include "../volk_wrapper.h"
 
 namespace Vroum3d::Core
@@ -77,6 +78,17 @@ public:
 		};
 
 		vk_check(vkInvalidateMappedMemoryRanges(m_dev, 1, &mr));
+  }
+
+  VkDeviceAddress device_address() const
+  {
+    VkBufferDeviceAddressInfoKHR dai{
+      VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+      nullptr,
+      m_buffer
+    };
+
+    return vkGetBufferDeviceAddress(m_dev, &dai);
   }
 
 	~Buffer() {destroy();}

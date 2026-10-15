@@ -62,8 +62,8 @@ protected:
 	VkHandle<VkInstance> m_inst;
 	VkPhysicalDevice m_pdev;
 	VkHandle<VkDevice> m_dev;
-	std::uint32_t m_ti, m_gi;
-	VkQueue m_tq = VK_NULL_HANDLE, m_gq = VK_NULL_HANDLE;
+	std::uint32_t m_ti, m_gi, m_ci;
+	VkQueue m_tq = VK_NULL_HANDLE, m_gq = VK_NULL_HANDLE, m_cq = VK_NULL_HANDLE;
 	VkHandle<VkCommandPool> m_transfer_pool;
 
 	struct DelayedDeviceCreation {};
@@ -114,16 +114,22 @@ public:
 
   auto graphics_queue() const {return m_gq;}
   auto transfer_queue() const {return m_tq;}
+  auto compute_queue() const {return m_cq;}
 
 	auto graphic_queue_index() const {return m_gi;}
 	auto transfer_queue_index() const {return m_ti;}
+  auto compute_queue_index() const {return m_ci;}
 
 	VkDevice device() const {return m_dev;}
 	VkPhysicalDevice pdev() const {return m_pdev;}
 	VkCommandPool transfer_pool() const {return m_transfer_pool;}
 	void create_transfer_pool();
 
-	void quick_submit(VkCommandBuffer cmd_buf);
+  /** Quick submit and wait for execution to be done
+   * @param cmd_buf Command buffer to submit
+   * @param queue Queue to submit to, defaults to graphics queue if equal to VK_NULL_HANDLE
+   */
+	void quick_submit(VkCommandBuffer cmd_buf, VkQueue queue = VK_NULL_HANDLE);
 private:
 
 

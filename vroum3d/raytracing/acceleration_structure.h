@@ -4,6 +4,7 @@
 #include "../core/instance.h"
 #include "../math/vec.hpp"
 #include <cstdint>
+#include <vulkan/vulkan_core.h>
 #include "../volk_wrapper.h"
 
 
@@ -13,12 +14,6 @@ namespace Vroum3d::Raytracing
 class SimpleTriangleAccelerationStructure : public AssignDestroy<SimpleTriangleAccelerationStructure>
 {
 public:
-  
-
-  SimpleTriangleAccelerationStructure(Core::Instance& instance, VkBuffer data_source, uint32_t n_vertex, uint32_t n_index) : SimpleTriangleAccelerationStructure(instance) {
-    create_as(data_source, n_vertex, n_index);
-  }
-
 
   SimpleTriangleAccelerationStructure(Core::Instance& instance) : m_instance(&instance), m_device(m_instance->device()) {}
 
@@ -27,7 +22,8 @@ public:
   using index_t = std::uint32_t;
   using vertex_t = Math::vec3;
 
-  void create_as(VkBuffer data_source, uint32_t n_vertex, uint32_t n_index);
+  void upload_as(VkDeviceOrHostAddressConstKHR data_source, VkDeviceOrHostAddressConstKHR index_data, VkCommandPool cmd_pool, uint32_t n_vertex, uint32_t n_index, VkDeviceOrHostAddressKHR scratch);
+  void create_as(uint32_t n_vertex, uint32_t n_index, VkDeviceSize& scratch_size);
 
   void destroy();
 

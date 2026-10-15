@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cstring>
 #include <string>
+#include <vulkan/vulkan_core.h>
 
 using namespace Vroum3d::Core;
 
@@ -171,15 +172,20 @@ void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR 
 {
 	auto queues = wrap_enumerate(vkGetPhysicalDeviceQueueFamilyProperties, m_pdev);
 
-	int it(-1), ip(-1), ig(-1);
+	int it(-1), ip(-1), ig(-1), ic(-1);
   {
     int idx = 0;
     for(const auto& elem : queues)
     {
-      if(elem.queueFlags & VK_QUEUE_TRANSFER_BIT && it == -1)
+      if((elem.queueFlags & VK_QUEUE_TRANSFER_BIT && it == -1)
+          || elem.queueFlags == VK_QUEUE_TRANSFER_BIT)
         it = idx;
-      if(elem.queueFlags & VK_QUEUE_GRAPHICS_BIT && ig == -1)
+      if((elem.queueFlags & VK_QUEUE_GRAPHICS_BIT && ig == -1)
+          || elem.queueFlags == VK_QUEUE_GRAPHICS_BIT)
         ig = idx;
+      if((elem.queueFlags & VK_QUEUE_COMPUTE_BIT && ic == -1)
+          || elem.queueFlags == VK_QUEUE_COMPUTE_BIT)
+        ic = idx;
       
 			if(surf != VK_NULL_HANDLE)
 			{
@@ -207,10 +213,17 @@ void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR 
 					idxes.push_back(idx);
 			};
 
-		ens_idx(it);
-		if(surf != VK_NULL_HANDLE)
+    if(it != -1)
+		  ens_idx(it);
+
+		if(surf != VK_NULL_HANDLE && ip != -1)
 			ens_idx(ip);
-		ens_idx(ig);
+
+    if(ig != -1)
+      ens_idx(ig);
+    
+    if(ip != -1)
+      ens_idx(ip);
 
 		dqis.resize(idxes.size());
 
@@ -269,11 +282,18 @@ void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR 
 	vk_check(vkCreateDevice(m_pdev, &di, nullptr, &m_dev));
   volkLoadDevice(m_dev);
 
-	vkGetDeviceQueue(m_dev, it, 0, &m_tq);
-	vkGetDeviceQueue(m_dev, ig, 0, &m_gq);
+  if(it != -1)
+	  vkGetDeviceQueue(m_dev, it, 0, &m_tq);
+
+  if(ig != -1)
+	  vkGetDeviceQueue(m_dev, ig, 0, &m_gq);
+
+  if(ic != -1)
+	  vkGetDeviceQueue(m_dev, ic, 0, &m_cq);
 
 	m_ti = it;
 	m_gi = ig;
+  m_ci = ic;
 
   Allocator::init(m_dev, m_pdev);
 }
@@ -536,7 +556,7 @@ void DisplayInstance::submit_render_present(VkCommandBuffer cmd_buf)
   }
 }
 
-void Instance::quick_submit(VkCommandBuffer cmd_buf)
+void Instance::quick_submit(VkCommandBuffer cmd_buf, VkQueue queue)
 {
   VkFence fnc;
 
@@ -567,7 +587,9 @@ void Instance::quick_submit(VkCommandBuffer cmd_buf)
     nullptr
 	};
 
-	vk_check(vkQueueSubmit2(m_gq, 1, &si, fnc));
+  if(queue == VK_NULL_HANDLE) queue = m_gq;
+
+	vk_check(vkQueueSubmit2(queue, 1, &si, fnc));
 
   vk_check(vkWaitForFences(m_dev, 1, &fnc, VK_TRUE, ~std::uint64_t(0)));
 
