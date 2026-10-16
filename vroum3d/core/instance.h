@@ -11,12 +11,13 @@
 #include <SDL3/SDL_vulkan.h>
 #include <cstdint>
 #include "../volk_wrapper.h"
+#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_profiles.hpp>
 
 #include <array>
 #include <vector>
 #include <cstring>
 #include <stdexcept>
-#include <vulkan/vulkan_core.h>
 
 namespace Vroum3d::Core
 {
@@ -98,10 +99,12 @@ protected:
 	template<typename InstanceInfo = DefaultInstanceInfo>
 	void create_device(InstanceInfo&& ii = {}, VkSurfaceKHR surf = VK_NULL_HANDLE)
 	{
-		choose_pdev();
     ii.build_device_pnext_chain();
+    const auto& exts = ii.dev_exts();
+		choose_pdev(ii);
+
     set_device_address_enabled(ii.enable_device_address());
-		create_device(ii.dev_exts(), surf, ii.device_pnext());
+		create_device(exts, surf, ii.device_pnext());
 
 		create_transfer_pool();
 	}
@@ -135,7 +138,8 @@ private:
 
 	void create_instance(ExtensionsLayers&& el, void* instance_pnext = nullptr);
 
-	void choose_pdev();
+  template<typename InstanceInfo>
+	void choose_pdev(InstanceInfo& info);
 	void create_device(const std::vector<std::string>& exts, VkSurfaceKHR surf = VK_NULL_HANDLE, void* device_pnext = nullptr);
 };
 
@@ -214,6 +218,7 @@ protected:
 private:
 
   void * m_device_pnext = nullptr;
+  std::vector<std::string> m_extensions;
 public:
 
   VkBool32 enable_device_address() const {return vk12feats.bufferDeviceAddress;}
@@ -264,7 +269,7 @@ public:
     add_device_pnext(&vk13feats);
   }
 
-	std::vector<std::string> dev_exts() {return {};}
+	std::vector<std::string>& dev_exts() {return m_extensions;}
 
   void* device_pnext() {return m_device_pnext;}
 
@@ -286,6 +291,8 @@ public:
     s->pNext = m_device_pnext;
     m_device_pnext = s;
   }
+
+  bool device_suitable(VkPhysicalDevice pdev);
 };
 
 class DisplayInstance : public Instance {
@@ -382,8 +389,8 @@ public:
 			return el;
     }
 
-		auto dev_exts() {
-      auto vec = InstanceInfo::dev_exts();
+		auto& dev_exts() {
+      auto& vec = InstanceInfo::dev_exts();
       vec.push_back("VK_KHR_swapchain");
       return vec;
     }
@@ -514,6 +521,52 @@ private:
 
 	void create_frame_sync();
 };
+
+template<typename InstanceInfo>
+void Instance::choose_pdev(InstanceInfo& info)
+{
+	std::vector<VkPhysicalDevice> pdevs = wrap_enumerate(vkEnumeratePhysicalDevices, m_inst);
+
+	check(pdevs.size());
+
+	VkPhysicalDevice best_pdev(VK_NULL_HANDLE);
+	int best_score(-1);
+
+	for(auto pdev : pdevs)
+	{
+    if(!info.device_suitable(pdev)) continue;
+
+		VkPhysicalDeviceProperties props;
+		vkGetPhysicalDeviceProperties(pdev, &props);
+
+		int score = 0;
+
+		switch(props.deviceType)
+		{
+		case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+		case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+			score = 2;
+			break;
+		case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+			score = 1;
+			break;
+		default:
+			break;
+		}
+
+		if(score > best_score)
+		{
+			best_pdev = pdev;
+			best_score = score;
+		}
+	}
+
+	m_pdev = best_pdev;
+
+  if(best_pdev == VK_NULL_HANDLE)
+    throw std::runtime_error("No compatible physical device found.");
+}
+
 
 }
 

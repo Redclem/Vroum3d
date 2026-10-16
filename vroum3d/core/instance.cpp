@@ -129,44 +129,6 @@ void InstanceDebugData<true>::create_dbg_mesg(VkInstance inst, const VkDebugUtil
 		vk_check(fn(inst, &ci, nullptr, &m_dbg_messenger));
 }
 
-void Instance::choose_pdev()
-{
-	std::vector<VkPhysicalDevice> pdevs = wrap_enumerate(vkEnumeratePhysicalDevices, m_inst);
-
-	check(pdevs.size());
-
-	VkPhysicalDevice best_pdev(VK_NULL_HANDLE);
-	int best_score(-1);
-
-	for(auto pdev : pdevs)
-	{
-		VkPhysicalDeviceProperties props;
-		vkGetPhysicalDeviceProperties(pdev, &props);
-
-		int score = 0;
-
-		switch(props.deviceType)
-		{
-		case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
-		case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
-			score = 2;
-			break;
-		case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
-			score = 1;
-			break;
-		default:
-			break;
-		}
-
-		if(score > best_score)
-		{
-			best_pdev = pdev;
-			best_score = score;
-		}
-	}
-
-	m_pdev = best_pdev;
-}
 
 void Instance::create_device(const std::vector<std::string>& exts, VkSurfaceKHR surf, void* device_pnext)
 {
@@ -806,4 +768,15 @@ void DisplayInstance::create_frame_sync()
 	}
 
   create_depth_images();
+}
+
+bool DefaultInstanceInfo::device_suitable(VkPhysicalDevice pdev)
+{
+  auto dev_exts = wrap_enumerate(vkEnumerateDeviceExtensionProperties, pdev, nullptr);
+
+  for(auto& ext : dev_exts)
+  {
+    if(!std::any_of(m_extensions.begin(), m_extensions.end(), [&](const std::string& s) {return s == ext.extensionName;}))
+      return false;
+  }
 }
