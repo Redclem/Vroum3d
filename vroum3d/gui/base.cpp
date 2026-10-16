@@ -22,6 +22,7 @@
 #include <format>
 
 using namespace Vroum3d::Gui;
+using namespace Vroum3d::Core;
 
 struct FillPipeInfo : public RenderPipelineInformation
 {

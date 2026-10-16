@@ -25,6 +25,8 @@ FetchContent_Declare(
 	GIT_TAG main
 )
 
+set(KTX_FEATURE_TESTS OFF)
+
 FetchContent_MakeAvailable(spirv_reflect)
 FetchContent_MakeAvailable(ktx_software)
 
@@ -144,6 +146,8 @@ if(VROUM3D_TESTS)
   add_exec_test(buffer)
   add_exec_test(vecs)
   add_exec_test(mats)
+  add_exec_test(pipeline)
+  add_exec_test(descriptor_sets)
 
   set(VROUM3D_SHADERS ON)
 endif()

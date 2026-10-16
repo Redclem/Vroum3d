@@ -240,6 +240,8 @@ public:
       m_descriptor_pool.destroy_with([&](auto dp) {vkDestroyDescriptorPool(m_device, dp, nullptr);});
   }
 
+  ~DescriptorPool() {destroy();}
+
   template<typename ContainerIn, typename ContainerOut>
   void allocate_descriptor_sets(const ContainerIn& layouts, ContainerOut& sets_out, const void* pnext = nullptr)
   {

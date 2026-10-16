@@ -3,6 +3,7 @@
 
 #include "../volk_wrapper.h"
 #include <initializer_list>
+#include <iterator>
 #include <type_traits>
 #include <utility>
 #include <vulkan/vulkan_core.h>
@@ -34,25 +35,68 @@ struct SetLocation
 struct DescriptorWriteBase {};
 
 template<typename BuffersStorage = std::initializer_list<VkDescriptorBufferInfo>>
-struct WriteBuffer : public DescriptorWriteBase
+struct WriteBuffers : public DescriptorWriteBase
 {
-  WriteBuffer(SetLocation location, VkDescriptorType buffer_type, BuffersStorage&& from) : m_location(location), m_buffer_type(buffer_type), buffers(std::forward<BuffersStorage>(from)) {}
+  WriteBuffers(SetLocation location, VkDescriptorType buffer_type, BuffersStorage&& from) : m_location(location), m_type(buffer_type), m_buffers(std::forward<BuffersStorage>(from)) {}
 
   SetLocation m_location;
-  VkDescriptorType m_buffer_type;
-  std::remove_cvref_t<BuffersStorage> buffers;
+  VkDescriptorType m_type;
+  std::remove_cvref_t<BuffersStorage> m_buffers;
 
   VkWriteDescriptorSet export_write() const
   {
     VkWriteDescriptorSet write = m_location.get_write_skeleton();
 
-    write.descriptorType = m_buffer_type;
-    write.descriptorCount = buffers.size();
-    write.pBufferInfo = buffers.data();
+    write.descriptorType = m_type;
+    write.descriptorCount = m_buffers.size();
+    write.pBufferInfo = std::data(m_buffers);
   
     return write;
   }
 };
+
+struct DescriptorImageInfo : VkDescriptorImageInfo
+{
+  DescriptorImageInfo(VkImageView view, VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+  {
+    imageView = view;
+    imageLayout = layout;
+  }
+   
+  DescriptorImageInfo(VkSampler samp)
+  {
+    sampler = samp;
+  }
+
+  DescriptorImageInfo(VkSampler samp, VkImageView view, VkImageLayout lay = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+  {
+    sampler = samp;
+    imageView = view;
+    imageLayout = lay;
+  }
+};
+
+static_assert(sizeof(DescriptorImageInfo) == sizeof(VkDescriptorImageInfo), "Error with DescriptorImageInfo structure layout");
+
+template<typename ImagesStorage = std::initializer_list<DescriptorImageInfo>>
+struct WriteImages
+{
+  SetLocation m_location;
+  VkDescriptorType m_type;
+  std::remove_cvref_t<ImagesStorage> m_images;
+
+  VkWriteDescriptorSet export_write() const
+  {
+    auto write = m_location.get_write_skeleton();
+    write.descriptorType = m_type;
+    write.descriptorCount = m_images.size();
+    write.pBufferInfo = std::data(m_images);
+
+    return write;
+  }
+};
+
+
 
 
 template<typename Write0, typename ... Writes>
@@ -71,7 +115,7 @@ void update_descriptor_sets(VkDevice dev, const Writes& ... writes)
 
   assemble_writes(writes..., des_writes.data());
 
-  vkUpdateDescriptorSets(dev, des_writes.size(), des_writes.data(), 0, nullptr);
+  vkUpdateDescriptorSets(dev, des_writes.size(), std::data(des_writes), 0, nullptr);
 }
 
 }

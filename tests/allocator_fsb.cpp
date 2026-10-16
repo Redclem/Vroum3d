@@ -5,6 +5,7 @@
 
 #include "../vroum3d/vroum3d.h"
 
+using namespace Vroum3d::Core;
 using namespace Vroum3d;
 
 constexpr std::size_t n_test = 10000;

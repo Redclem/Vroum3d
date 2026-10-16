@@ -9,6 +9,7 @@
 #include "../vroum3d/vroum3d.h"
 
 using namespace Vroum3d;
+using namespace Vroum3d::Core;
 
 constexpr std::size_t n_blocks = 1000000;
 

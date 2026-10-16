@@ -279,15 +279,12 @@ public:
 private:
 };
 
-}
-
 
 
 /*******************************//**
   * Implems of template functions
 ***********************************/
 
-using namespace Vroum3d::Core;
 
 template<typename Iter, std::enable_if_t<!std::is_same_v<Iter, PipelineResource::ShaderModule>, bool>>
 PipelineResource::PipelineLayouts PipelineResource::get_shader_layouts(Iter first, Iter last)
@@ -517,5 +514,7 @@ void Pipeline::create_pipeline(PipelineResource& pr, PipelineInformation& pi)
 
 	vk_check(vkCreateGraphicsPipelines(m_device, pr.cache(), 1, &gpi, nullptr, &m_pipeline));
 }	
+
+}
 
 #endif

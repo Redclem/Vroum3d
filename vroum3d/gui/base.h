@@ -8,6 +8,7 @@
 #include "../core/objects.h"
 
 #include "../../ext/stb_image.h"
+#include "../core/allocator.h"
 #include "font.h"
 #include "bitmap.hpp"
 
@@ -77,11 +78,16 @@ public:
 
 };
 
-using namespace Core;
-
 class Base : public AssignDestroy<Base>
 {
 public:
+  using Allocator = Core::Allocator;
+  using DisplayInstance = Core::DisplayInstance;
+  using PipelineResource = Core::PipelineResource;
+  using Pipeline = Core::Pipeline;
+
+  using CommandBuffer = Core::CommandBuffer;
+
 	struct Texture
 	{
 		VkHandle<VkImage> img;

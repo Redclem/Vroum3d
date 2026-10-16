@@ -12,6 +12,8 @@ namespace Vroum3d::Raytracing
 class BasePipelineInformation
 {
 public:
+
+  using PipelineResource = Core::PipelineResource;
   
   struct Shader
   {
@@ -89,6 +91,7 @@ class Pipeline : public Core::Pipeline
 private:
   using base_pipeline_t = Core::Pipeline;
 public:
+  using PipelineResource = Core::PipelineResource;
   
   template<typename PipelineInformation>
   void create_pipeline(PipelineResource& pr, PipelineInformation& pi);
