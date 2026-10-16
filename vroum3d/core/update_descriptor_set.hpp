@@ -96,7 +96,26 @@ struct WriteImages
   }
 };
 
+template<typename AcsStorage = std::initializer_list<VkAccelerationStructureKHR>>
+struct WriteAccelerationStructure
+{
+  WriteAccelerationStructure(SetLocation location, AcsStorage&& acc_structs) : m_location(location), m_acc_structs(std::forward<AcsStorage>(acc_structs)),
+    m_write_acc({VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR, nullptr, uint32_t(m_acc_structs.size()), std::data(m_acc_structs)})
+  {}
 
+  SetLocation m_location;
+  std::remove_cvref_t<AcsStorage> m_acc_structs;
+  VkWriteDescriptorSetAccelerationStructureKHR m_write_acc;
+
+  VkWriteDescriptorSet export_write() const
+  {
+    auto write = m_location.get_write_skeleton();
+    write.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    write.pNext = &m_write_acc;
+
+    return write;
+  }
+};
 
 
 template<typename Write0, typename ... Writes>

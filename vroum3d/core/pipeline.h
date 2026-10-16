@@ -269,13 +269,13 @@ class Pipeline : public BasePipeline
 public:
 
 	template<typename PipelineInformation>
-	Pipeline(PipelineResource& pr, const PipelineInformation& pi) : BasePipeline(pr.device())
+	Pipeline(PipelineResource& pr, PipelineInformation&& pi) : BasePipeline(pr.device())
 	{
-		create_pipeline(pr, pi);
+		create_pipeline(pr, std::forward<PipelineInformation>(pi));
 	}
 
 	template<typename PipelineInformation>
-	void create_pipeline(PipelineResource &pr, PipelineInformation& pi);
+	void create_pipeline(PipelineResource &pr, PipelineInformation&& pi);
 private:
 };
 
@@ -366,7 +366,7 @@ PipelineResource::PipelineLayouts PipelineResource::get_shader_layouts(Iter firs
 }
 
 template<typename PipelineInformation>
-void Pipeline::create_pipeline(PipelineResource& pr, PipelineInformation& pi)
+void Pipeline::create_pipeline(PipelineResource& pr, PipelineInformation&& pi)
 {
   m_layouts = pi.get_layouts();
 

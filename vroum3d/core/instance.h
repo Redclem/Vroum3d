@@ -213,8 +213,7 @@ protected:
 
 private:
 
-  void ** m_device_next_pnext = nullptr;
-  void * m_device_first_pnext = nullptr;
+  void * m_device_pnext = nullptr;
 public:
 
   VkBool32 enable_device_address() const {return vk12feats.bufferDeviceAddress;}
@@ -259,8 +258,7 @@ public:
 
   void build_device_pnext_chain()
   {
-    m_device_next_pnext = nullptr;
-    m_device_first_pnext = nullptr;
+    m_device_pnext = nullptr;
 
     add_device_pnext(&vk12feats);
     add_device_pnext(&vk13feats);
@@ -268,7 +266,7 @@ public:
 
 	std::vector<std::string> dev_exts() {return {};}
 
-  void* device_pnext() {return m_device_first_pnext;}
+  void* device_pnext() {return m_device_pnext;}
 
   using InstanceInfoDebug<debug>::instance_pnext;
 
@@ -285,14 +283,8 @@ public:
   template<typename Struct>
   void add_device_pnext(Struct* s)
   {
-    if(m_device_next_pnext == nullptr)
-    {
-      m_device_first_pnext = s;
-    }
-    else
-      *m_device_next_pnext = s;
-
-    m_device_next_pnext = &s->pNext;
+    s->pNext = m_device_pnext;
+    m_device_pnext = s;
   }
 };
 

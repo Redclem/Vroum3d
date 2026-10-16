@@ -2,20 +2,18 @@
 #define VROUM3D_COMPUTE_PIPELINE_H_INCLUDED
 
 #include "../core/pipeline.h"
-#include "../core/pipeline_info.h"
-#include <vulkan/vulkan_core.h>
 
 namespace Vroum3d::Compute
 {
 
-class PipelineInformation 
+class PipelineInformation
 {
 protected:
-  PipelineResource& m_pr;
-  const PipelineResource::ShaderModule * m_shader;
+  Core::PipelineResource& m_pr;
+  const Core::PipelineResource::ShaderModule * m_shader;
 
 public:
-  PipelineInformation(PipelineResource& pr, const char* shader) : m_pr(pr),
+  PipelineInformation(Core::PipelineResource& pr, const char* shader) : m_pr(pr),
     m_shader(&m_pr.require_shader(shader)) {}
 
   VkPipelineShaderStageCreateInfo get_stage()
@@ -30,20 +28,30 @@ public:
       nullptr
     };
   }
+
+  auto get_layouts()
+  {
+    return m_pr.get_shader_layouts(*m_shader);
+  }
 };
 
-class Pipeline : public Core::Pipeline
+class Pipeline : public Core::BasePipeline
 {
 public:
   template<typename PipelineInformation>
-  void create_pipeline(PipelineResource& pr, PipelineInformation& pi);
+  Pipeline(Core::PipelineResource& pr, PipelineInformation&& pi) : Core::BasePipeline(pr.device()) {
+    create_pipeline(pr, pi);
+  }
+
+  template<typename PipelineInformation>
+  void create_pipeline(Core::PipelineResource& pr, PipelineInformation&& pi);
 
 private:
   using base_pipeline_t = Core::Pipeline;
 };
 
 template<typename PipelineInformation>
-void Pipeline::create_pipeline(PipelineResource& pr, PipelineInformation& pi)
+void Pipeline::create_pipeline(Core::PipelineResource& pr, PipelineInformation&& pi)
 {
   m_layouts = pi.get_layouts();
 

@@ -13,9 +13,8 @@ class InstanceInfo : public BaseInstanceInfo
 protected:
   VkPhysicalDeviceAccelerationStructureFeaturesKHR acc_struct_feats{};
 public:
-  using BaseInstanceInfo::BaseInstanceInfo;
-
-  InstanceInfo()
+  template<typename ... Args>
+  InstanceInfo(Args&& ... ags) : BaseInstanceInfo(std::forward<Args>(ags)...)
   {
     acc_struct_feats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
     acc_struct_feats.accelerationStructure = VK_TRUE;

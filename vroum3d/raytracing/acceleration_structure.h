@@ -31,6 +31,8 @@ public:
 
   void create_buffer(VkDeviceSize size);
 
+  VkAccelerationStructureKHR tlas() const {return m_tlas;}
+
 
 private:
 

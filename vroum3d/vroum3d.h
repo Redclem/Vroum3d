@@ -20,6 +20,8 @@
 #include "raytracing/acceleration_structure.h"
 #include "raytracing/instance_info.h"
 
+#include "compute/pipeline.h"
+
 #include "debug.h"
 #include "utility"
 #include "version.h"

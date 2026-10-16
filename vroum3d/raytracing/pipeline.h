@@ -86,21 +86,24 @@ public:
 
 };
 
-class Pipeline : public Core::Pipeline
+class Pipeline : public Core::BasePipeline
 {
 private:
   using base_pipeline_t = Core::Pipeline;
 public:
-  using PipelineResource = Core::PipelineResource;
+  template<typename PipelineInformation>
+  Pipeline(Core::PipelineResource& pr, PipelineInformation&& pi) : Core::BasePipeline(pr.device()) {
+		create_pipeline(pr, std::forward<PipelineInformation>(pi));
+  }
   
   template<typename PipelineInformation>
-  void create_pipeline(PipelineResource& pr, PipelineInformation& pi);
+  void create_pipeline(Core::PipelineResource& pr, PipelineInformation&& pi);
 
 };
 
 
 template<typename PipelineInformation>
-void Pipeline::create_pipeline(PipelineResource& pr, PipelineInformation& pi)
+void Pipeline::create_pipeline(Core::PipelineResource& pr, PipelineInformation&& pi)
 {
   m_layouts = pi.get_layouts();
 

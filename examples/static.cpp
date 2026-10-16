@@ -1,11 +1,13 @@
 
 #include "../vroum3d/vroum3d.h"
+#include "core/display.hpp"
 #include "core/instance.h"
 #include "core/objects.h"
 #include <SDL3/SDL.h>
 #include <chrono>
 #include <memory>
 #include <thread>
+#include <vulkan/vulkan_core.h>
 
 using namespace Vroum3d::Core;
 using namespace Vroum3d;
@@ -22,29 +24,16 @@ int main(int, char*[])
 	Pipeline pipe(pr, 
 		RenderPipelineInformation(pr, "static.vert.spv", "static.frag.spv", {}, {}));
 
-	VkHandle<VkCommandPool> pool;
-	VkCommandPoolCreateInfo cpi{
-		VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-		nullptr,
-		VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-		inst.graphic_queue_index()
-	};
-
-	vk_check(vkCreateCommandPool(inst.device(), &cpi, nullptr, &pool));
+  CommandPool pool(inst, inst.graphic_queue_index(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
 
 	bool run = true;
-	std::array<CommandBuffer, Instance::c_frames_in_flight> cmd_bufs;
-
-  for(auto& buf : cmd_bufs)
-  {
-    std::construct_at(&buf, inst, pool);
-  }
+  CommandBufferVector cmd_bufs(inst, pool, DisplayInstance::c_frames_in_flight); 
 
 	while(run)
 	{
 		if(inst.render_done() && inst.acquire_next_image())
 		{
-			auto& cmd_buf = cmd_bufs[inst.next_frame()];
+			auto cmd_buf = cmd_bufs[inst.next_frame()];
 
 			cmd_buf.reset();
 			cmd_buf.begin_primary();
@@ -73,9 +62,6 @@ int main(int, char*[])
 	}
 
 	vkDeviceWaitIdle(inst.device());
-
-	for(auto& cb : cmd_bufs) cb.destroy();
-	vkDestroyCommandPool(inst.device(), pool, nullptr);
 
 	return 0;
 }
