@@ -10,6 +10,6 @@ constexpr bool c_testing = true;
 constexpr bool c_testing = true;
 #endif
 
-}
+} // namespace Vroum3d
 
 #endif

@@ -1,6 +1,7 @@
 
 #include "core/objects.h"
 #include "core/update_descriptor_set.hpp"
+
 #include <vroum3d.h>
 #include <vulkan/vulkan_core.h>
 
@@ -21,11 +22,7 @@ int main(void)
 
   VkDescriptorSet s = pool.allocate_descriptor_set(pipe.descriptor_set_layout(0));
 
-  update_descriptor_sets(inst.device(),
-    WriteBuffers<>({{s, 0, 0}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, {{buf.buffer(), 0, 128}}})
-  );
+  update_descriptor_sets(inst.device(), WriteBuffers<>({{s, 0, 0}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, {{buf.buffer(), 0, 128}}}));
 
   return 0;
 }
-
-

@@ -1,24 +1,22 @@
 #include "../vroum3d/vroum3d.h"
 
-#include <vector>
 #include <iostream>
 #include <random>
+#include <vector>
 
 using namespace Vroum3d;
-
-
 
 int main(int, char*[])
 {
   std::ranlux48 rng;
 
-  
+
   typedef decltype(rng()) elem_t;
   typedef Bag<elem_t> bag_t;
   bag_t b;
-  
+
   constexpr std::size_t n_elems = bag_t::c_subbag_size * 2;
-  
+
   std::vector<bag_t::ptr_t> ptrs;
 
   for(int i = 0; i != n_elems; ++i)
@@ -27,11 +25,9 @@ int main(int, char*[])
     ptrs.push_back(newelem);
   }
 
-  for(int i = 0; i != n_elems; i += 2)
-    b.release(ptrs[i]);
+  for(int i = 0; i != n_elems; i += 2) b.release(ptrs[i]);
 
-  for(int i = 0; i != n_elems; i += 2)
-    ptrs[i] = b.allocate();
+  for(int i = 0; i != n_elems; i += 2) ptrs[i] = b.allocate();
 
   elem_t sum(0);
   for(int i = 0; i != n_elems; ++i)
@@ -41,8 +37,7 @@ int main(int, char*[])
   }
 
   elem_t sum2(0);
-  for(int i = 0; i != n_elems; ++i)
-    sum2 += *ptrs[i];
+  for(int i = 0; i != n_elems; ++i) sum2 += *ptrs[i];
 
   if(sum2 == sum)
     std::cout << "Sum ok\n";

@@ -2,6 +2,7 @@
 #define VROUM3D_CORE_UPDATE_DESCRIPTOR_SET
 
 #include "../volk_wrapper.h"
+
 #include <initializer_list>
 #include <iterator>
 #include <type_traits>
@@ -11,10 +12,9 @@
 namespace Vroum3d::Core::UpdateDescriptorSet
 {
 
-struct SetLocation 
+struct SetLocation
 {
-  SetLocation(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement) : 
-  m_dstSet(dstSet), m_dstBinding(dstBinding), m_dstArrayElement(dstArrayElement) {}
+  SetLocation(VkDescriptorSet dstSet, uint32_t dstBinding, uint32_t dstArrayElement) : m_dstSet(dstSet), m_dstBinding(dstBinding), m_dstArrayElement(dstArrayElement) {}
 
   VkDescriptorSet m_dstSet;
   uint32_t m_dstBinding, m_dstArrayElement;
@@ -32,12 +32,15 @@ struct SetLocation
   };
 };
 
-struct DescriptorWriteBase {};
+struct DescriptorWriteBase
+{};
 
 template<typename BuffersStorage = std::initializer_list<VkDescriptorBufferInfo>>
 struct WriteBuffers : public DescriptorWriteBase
 {
-  WriteBuffers(SetLocation location, VkDescriptorType buffer_type, BuffersStorage&& from) : m_location(location), m_type(buffer_type), m_buffers(std::forward<BuffersStorage>(from)) {}
+  WriteBuffers(SetLocation location, VkDescriptorType buffer_type, BuffersStorage &&from) :
+    m_location(location), m_type(buffer_type), m_buffers(std::forward<BuffersStorage>(from))
+  {}
 
   SetLocation m_location;
   VkDescriptorType m_type;
@@ -50,7 +53,7 @@ struct WriteBuffers : public DescriptorWriteBase
     write.descriptorType = m_type;
     write.descriptorCount = m_buffers.size();
     write.pBufferInfo = std::data(m_buffers);
-  
+
     return write;
   }
 };
@@ -62,11 +65,8 @@ struct DescriptorImageInfo : VkDescriptorImageInfo
     imageView = view;
     imageLayout = layout;
   }
-   
-  DescriptorImageInfo(VkSampler samp)
-  {
-    sampler = samp;
-  }
+
+  DescriptorImageInfo(VkSampler samp) { sampler = samp; }
 
   DescriptorImageInfo(VkSampler samp, VkImageView view, VkImageLayout lay = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
   {
@@ -99,7 +99,8 @@ struct WriteImages
 template<typename AcsStorage = std::initializer_list<VkAccelerationStructureKHR>>
 struct WriteAccelerationStructure
 {
-  WriteAccelerationStructure(SetLocation location, AcsStorage&& acc_structs) : m_location(location), m_acc_structs(std::forward<AcsStorage>(acc_structs)),
+  WriteAccelerationStructure(SetLocation location, AcsStorage &&acc_structs) :
+    m_location(location), m_acc_structs(std::forward<AcsStorage>(acc_structs)),
     m_write_acc({VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR, nullptr, uint32_t(m_acc_structs.size()), std::data(m_acc_structs)})
   {}
 
@@ -117,18 +118,17 @@ struct WriteAccelerationStructure
   }
 };
 
-
-template<typename Write0, typename ... Writes>
-void assemble_writes(const Write0& write0, const Writes& ... writes, VkWriteDescriptorSet* dst)
+template<typename Write0, typename... Writes>
+void assemble_writes(const Write0 &write0, const Writes &... writes, VkWriteDescriptorSet* dst)
 {
   *dst = write0.export_write();
-  
+
   if constexpr(sizeof...(Writes))
     assemble_writes(writes..., dst + 1);
 }
 
-template<typename ... Writes>
-void update_descriptor_sets(VkDevice dev, const Writes& ... writes)
+template<typename... Writes>
+void update_descriptor_sets(VkDevice dev, const Writes &... writes)
 {
   std::array<VkWriteDescriptorSet, sizeof...(Writes)> des_writes;
 
@@ -137,6 +137,6 @@ void update_descriptor_sets(VkDevice dev, const Writes& ... writes)
   vkUpdateDescriptorSets(dev, des_writes.size(), std::data(des_writes), 0, nullptr);
 }
 
-}
+} // namespace Vroum3d::Core::UpdateDescriptorSet
 
 #endif

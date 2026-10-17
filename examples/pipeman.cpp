@@ -4,10 +4,10 @@ using namespace Vroum3d::Core;
 
 int main(int, char*[])
 {
-	Display disp;
-	DisplayInstance inst(disp);
+  Display disp;
+  DisplayInstance inst(disp);
 
-	PipelineResource pm(inst);
+  PipelineResource pm(inst);
 
-	return 0;
+  return 0;
 }

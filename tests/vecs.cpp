@@ -1,5 +1,5 @@
-#include <iostream>
 #include <debug.h>
+#include <iostream>
 #include <vroum3d.h>
 
 using namespace Vroum3d::Math;
@@ -12,7 +12,7 @@ int main(int, char*[])
   std::cout << v << '\n';
 
   check(v + 1 == vec3(1));
-  
+
   vec3 u(1);
 
   check(u + u == vec3(2));

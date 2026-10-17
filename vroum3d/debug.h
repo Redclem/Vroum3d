@@ -1,120 +1,125 @@
 #ifndef VROUM3D_DEBUG_H_INCLUDED
 #define VROUM3D_DEBUG_H_INCLUDED
 
-#include <iostream>
-#include <source_location>
-#include <stdexcept>
-#include <type_traits>
-
-#include <SDL3/SDL.h>
-
 #include "volk_wrapper.h"
 
+#include <SDL3/SDL.h>
+#include <iostream>
+#include <source_location>
 #include <spirv_reflect.h>
+#include <stdexcept>
+#include <type_traits>
 
 namespace Vroum3d
 {
 #ifdef NDEBUG
-	constexpr bool debug = false;
+constexpr bool debug = false;
 #else
-	constexpr bool debug = true;
+constexpr bool debug = true;
+#endif
+
+#ifdef VROUM3D_ENABLE_SYNCVAL
+constexpr bool c_enable_syncval = true;
+#else
+constexpr bool c_enable_syncval = false;
 #endif
 
 namespace Debug::String
 {
-  const char* VkResult(VkResult res);
-  std::string VkDebugUtilsMessageTypeFlagsEXT(VkDebugUtilsMessageTypeFlagsEXT flags);
-  std::string VkDebugUtilsMessageSeverityFlagsEXT(VkDebugUtilsMessageSeverityFlagsEXT flags);
+const char* VkResult(VkResult res);
+std::string VkDebugUtilsMessageTypeFlagsEXT(VkDebugUtilsMessageTypeFlagsEXT flags);
+std::string VkDebugUtilsMessageSeverityFlagsEXT(VkDebugUtilsMessageSeverityFlagsEXT flags);
+} // namespace Debug::String
+
+template<bool enable = debug, typename Ag1, typename... Args>
+void log(Ag1 &&ag, Args &&... args)
+{
+  if constexpr(enable)
+  {
+    std::cout << std::forward<Ag1>(ag);
+
+    if constexpr(sizeof...(Args))
+      log(std::forward<Args>(args)...);
+    else
+      std::cout << std::endl;
+  }
 }
 
-template<bool enable = debug, typename Ag1, typename ... Args>
-void log(Ag1 && ag, Args && ... args)
-{
-	if constexpr (enable)
-	{
-		std::cout << std::forward<Ag1>(ag);
-
-		if constexpr (sizeof...(Args))
-			log(std::forward<Args>(args)...);
-		else
-			std::cout << std::endl;
-	}
-}
-
-class VulkanError : public std::exception
-{
+class VulkanError : public std::exception {
   VkResult m_result;
-public:
 
+public:
   VulkanError(VkResult res) : m_result(res) {}
 
-  VkResult result() const {return m_result;}
+  VkResult result() const { return m_result; }
 
   ~VulkanError() override {}
 
-  const char * what() const noexcept override {return Debug::String::VkResult(m_result);}
+  const char* what() const noexcept override { return Debug::String::VkResult(m_result); }
 
-  constexpr bool operator==(VkResult r) const {return r == m_result;}
+  constexpr bool operator==(VkResult r) const { return r == m_result; }
 };
 
-inline constexpr bool operator==(VkResult r, const VulkanError& ve) {return ve == r;}
+inline constexpr bool operator==(VkResult r, const VulkanError &ve)
+{
+  return ve == r;
+}
 
 inline void spvr_check(SpvReflectResult res, std::source_location loc = std::source_location::current())
 {
-	if(res != SPV_REFLECT_RESULT_SUCCESS)
-	{
-		log("spvr_check failed at ", loc.file_name(), ":", loc.line(), " col ", loc.column());
-		log("In function ", loc.function_name());
-		log("Value : ", res);
-		throw std::runtime_error("SpvReflect error");
-	}
+  if(res != SPV_REFLECT_RESULT_SUCCESS)
+  {
+    log("spvr_check failed at ", loc.file_name(), ":", loc.line(), " col ", loc.column());
+    log("In function ", loc.function_name());
+    log("Value : ", res);
+    throw std::runtime_error("SpvReflect error");
+  }
 }
 
 inline void vk_check(VkResult res, std::source_location loc = std::source_location::current())
 {
-	if(res != VK_SUCCESS)
-	{
-		log("vk_check failed at ", loc.file_name(), ":", loc.line(), " col ", loc.column());
-		log("In function ", loc.function_name());
-		log("Value : ", Debug::String::VkResult(res));
-		throw VulkanError(res);
-	}
+  if(res != VK_SUCCESS)
+  {
+    log("vk_check failed at ", loc.file_name(), ":", loc.line(), " col ", loc.column());
+    log("In function ", loc.function_name());
+    log("Value : ", Debug::String::VkResult(res));
+    throw VulkanError(res);
+  }
 }
 
 inline void sdl_check(bool res, std::source_location loc = std::source_location::current())
 {
-	if(!res)
-	{
-		log("sdl_check failed at ", loc.file_name(), ":", loc.line(), " col ", loc.column());
-		log("In function ", loc.function_name());
-		log(SDL_GetError());
-		throw std::runtime_error("check error");
-	}
+  if(!res)
+  {
+    log("sdl_check failed at ", loc.file_name(), ":", loc.line(), " col ", loc.column());
+    log("In function ", loc.function_name());
+    log(SDL_GetError());
+    throw std::runtime_error("check error");
+  }
 }
-
 
 inline void check(bool res, std::source_location loc = std::source_location::current())
 {
-	if(!res)
-	{
-		log("check failed at ", loc.file_name(), ":", loc.line(), " col ", loc.column());
-		log("In function ", loc.function_name());
-		throw std::runtime_error("check error");
-	}
+  if(!res)
+  {
+    log("check failed at ", loc.file_name(), ":", loc.line(), " col ", loc.column());
+    log("In function ", loc.function_name());
+    throw std::runtime_error("check error");
+  }
 }
 
 template<typename Res>
 inline void auto_check(Res res, std::source_location loc = std::source_location::current())
 {
-	check(res, loc);
+  check(res, loc);
 }
 
 template<>
 inline void auto_check<VkResult>(VkResult res, std::source_location loc)
 {
-	vk_check(res, loc);
+  vk_check(res, loc);
 }
 
-}
+} // namespace Vroum3d
 
 #endif

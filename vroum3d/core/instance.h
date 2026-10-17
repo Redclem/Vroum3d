@@ -1,467 +1,282 @@
 #ifndef VROUM3D_CORE_INSTANCE_H_INCLUDED
 #define VROUM3D_CORE_INSTANCE_H_INCLUDED
 
-#include "../utility.h"
 #include "../debug.h"
-#include "display.hpp"
+#include "../utility.h"
+#include "../volk_wrapper.h"
 #include "allocator.h"
+#include "display.hpp"
+#include "instance_info.hpp"
 
 #include <SDL3/SDL.h>
-
 #include <SDL3/SDL_vulkan.h>
-#include <cstdint>
-#include "../volk_wrapper.h"
-#include <vulkan/vulkan_core.h>
-#include <vulkan/vulkan_profiles.hpp>
-
 #include <array>
-#include <vector>
+#include <cstdint>
 #include <cstring>
 #include <stdexcept>
+#include <vector>
+#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_profiles.hpp>
 
 namespace Vroum3d::Core
 {
 
-#ifdef VROUM3D_ENABLE_SYNCVAL
-constexpr bool c_enable_syncval = true;
-#else
-constexpr bool c_enable_syncval = false;
-#endif
-
 template<bool enable = false>
 class InstanceDebugData {
 public:
-	void destroy(VkInstance) {}
-  void create_dbg_mesg(VkInstance, const VkDebugUtilsMessengerCreateInfoEXT&) {}
+  void destroy(VkInstance) {}
+
+  void create_dbg_mesg(VkInstance, const VkDebugUtilsMessengerCreateInfoEXT &) {}
 };
 
 class DefaultInstanceInfo;
 
 template<>
-class InstanceDebugData<true>
-{
+class InstanceDebugData<true> {
 public:
-	VkHandle<VkDebugUtilsMessengerEXT> m_dbg_messenger;
-	void destroy(VkInstance inst)
-	{
+  VkHandle<VkDebugUtilsMessengerEXT> m_dbg_messenger;
 
-		m_dbg_messenger.destroy_with([&](auto msg){
-			PFN_vkDestroyDebugUtilsMessengerEXT fn = reinterpret_cast<decltype(fn)>(vkGetInstanceProcAddr(inst, "vkDestroyDebugUtilsMessengerEXT"));
-			if(fn) fn(inst, msg, nullptr);
-		});
-	}
+  void destroy(VkInstance inst)
+  {
 
-  void create_dbg_mesg(VkInstance inst, const VkDebugUtilsMessengerCreateInfoEXT& ci);
+    m_dbg_messenger.destroy_with([&](auto msg) {
+      PFN_vkDestroyDebugUtilsMessengerEXT fn = reinterpret_cast<decltype(fn)>(vkGetInstanceProcAddr(inst, "vkDestroyDebugUtilsMessengerEXT"));
+      if(fn)
+        fn(inst, msg, nullptr);
+    });
+  }
+
+  void create_dbg_mesg(VkInstance inst, const VkDebugUtilsMessengerCreateInfoEXT &ci);
 };
 
-class Instance : public AssignDestroy<Instance>, private InstanceDebugData<debug>, public Allocator
-{
+class Instance : public AssignDestroy<Instance>,
+                 private InstanceDebugData<debug>,
+                 public Allocator {
 protected:
-	using debug_data_t = InstanceDebugData<debug>;
+  using debug_data_t = InstanceDebugData<debug>;
   /** Base members */
 
-	VkHandle<VkInstance> m_inst;
-	VkPhysicalDevice m_pdev;
-	VkHandle<VkDevice> m_dev;
-	std::uint32_t m_ti, m_gi, m_ci;
-	VkQueue m_tq = VK_NULL_HANDLE, m_gq = VK_NULL_HANDLE, m_cq = VK_NULL_HANDLE;
-	VkHandle<VkCommandPool> m_transfer_pool;
+  VkHandle<VkInstance> m_inst;
+  VkPhysicalDevice m_pdev;
+  VkHandle<VkDevice> m_dev;
+  std::uint32_t m_ti, m_gi, m_ci;
+  VkQueue m_tq = VK_NULL_HANDLE, m_gq = VK_NULL_HANDLE, m_cq = VK_NULL_HANDLE;
+  VkHandle<VkCommandPool> m_transfer_pool;
 
-	struct DelayedDeviceCreation {};
-
+  struct DelayedDeviceCreation
+  {};
 
 public:
+  using ExtensionsLayers = DefaultInstanceInfo::ExtensionsLayers;
 
   static constexpr std::size_t c_frames_in_flight = 2; // AKA number of buffered frames
 
-	struct ExtensionsLayers
-	{
-		std::vector<std::string> exts, lays;
-	};
-
-	template<typename InstanceInfo = DefaultInstanceInfo>
-  Instance(InstanceInfo&& ii = {})
+  template<typename InstanceInfo = DefaultInstanceInfo>
+  Instance(InstanceInfo &&ii = {})
   {
-		create_instance(ii.inst_exts_lays(), ii.instance_pnext());
+    create_instance(ii.inst_exts_lays(), ii.instance_pnext());
     create_dbg_mesg(m_inst, *ii.debug_messenger_info());
 
-		create_device(ii, VK_NULL_HANDLE);
-	}
+    create_device(ii, VK_NULL_HANDLE);
+  }
+
 protected:
-	/** Create Instance with VkInstance only, to allow surface creation before device creation (for present queue) */
-	template<typename InstanceInfo = DefaultInstanceInfo>
-  Instance(DelayedDeviceCreation, InstanceInfo&& ii = {})
-	{
-		create_instance(ii.inst_exts_lays(), ii.instance_pnext());
+  /** Create Instance with VkInstance only, to allow surface creation before
+   * device creation (for present queue) */
+  template<typename InstanceInfo = DefaultInstanceInfo>
+  Instance(DelayedDeviceCreation, InstanceInfo &&ii = {})
+  {
+    create_instance(ii.inst_exts_lays(), ii.instance_pnext());
     create_dbg_mesg(m_inst, *ii.debug_messenger_info());
-	}
+  }
 
-	template<typename InstanceInfo = DefaultInstanceInfo>
-	void create_device(InstanceInfo&& ii = {}, VkSurfaceKHR surf = VK_NULL_HANDLE)
-	{
-    ii.build_device_pnext_chain();
-    const auto& exts = ii.dev_exts();
-		choose_pdev(ii);
+  template<typename InstanceInfo = DefaultInstanceInfo>
+  void create_device(InstanceInfo &&ii = {}, VkSurfaceKHR surf = VK_NULL_HANDLE)
+  {
+    choose_pdev(ii);
+
+    ii.query_features(m_pdev);
+
+    ii.build_device_pnext();
+    const auto &exts = ii.dev_exts();
 
     set_device_address_enabled(ii.enable_device_address());
-		create_device(exts, surf, ii.device_pnext());
+    create_device(exts, surf, ii.device_pnext());
 
-		create_transfer_pool();
-	}
+    create_transfer_pool();
+  }
 
 public:
-
   void destroy();
 
-  ~Instance() {destroy();}
+  ~Instance() { destroy(); }
 
-  auto graphics_queue() const {return m_gq;}
-  auto transfer_queue() const {return m_tq;}
-  auto compute_queue() const {return m_cq;}
+  auto graphics_queue() const { return m_gq; }
 
-	auto graphic_queue_index() const {return m_gi;}
-	auto transfer_queue_index() const {return m_ti;}
-  auto compute_queue_index() const {return m_ci;}
+  auto transfer_queue() const { return m_tq; }
 
-	VkDevice device() const {return m_dev;}
-	VkPhysicalDevice pdev() const {return m_pdev;}
-	VkCommandPool transfer_pool() const {return m_transfer_pool;}
-	void create_transfer_pool();
+  auto compute_queue() const { return m_cq; }
+
+  auto graphic_queue_index() const { return m_gi; }
+
+  auto transfer_queue_index() const { return m_ti; }
+
+  auto compute_queue_index() const { return m_ci; }
+
+  VkDevice device() const { return m_dev; }
+
+  VkPhysicalDevice pdev() const { return m_pdev; }
+
+  VkCommandPool transfer_pool() const { return m_transfer_pool; }
+
+  void create_transfer_pool();
 
   /** Quick submit and wait for execution to be done
    * @param cmd_buf Command buffer to submit
-   * @param queue Queue to submit to, defaults to graphics queue if equal to VK_NULL_HANDLE
+   * @param queue Queue to submit to, defaults to graphics queue if equal to
+   * VK_NULL_HANDLE
    */
-	void quick_submit(VkCommandBuffer cmd_buf, VkQueue queue = VK_NULL_HANDLE);
+  void quick_submit(VkCommandBuffer cmd_buf, VkQueue queue = VK_NULL_HANDLE);
+
 private:
-
-
-	void create_instance(ExtensionsLayers&& el, void* instance_pnext = nullptr);
+  void create_instance(ExtensionsLayers &&el, void* instance_pnext = nullptr);
 
   template<typename InstanceInfo>
-	void choose_pdev(InstanceInfo& info);
-	void create_device(const std::vector<std::string>& exts, VkSurfaceKHR surf = VK_NULL_HANDLE, void* device_pnext = nullptr);
-};
-
-template<bool debug_enable>
-struct InstanceInfoDebug
-{
-  void* instance_pnext() const {return nullptr;}
-
-  VkDebugUtilsMessengerCreateInfoEXT* debug_messenger_info() const {return nullptr;}
-};
-
-template<>
-struct InstanceInfoDebug<true>
-{
-  constexpr static VkBool32 c_sync_val_enabled = VK_TRUE;
-  constexpr static std::array c_layer_settings = [](){
-    if constexpr (c_enable_syncval) return std::array<VkLayerSettingEXT, 1>{{{
-    "VK_LAYER_KHRONOS_validation",
-    "validate_sync",
-    VK_LAYER_SETTING_TYPE_BOOL32_EXT,
-    1,
-    &c_sync_val_enabled
-  }}};
-    else return std::array<VkLayerSettingEXT, 0>();
-  }();
-
-  VkLayerSettingsCreateInfoEXT lays_s = {
-    VK_STRUCTURE_TYPE_LAYER_SETTINGS_CREATE_INFO_EXT,
-    nullptr,
-    c_layer_settings.size(),
-    c_layer_settings.data()
-  };
-
-  static VkBool32 callback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT sever,
-    VkDebugUtilsMessageTypeFlagsEXT type,
-    const VkDebugUtilsMessengerCallbackDataEXT* cbd,
-    void*) 
-  {
-    Vroum3d::log("Vulkan Message:");
-    Vroum3d::log("Severity:", Debug::String::VkDebugUtilsMessageSeverityFlagsEXT(sever));
-    Vroum3d::log("Type:", Debug::String::VkDebugUtilsMessageTypeFlagsEXT(type));
-    Vroum3d::log(cbd->pMessage, "\n\n");
-    return VK_FALSE;
-  };
-
-  VkDebugUtilsMessengerCreateInfoEXT dbi = {
-    VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-    nullptr,
-    0,
-    VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
-    VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT,
-    VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | 
-    VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT | 
-    VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT,
-    callback,
-    nullptr
-  };
-
-  InstanceInfoDebug() {}
-
-  void* instance_pnext() {
-    if constexpr(c_layer_settings.size() > 0) dbi.pNext = &lays_s;
-    return reinterpret_cast<void*>(&dbi);
-  }
-  const VkDebugUtilsMessengerCreateInfoEXT* debug_messenger_info() {return &dbi;}
-};
-
-class DefaultInstanceInfo : public InstanceInfoDebug<debug>
-{
-protected:
-
-	VkPhysicalDeviceVulkan13Features vk13feats{};
-	VkPhysicalDeviceVulkan12Features vk12feats{};
-
-private:
-
-  void * m_device_pnext = nullptr;
-  std::vector<std::string> m_extensions;
-public:
-
-  VkBool32 enable_device_address() const {return vk12feats.bufferDeviceAddress;}
-
-  DefaultInstanceInfo() {
-    
-    vk13feats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-    vk13feats.pNext = nullptr;
-    vk13feats.dynamicRendering = VK_TRUE;
-    vk13feats.synchronization2 = VK_TRUE;
-
-    vk12feats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-    vk12feats.pNext = nullptr;
-    vk12feats.runtimeDescriptorArray = VK_TRUE;
-  }
-
-	template<bool dbg = false>
-	struct DefaultInstanceExtensions {
-		static constexpr std::array value = [](){
-      if constexpr (dbg && c_enable_syncval) return std::array<const char*, 1>{"VK_EXT_layer_settings"};
-      else return std::array<const char*, 0>{};
-    }();
-	};
-
-	template<bool dbg = false>
-	struct DefaultInstanceLayers {
-		static constexpr std::array value = [](){
-			if constexpr (dbg) return std::array<const char*, 1>{"VK_LAYER_KHRONOS_validation"};
-			else return std::array<const char*, 0>{};
-
-		}();
-	};
-
-	Instance::ExtensionsLayers inst_exts_lays() 
-	{	
-		constexpr auto extarray = DefaultInstanceExtensions<debug>::value;
-		constexpr auto layarray = DefaultInstanceLayers<debug>::value;
-
-		return {{extarray.begin(), extarray.end()} ,
-			{layarray.begin(), layarray.end()}};
-	}
-
-  void build_device_pnext_chain()
-  {
-    m_device_pnext = nullptr;
-
-    add_device_pnext(&vk12feats);
-    add_device_pnext(&vk13feats);
-  }
-
-	std::vector<std::string>& dev_exts() {return m_extensions;}
-
-  void* device_pnext() {return m_device_pnext;}
-
-  using InstanceInfoDebug<debug>::instance_pnext;
-
-  template<typename NewStr>
-  static void check_add_string(std::vector<std::string>& strings, NewStr&& str)
-  {
-    if(std::find(strings.begin(), strings.end(), str) == strings.end())
-      strings.push_back(std::forward<NewStr>(str));
-  }
-
-  /** Add structure to pNext chain of device create info.
-   * Ensure the added struct will live for at least the same time as the instance info.
-   */
-  template<typename Struct>
-  void add_device_pnext(Struct* s)
-  {
-    s->pNext = m_device_pnext;
-    m_device_pnext = s;
-  }
-
-  bool device_suitable(VkPhysicalDevice pdev);
+  void choose_pdev(InstanceInfo &info);
+  void create_device(const std::vector<std::string> &exts, VkSurfaceKHR surf = VK_NULL_HANDLE, void* device_pnext = nullptr);
 };
 
 class DisplayInstance : public Instance {
 
   /** Display associated members */
-	
+
   VkHandle<VkSurfaceKHR> m_surf;
-	VkQueue m_pq;
+  VkQueue m_pq;
 
-	VkHandle<VkSwapchainKHR> m_sw;
+  VkHandle<VkSwapchainKHR> m_sw;
 
-  
-
-
-	struct FrameSync
-	{
-		VkHandle<VkFence> render_done_fence;
-		std::uint32_t image_index;
-		VkHandle<VkSemaphore> image_avail_sem;
+  struct FrameSync
+  {
+    VkHandle<VkFence> render_done_fence;
+    std::uint32_t image_index;
+    VkHandle<VkSemaphore> image_avail_sem;
 
     VkHandle<VkImage> depth_image;
     VkHandle<VkImageView> depth_view;
     owned_memory_t depth_mem;
-	};
+  };
 
-	std::array<FrameSync, c_frames_in_flight> m_frame_sync; // Frame sync primitives, one per buffered frame
-  
+  std::array<FrameSync, c_frames_in_flight> m_frame_sync; // Frame sync primitives, one per buffered frame
+
   struct SwapchainFrame
   {
     VkImage img;
     VkHandle<VkImageView> view;
-		VkHandle<VkSemaphore> render_done_sem;
+    VkHandle<VkSemaphore> render_done_sem;
   };
-  
+
   std::vector<SwapchainFrame> m_sw_frames;
 
-	VkFormat m_depth_format;
-	VkSurfaceFormatKHR m_sw_format;
-	VkPresentModeKHR m_sw_pres_mode;
-	std::uint32_t m_w, m_h;
-	std::uint32_t m_next_frame = 0; // Index of next frame in m_frame_sync vector
+  VkFormat m_depth_format;
+  VkSurfaceFormatKHR m_sw_format;
+  VkPresentModeKHR m_sw_pres_mode;
+  std::uint32_t m_w, m_h;
+  std::uint32_t m_next_frame = 0; // Index of next frame in m_frame_sync vector
   VkImageUsageFlags m_depth_image_usage;
   bool m_resized = false;
 
 public:
-
-  /** Check if window was resized. Resets resize flag, such that next calls will return false until new resize. */
-  bool resized() {
+  /** Check if window was resized. Resets resize flag, such that next calls will
+   * return false until new resize. */
+  bool resized()
+  {
     bool tmp = m_resized;
     m_resized = false;
     return tmp;
   }
 
-  auto present_queue() const {return m_pq;}
+  auto present_queue() const { return m_pq; }
 
-	auto w() const {return m_w;}
-	auto h() const {return m_h;}
+  auto w() const { return m_w; }
 
-  float aspect_ratio() const {return float(m_w) / float(m_h);}
+  auto h() const { return m_h; }
 
-  std::uint32_t n_swapchain_images() const {return m_sw_frames.size();}
+  float aspect_ratio() const { return float(m_w) / float(m_h); }
 
-	VkImageView sw_view(std::uint32_t idx) const {return m_sw_frames[idx].view;}
-	VkImage sw_image(std::uint32_t idx) const {return m_sw_frames[idx].img;}
+  std::uint32_t n_swapchain_images() const { return m_sw_frames.size(); }
 
-	VkImageView depth_view() const {return m_frame_sync[m_next_frame].depth_view;}
-	VkImage depth_image() const {return m_frame_sync[m_next_frame].depth_image;}
-	
+  VkImageView sw_view(std::uint32_t idx) const { return m_sw_frames[idx].view; }
 
-	const VkFormat& color_format() const {return m_sw_format.format;}
-	const VkFormat& depth_format() const {return m_depth_format;}
+  VkImage sw_image(std::uint32_t idx) const { return m_sw_frames[idx].img; }
 
-	~DisplayInstance() {destroy();}
+  VkImageView depth_view() const { return m_frame_sync[m_next_frame].depth_view; }
 
-  template<typename InstanceInfo = DefaultInstanceInfo>
-  struct DisplayInstanceInfo : public InstanceInfo
+  VkImage depth_image() const { return m_frame_sync[m_next_frame].depth_image; }
+
+  const VkFormat &color_format() const { return m_sw_format.format; }
+
+  const VkFormat &depth_format() const { return m_depth_format; }
+
+  ~DisplayInstance() { destroy(); }
+
+  template<typename InstanceInfo>
+  DisplayInstance(Display &disp, InstanceInfo &&ii) : Instance(DelayedDeviceCreation(), ii)
   {
-    SDL_Window* m_wind;
+    create_surf(disp.m_wind);
 
-    DisplayInstanceInfo(Display& disp, InstanceInfo&& ii = {}) : InstanceInfo(ii), m_wind(disp.window()) {}
+    ii.set_surface(m_surf);
 
-    ExtensionsLayers inst_exts_lays() 
-    {
-      auto el = InstanceInfo::inst_exts_lays();
+    create_device(ii, m_surf);
+    get_present_queue();
 
-      Uint32 n_exts;
-      const char * const * exts = SDL_Vulkan_GetInstanceExtensions(&n_exts);
-
-      for(auto elem = exts, end = exts + n_exts; elem != end; ++elem)
-      {
-        if(!std::any_of(el.exts.begin(), el.exts.end(), [elem](const std::string& s) {return s == *elem;}))
-          el.exts.emplace_back(*elem);
-      }
-			return el;
-    }
-
-		auto& dev_exts() {
-      auto& vec = InstanceInfo::dev_exts();
-      vec.push_back("VK_KHR_swapchain");
-      return vec;
-    }
-
-    VkImageUsageFlags depth_image_additional_usage() const {return 0;}
-  };
-
-	template<typename InstanceInfo>
-	DisplayInstance(Display& disp, InstanceInfo&& ii) : Instance(DelayedDeviceCreation(), ii)
-	{
-		create_surf(disp.m_wind);
-
-		create_device(ii, m_surf);
-		get_present_queue();
-
-		create_sw();
-		create_sw_views();
-		find_depth_format();
+    create_sw();
+    create_sw_views();
+    find_depth_format();
 
     m_depth_image_usage = ii.depth_image_additional_usage() | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-		create_frame_sync();
-	}
+    create_frame_sync();
+  }
 
-  DisplayInstance(Display& disp) : DisplayInstance(disp, DisplayInstanceInfo(disp, DefaultInstanceInfo())) {}
+  DisplayInstance(Display &disp) : DisplayInstance(disp, DisplayInstanceInfo(DefaultInstanceInfo())) {}
 
-	void destroy();
+  void destroy();
 
-	void create_sw();
+  void create_sw();
 
-	bool acquire_next_image()
-	{
-		auto res = vkAcquireNextImageKHR(m_dev, m_sw, 0, m_frame_sync[m_next_frame].image_avail_sem, VK_NULL_HANDLE, &m_frame_sync[m_next_frame].image_index);
-		
+  bool acquire_next_image()
+  {
+    auto res = vkAcquireNextImageKHR(m_dev, m_sw, 0, m_frame_sync[m_next_frame].image_avail_sem, VK_NULL_HANDLE, &m_frame_sync[m_next_frame].image_index);
+
     switch(res)
     {
     case VK_SUBOPTIMAL_KHR:
-    case VK_ERROR_OUT_OF_DATE_KHR:
-      return true;
+    case VK_ERROR_OUT_OF_DATE_KHR: return true;
     case VK_TIMEOUT:
-    case VK_NOT_READY:
-      return false;
-    default:
-      vk_check(res);
-      return true;
+    case VK_NOT_READY: return false;
+    default: vk_check(res); return true;
     }
-	}
+  }
 
-	/* Index of next frame among swapchain frames. Only valid after a successful call to acquire_next_image and before render submission */
-	std::uint32_t next_swapchain_frame()
-	{
-		return m_frame_sync[m_next_frame].image_index;
-	}
+  /* Index of next frame among swapchain frames. Only valid after a successful
+   * call to acquire_next_image and before render submission */
+  std::uint32_t next_swapchain_frame() { return m_frame_sync[m_next_frame].image_index; }
 
-	std::uint32_t next_frame()
-	{
-		return m_next_frame;
-	}
+  std::uint32_t next_frame() { return m_next_frame; }
 
-	void submit_render_present(VkCommandBuffer cmd_buf);
+  void submit_render_present(VkCommandBuffer cmd_buf);
 
-	bool render_done() const
-	{
-		auto res = vkWaitForFences(m_dev, 1, &m_frame_sync[m_next_frame].render_done_fence, VK_TRUE, 0);
+  bool render_done() const
+  {
+    auto res = vkWaitForFences(m_dev, 1, &m_frame_sync[m_next_frame].render_done_fence, VK_TRUE, 0);
 
-		if(res > 0) return false;
-		
-		vk_check(res);
+    if(res > 0)
+      return false;
 
-		return true;
-	}
+    vk_check(res);
+
+    return true;
+  }
 
   void begin_rendering(VkCommandBuffer buffer, bool secondary_contents = false, VkClearColorValue clear_color_value = {{0.0f, 0.0f, 0.0f, 0.0f}});
   void end_rendering(VkCommandBuffer cmd_buf);
@@ -469,106 +284,76 @@ public:
   void set_dynamic_viewport_scissor(VkCommandBuffer cmd_buf)
   {
     VkRect2D sc{{0, 0}, {w(), h()}};
-    VkViewport vp{
-      0.0,
-      0.0,
-      float(w()),
-      float(h()),
-      0.0f,
-      1.0f
-    };
+    VkViewport vp{0.0, 0.0, float(w()), float(h()), 0.0f, 1.0f};
 
     vkCmdSetViewport(cmd_buf, 0, 1, &vp);
     vkCmdSetScissor(cmd_buf, 0, 1, &sc);
   }
 
-	/* Wait for all renders to be done.
-	 * Do not use in render loop, or it may lead to poor performance. */
-	
-	void wait_renders_done()
-	{
-		std::array<VkFence, c_frames_in_flight> fences;
-		for(std::uint32_t i(0); i != c_frames_in_flight; ++i)
-			fences[i] = m_frame_sync[i].render_done_fence;
+  /* Wait for all renders to be done.
+   * Do not use in render loop, or it may lead to poor performance. */
 
-		vk_check(vkWaitForFences(device(), c_frames_in_flight, fences.data(), VK_TRUE, UINT64_MAX));
-	}
+  void wait_renders_done()
+  {
+    std::array<VkFence, c_frames_in_flight> fences;
+    for(std::uint32_t i(0); i != c_frames_in_flight; ++i) fences[i] = m_frame_sync[i].render_done_fence;
+
+    vk_check(vkWaitForFences(device(), c_frames_in_flight, fences.data(), VK_TRUE, UINT64_MAX));
+  }
 
 private:
-
   void get_present_queue();
 
-	void find_sw_info();
+  void find_sw_info();
 
-	void create_surf(SDL_Window* wind);
+  void create_surf(SDL_Window* wind);
 
-	void create_sw_views();
-	void create_depth_images();
+  void create_sw_views();
+  void create_depth_images();
 
-	void find_depth_format();
-	void create_transfer_pool();
+  void find_depth_format();
+  void create_transfer_pool();
 
+  /** Takes needed extensions and layers as arg and adds extensions required by
+   * layers and by the SDL_Window of display */
+  void fill_exts_lays(ExtensionsLayers &el);
 
-	/** Takes needed extensions and layers as arg and adds extensions required by layers and by the SDL_Window of display */
-	void fill_exts_lays(ExtensionsLayers& el);
-
-	void create_fence();
+  void create_fence();
 
   void resize();
 
   void destroy_swapchain();
   void destroy_depth_images();
 
-	void create_frame_sync();
+  void create_frame_sync();
 };
 
 template<typename InstanceInfo>
-void Instance::choose_pdev(InstanceInfo& info)
+void Instance::choose_pdev(InstanceInfo &info)
 {
-	std::vector<VkPhysicalDevice> pdevs = wrap_enumerate(vkEnumeratePhysicalDevices, m_inst);
+  std::vector<VkPhysicalDevice> pdevs = wrap_enumerate(vkEnumeratePhysicalDevices, m_inst);
 
-	check(pdevs.size());
+  check(pdevs.size());
 
-	VkPhysicalDevice best_pdev(VK_NULL_HANDLE);
-	int best_score(-1);
+  VkPhysicalDevice best_pdev(VK_NULL_HANDLE);
+  int64_t best_score(-1);
 
-	for(auto pdev : pdevs)
-	{
-    if(!info.device_suitable(pdev)) continue;
+  for(auto pdev: pdevs)
+  {
+    int64_t score = info.rate_physical_device(pdev);
+    if(score > best_score)
+    {
+      best_pdev = pdev;
+      best_score = score;
+    }
+  }
 
-		VkPhysicalDeviceProperties props;
-		vkGetPhysicalDeviceProperties(pdev, &props);
-
-		int score = 0;
-
-		switch(props.deviceType)
-		{
-		case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
-		case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
-			score = 2;
-			break;
-		case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
-			score = 1;
-			break;
-		default:
-			break;
-		}
-
-		if(score > best_score)
-		{
-			best_pdev = pdev;
-			best_score = score;
-		}
-	}
-
-	m_pdev = best_pdev;
-
-  if(best_pdev == VK_NULL_HANDLE)
+  if(best_score < 0)
     throw std::runtime_error("No compatible physical device found.");
+
+  m_pdev = best_pdev;
 }
 
-
-}
-
+} // namespace Vroum3d::Core
 
 #endif

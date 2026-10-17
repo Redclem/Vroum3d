@@ -1,12 +1,12 @@
 #include "font.h"
+
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <fstream>
 #include <memory>
-#include <algorithm>
 
 using namespace Vroum3d::Gui;
-
 
 void Vroum3d::Gui::Font::open(const char* pth)
 {
@@ -32,29 +32,13 @@ std::pair<Bitmap<Vroum3d::Gui::Font::font_px_t>, Vroum3d::Gui::Font::atlas_glyph
 
   constexpr std::size_t font_size = 24;
 
-  std::array<stbtt_pack_range, 2> ranges = {{
-    {
-      font_size,
-      0x20,
-      nullptr,
-      0x80 - 0x20,
-      packed_chars.data(),
-      0, 0
-    },
-    {
-      font_size,
-      0xc0,
-      nullptr,
-      0x100 - 0xc0,
-      packed_chars.data() + 0x80 - 0x20,
-      0, 0
-    }
-  }};
+  std::array<stbtt_pack_range, 2> ranges = {
+    {{font_size, 0x20, nullptr, 0x80 - 0x20, packed_chars.data(), 0, 0}, {font_size, 0xc0, nullptr, 0x100 - 0xc0, packed_chars.data() + 0x80 - 0x20, 0, 0}}};
 
   stbtt_PackFontRanges(&ctx, reinterpret_cast<unsigned char*>(m_buffer.get()), 0, ranges.data(), ranges.size());
 
   uint32_t req_w(0), req_h(0);
-  for(auto& elem : packed_chars)
+  for(auto &elem: packed_chars)
   {
     req_w = std::max<uint32_t>(req_w, elem.x1);
     req_h = std::max<uint32_t>(req_h, elem.y1);
@@ -66,19 +50,17 @@ std::pair<Bitmap<Vroum3d::Gui::Font::font_px_t>, Vroum3d::Gui::Font::atlas_glyph
 
   float wf(req_w), hf(req_h);
 
-  for(auto& elem : ranges)
+  for(auto &elem: ranges)
   {
     uint32_t code(elem.first_unicode_codepoint_in_range);
     for(auto iter = elem.chardata_for_range, end = elem.chardata_for_range + elem.num_chars; iter != end; ++iter, ++code)
     {
-      glyphs.emplace(code, Glyph{
-        {float(iter->x0) / wf, float(iter->y0) / hf},
-        {float(iter->x1) / wf, float(iter->y1) / hf},
-        {iter->xoff, iter->yoff},
-        iter->xadvance,
-        uint16_t(iter->x1 - iter->x0),
-        uint16_t(iter->y1 - iter->y0)
-      });
+      glyphs.emplace(code, Glyph{{float(iter->x0) / wf, float(iter->y0) / hf},
+                                 {float(iter->x1) / wf, float(iter->y1) / hf},
+                                 {iter->xoff, iter->yoff},
+                                 iter->xadvance,
+                                 uint16_t(iter->x1 - iter->x0),
+                                 uint16_t(iter->y1 - iter->y0)});
     }
   }
 
@@ -86,9 +68,11 @@ std::pair<Bitmap<Vroum3d::Gui::Font::font_px_t>, Vroum3d::Gui::Font::atlas_glyph
 }
 
 using cvrt_t = std::codecvt<char32_t, char, std::mbstate_t>;
+
 struct Converter : cvrt_t
 {
   using cvrt_t::cvrt_t;
+
   ~Converter() {}
 };
 
@@ -97,8 +81,7 @@ Rect Vroum3d::Gui::Font::GlyphAtlas::compute_text_size(std::string_view str) con
   float xmin(0.0f), xmax(0.0f), adv(0.0f);
   float ymin(0.0f), ymax(0.0f);
 
-  auto proc_fun = [&](char32_t out)
-  {
+  auto proc_fun = [&](char32_t out) {
     if(auto iter = find(out); iter != end())
     {
       xmax = std::max(xmax, adv + float(iter->second.w) + iter->second.offset.x);
@@ -107,25 +90,22 @@ Rect Vroum3d::Gui::Font::GlyphAtlas::compute_text_size(std::string_view str) con
       ymin = std::min(ymin, iter->second.offset.y);
       ymin = std::min(ymin, iter->second.offset.y + float(iter->second.h));
       adv += iter->second.adv;
-
     }
   };
 
   iterate_unicode_points(str, proc_fun);
 
-  return {xmin, ymin, xmax-xmin, ymax - ymin};
+  return {xmin, ymin, xmax - xmin, ymax - ymin};
 }
 
 std::size_t Vroum3d::Gui::Font::GlyphAtlas::glyph_count(std::string_view str) const
 {
   std::size_t res(0);
 
-  auto fun = [&](char32_t out){
-
+  auto fun = [&](char32_t out) {
     if(auto iter = find(out); iter != end())
       res++;
-
-  }; 
+  };
 
   iterate_unicode_points(str, fun);
 

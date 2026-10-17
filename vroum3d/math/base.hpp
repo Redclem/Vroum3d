@@ -6,14 +6,16 @@
 namespace Vroum3d::Math
 {
 
-struct vec_root {};
+struct vec_root
+{};
 
 template<typename T>
 constexpr bool is_vec = std::is_base_of_v<vec_root, T>;
 
-struct mat_root {
-	bool operator==(const mat_root& rhs) const = default;
-	bool operator!=(const mat_root& rhs) const = default;
+struct mat_root
+{
+  bool operator==(const mat_root &rhs) const = default;
+  bool operator!=(const mat_root &rhs) const = default;
 };
 
 template<typename Mat>
@@ -22,6 +24,6 @@ constexpr bool is_mat = std::is_base_of_v<mat_root, Mat>;
 template<typename T>
 constexpr bool is_vec_or_mat = is_mat<T> || is_vec<T>;
 
-}
+} // namespace Vroum3d::Math
 
 #endif

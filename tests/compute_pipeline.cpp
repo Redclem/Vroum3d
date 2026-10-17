@@ -4,6 +4,7 @@
 #include "core/objects.h"
 #include "core/update_descriptor_set.hpp"
 #include "debug.h"
+
 #include <vroum3d.h>
 #include <vulkan/vulkan_core.h>
 
@@ -30,25 +31,18 @@ int main(void)
 
   VkDescriptorSet s = pool.allocate_descriptor_set(pipe.descriptor_set_layout(0));
 
-  update_descriptor_sets(inst.device(),
-    WriteBuffers<>({{s, 0, 0}, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, {{buf.buffer(), 0, VK_WHOLE_SIZE}}})
-  );
+  update_descriptor_sets(inst.device(), WriteBuffers<>({{s, 0, 0}, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, {{buf.buffer(), 0, VK_WHOLE_SIZE}}}));
 
   VkCommandPool cmdp;
 
-  VkCommandPoolCreateInfo cpi{
-    VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-    nullptr,
-    0,
-    inst.compute_queue_index()
-  };
+  VkCommandPoolCreateInfo cpi{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr, 0, inst.compute_queue_index()};
 
   vk_check(vkCreateCommandPool(inst.device(), &cpi, nullptr, &cmdp));
 
   CommandBuffer cmd_buf(inst, cmdp);
 
   cmd_buf.begin_primary();
-  
+
   cmd_buf.cmd(vkCmdBindPipeline, VK_PIPELINE_BIND_POINT_COMPUTE, pipe.pipeline());
   cmd_buf.cmd(vkCmdBindDescriptorSets, VK_PIPELINE_BIND_POINT_COMPUTE, pipe.layout(), 0, 1, &s, 0, nullptr);
   cmd_buf.cmd(vkCmdDispatch, 1, 1, 1);
@@ -67,5 +61,3 @@ int main(void)
 
   return 0;
 }
-
-

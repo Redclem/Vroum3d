@@ -1,6 +1,8 @@
 
 #include "core/pipeline.h"
+
 #include "core/pipeline_info.h"
+
 #include <vroum3d.h>
 
 using namespace Vroum3d::Core;
@@ -16,5 +18,3 @@ int main(void)
 
   return 0;
 }
-
-

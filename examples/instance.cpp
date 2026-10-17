@@ -4,8 +4,8 @@ using namespace Vroum3d::Core;
 
 int main(int, char*[])
 {
-	Display disp;
-	DisplayInstance inst(disp);
+  Display disp;
+  DisplayInstance inst(disp);
 
-	return 0;
+  return 0;
 }

@@ -1,8 +1,8 @@
 #ifndef VROUM3D_CORE_DIPLAY_HPP_INCLUDED
 #define VROUM3D_CORE_DIPLAY_HPP_INCLUDED
 
-#include "../utility.h"
 #include "../debug.h"
+#include "../utility.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_video.h>
@@ -10,36 +10,32 @@
 namespace Vroum3d::Core
 {
 
-class Display : public AssignDestroy<Display>
-{
-	Handle<SDL_Window*, nullptr> m_wind;
-	Handle<SDL_Surface*, nullptr> m_surf;
+class Display : public AssignDestroy<Display> {
+  Handle<SDL_Window*, nullptr> m_wind;
+  Handle<SDL_Surface*, nullptr> m_surf;
 
-	friend class DisplayInstance;
+  friend class DisplayInstance;
 
 public:
+  Display &display() { return *this; }
 
-  Display& display() {return *this;}
+  void destroy() { m_wind.destroy_with(SDL_DestroyWindow); }
 
-	void destroy()
-	{
-		m_wind.destroy_with(SDL_DestroyWindow);
-	}
+  Display(const char* title = "Vroum3d app", int w = 1280, int h = 720, int flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE)
+  {
+    if(SDL_WasInit(SDL_INIT_VIDEO) != SDL_INIT_VIDEO)
+      sdl_check(SDL_Init(SDL_INIT_VIDEO));
 
-	Display(const char* title = "Vroum3d app", int w = 1280, int h = 720, int flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE)
-	{
-		if(SDL_WasInit(SDL_INIT_VIDEO) != SDL_INIT_VIDEO)
-			sdl_check(SDL_Init(SDL_INIT_VIDEO));
+    m_wind = SDL_CreateWindow(title, w, h, flags);
 
-		m_wind = SDL_CreateWindow(title, w, h, flags);
+    check(m_wind);
+  }
 
-		check(m_wind);
-	}
+  SDL_Window* window() const { return m_wind; }
 
-  SDL_Window* window() const {return m_wind;}
-  SDL_Surface* surface() const {return m_surf;}
+  SDL_Surface* surface() const { return m_surf; }
 };
 
-}
+} // namespace Vroum3d::Core
 
 #endif

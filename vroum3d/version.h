@@ -3,19 +3,19 @@
 
 
 
-#include <cstdint>
 #include "volk_wrapper.h"
 
+#include <cstdint>
 
 namespace Vroum3d::Version
 {
-	constexpr std::uint32_t major = 0;
-	constexpr std::uint32_t minor = 1;
-	constexpr std::uint32_t patch = 0;
+constexpr std::uint32_t major = 0;
+constexpr std::uint32_t minor = 1;
+constexpr std::uint32_t patch = 0;
 
-	constexpr std::uint32_t eng_ver = VK_MAKE_VERSION(major, minor, patch);
+constexpr std::uint32_t eng_ver = VK_MAKE_VERSION(major, minor, patch);
 
-	constexpr std::uint32_t vk_api_ver = VK_API_VERSION_1_4;
-}
+constexpr std::uint32_t vk_api_ver = VK_API_VERSION_1_4;
+} // namespace Vroum3d::Version
 
 #endif

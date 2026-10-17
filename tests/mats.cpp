@@ -39,7 +39,7 @@ int main(int, char*[])
 
     auto itm = T * x;
     auto px2 = P * itm;
-    check(0.0 <= px2.z / px2.w && px2.z /px2.w <= 1);
+    check(0.0 <= px2.z / px2.w && px2.z / px2.w <= 1);
 
     auto px = A * x;
     check(0.0 <= px.z / px.w && px.z / px.w <= 1.0);

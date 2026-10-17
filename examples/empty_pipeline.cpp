@@ -4,12 +4,12 @@ using namespace Vroum3d::Core;
 
 int main(int, char*[])
 {
-	Display disp;
-	DisplayInstance inst(disp);
+  Display disp;
+  DisplayInstance inst(disp);
 
-	PipelineResource pr(inst);
+  PipelineResource pr(inst);
 
-	Pipeline pipe(pr, RenderPipelineInformation(pr, "empty.vert.spv", "empty.frag.spv", {}, {}));
+  Pipeline pipe(pr, RenderPipelineInformation(pr, "empty.vert.spv", "empty.frag.spv", {}, {}));
 
-	return 0;
+  return 0;
 }

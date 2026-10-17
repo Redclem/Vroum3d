@@ -6,68 +6,47 @@
 namespace Vroum3d::Compute
 {
 
-class PipelineInformation
-{
+class PipelineInformation {
 protected:
-  Core::PipelineResource& m_pr;
-  const Core::PipelineResource::ShaderModule * m_shader;
+  Core::PipelineResource &m_pr;
+  const Core::PipelineResource::ShaderModule* m_shader;
 
 public:
-  PipelineInformation(Core::PipelineResource& pr, const char* shader) : m_pr(pr),
-    m_shader(&m_pr.require_shader(shader)) {}
+  PipelineInformation(Core::PipelineResource &pr, const char* shader) : m_pr(pr), m_shader(&m_pr.require_shader(shader)) {}
 
   VkPipelineShaderStageCreateInfo get_stage()
   {
-    return {
-      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-      nullptr,
-      0,
-      VK_SHADER_STAGE_COMPUTE_BIT,
-      m_shader->vk_mod,
-      "main",
-      nullptr
-    };
+    return {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_COMPUTE_BIT, m_shader->vk_mod, "main", nullptr};
   }
 
-  auto get_layouts()
-  {
-    return m_pr.get_shader_layouts(*m_shader);
-  }
+  auto get_layouts() { return m_pr.get_shader_layouts(*m_shader); }
 };
 
-class Pipeline : public Core::BasePipeline
-{
+class Pipeline : public Core::BasePipeline {
 public:
   template<typename PipelineInformation>
-  Pipeline(Core::PipelineResource& pr, PipelineInformation&& pi) : Core::BasePipeline(pr.device()) {
+  Pipeline(Core::PipelineResource &pr, PipelineInformation &&pi) : Core::BasePipeline(pr.device())
+  {
     create_pipeline(pr, pi);
   }
 
   template<typename PipelineInformation>
-  void create_pipeline(Core::PipelineResource& pr, PipelineInformation&& pi);
+  void create_pipeline(Core::PipelineResource &pr, PipelineInformation &&pi);
 
 private:
   using base_pipeline_t = Core::Pipeline;
 };
 
 template<typename PipelineInformation>
-void Pipeline::create_pipeline(Core::PipelineResource& pr, PipelineInformation&& pi)
+void Pipeline::create_pipeline(Core::PipelineResource &pr, PipelineInformation &&pi)
 {
   m_layouts = pi.get_layouts();
 
-  VkComputePipelineCreateInfo ci{
-    VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-    nullptr,
-    0,
-    pi.get_stage(),
-    m_layouts.layout(),
-    VK_NULL_HANDLE,
-    0
-  };
+  VkComputePipelineCreateInfo ci{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO, nullptr, 0, pi.get_stage(), m_layouts.layout(), VK_NULL_HANDLE, 0};
 
   vk_check(vkCreateComputePipelines(m_device, pr.cache(), 1, &ci, nullptr, &m_pipeline));
 }
 
-}
+} // namespace Vroum3d::Compute
 
 #endif

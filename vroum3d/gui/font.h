@@ -2,10 +2,10 @@
 #define VROUM3D_GUI_FONT_H_INCLUDED
 
 #include "../../ext/stb_truetype.h"
+#include "../math/vec.hpp"
 #include "../utility.h"
 #include "bitmap.hpp"
 #include "common.h"
-#include "../math/vec.hpp"
 
 #include <cstdint>
 #include <locale>
@@ -14,16 +14,15 @@
 #include <string_view>
 #include <utility>
 
-
 namespace Vroum3d::Gui
 {
 
-class Font : public NonCopyable
-{
+class Font : public NonCopyable {
 public:
   using font_px_t = unsigned char;
 
-  Font(const char* pth) {open(pth);}
+  Font(const char* pth) { open(pth); }
+
   Font() {}
 
   void open(const char* pth);
@@ -42,11 +41,11 @@ public:
     std::size_t glyph_count(std::string_view str) const;
 
     template<typename Fun>
-    static void iterate_unicode_points(std::string_view str, Fun&& f);
+    static void iterate_unicode_points(std::string_view str, Fun &&f);
   };
 
   using atlas_glyphs_t = GlyphAtlas;
-  
+
   std::pair<Bitmap<font_px_t>, atlas_glyphs_t> render_char_atlas();
 
 private:
@@ -55,12 +54,14 @@ private:
 };
 
 template<typename Fun>
-void Font::GlyphAtlas::iterate_unicode_points(std::string_view str, Fun&& f)
+void Font::GlyphAtlas::iterate_unicode_points(std::string_view str, Fun &&f)
 {
   using cvrt_t = std::codecvt<char32_t, char, std::mbstate_t>;
+
   struct Converter : cvrt_t
   {
     using cvrt_t::cvrt_t;
+
     ~Converter() {}
   };
 
@@ -74,18 +75,21 @@ void Font::GlyphAtlas::iterate_unicode_points(std::string_view str, Fun&& f)
 
   std::codecvt_base::result code;
 
-  do {
-    char32_t *ptr;
-    code = cvrt.in(state, iter, end_iter, iter, &out, &out+1, ptr);
+  do
+  {
+    char32_t* ptr;
+    code = cvrt.in(state, iter, end_iter, iter, &out, &out + 1, ptr);
 
-    if(code == std::codecvt_base::result::error) return;
-    if(code == std::codecvt_base::result::noconv) return;
+    if(code == std::codecvt_base::result::error)
+      return;
+    if(code == std::codecvt_base::result::noconv)
+      return;
 
     f(out);
 
-  } while (code != std::codecvt_base::result::ok);
+  } while(code != std::codecvt_base::result::ok);
 }
 
-}
+} // namespace Vroum3d::Gui
 
 #endif // !VROUM3D_GUI_FONT_H_INCLUDED

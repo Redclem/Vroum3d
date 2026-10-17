@@ -1,82 +1,80 @@
 #ifndef VROUM3D_GUI_ELEMENT_H_INCLUDED
 #define VROUM3D_GUI_ELEMENT_H_INCLUDED
 
-#include "common.h"
-#include "base.h"
-
 #include "../math/vec.hpp"
-
 #include "../volk_wrapper.h"
-
+#include "base.h"
+#include "common.h"
 
 #include <array>
-
 
 namespace Vroum3d::Gui
 {
 
 struct TexturedPoint
 {
-	Point pos;
-	Math::vec2 uv;
+  Point pos;
+  Math::vec2 uv;
 };
 
-class Frame : public Element
-{
-	px_t m_border, m_margin;
+class Frame : public Element {
+  px_t m_border, m_margin;
 
-	struct RenderData
-	{
-		std::array<Point, 10> points;
-	};
+  struct RenderData
+  {
+    std::array<Point, 10> points;
+  };
 
 public:
-	auto border() const {return m_border;}
-	auto margin() const {return m_margin;}
+  auto border() const { return m_border; }
 
-	void set_border(px_t b) {m_border = b;}
-	void set_margin(px_t m) {m_margin = m;}
+  auto margin() const { return m_margin; }
 
-	Frame(Base* base, px_t border = 0, px_t margin = 0) : Element(base), m_border(border), m_margin(margin) {}
+  void set_border(px_t b) { m_border = b; }
 
-	constexpr static VkDeviceSize c_buffer_size = sizeof(RenderData);
-	constexpr virtual VkDeviceSize buffer_size() const override {return c_buffer_size;}
-	virtual void init() override;
-	virtual void upload_buffer(char * buffer_data_ptr) override;
+  void set_margin(px_t m) { m_margin = m; }
 
-	virtual void record_render_commands(RenderCommands& rc) override;
+  Frame(Base* base, px_t border = 0, px_t margin = 0) : Element(base), m_border(border), m_margin(margin) {}
+
+  static constexpr VkDeviceSize c_buffer_size = sizeof(RenderData);
+
+  constexpr virtual VkDeviceSize buffer_size() const override { return c_buffer_size; }
+
+  virtual void init() override;
+  virtual void upload_buffer(char* buffer_data_ptr) override;
+
+  virtual void record_render_commands(RenderCommands &rc) override;
 };
 
-class Image : public Element
-{
-	Math::vec2 m_texture_offset, m_texture_extent;
+class Image : public Element {
+  Math::vec2 m_texture_offset, m_texture_extent;
 
-	struct RenderData{
-		std::array<TexturedPoint, 4> points;
-	};
+  struct RenderData
+  {
+    std::array<TexturedPoint, 4> points;
+  };
 
-	Base::texture_ptr_t m_texture;
+  Base::texture_ptr_t m_texture;
 
 public:
-	Image(Base* base, const char* pth) : Element::Element(base), m_texture_offset(0.0f, 0.0f), m_texture_extent(1.0f, 1.0f), m_texture(base->require_texture(pth))
-	{
-	}
+  Image(Base* base, const char* pth) : Element::Element(base), m_texture_offset(0.0f, 0.0f), m_texture_extent(1.0f, 1.0f), m_texture(base->require_texture(pth)) {}
 
-	constexpr static VkDeviceSize c_buffer_size = sizeof(RenderData);
-	constexpr virtual VkDeviceSize buffer_size() const override {return c_buffer_size;}
+  static constexpr VkDeviceSize c_buffer_size = sizeof(RenderData);
 
-	virtual void init() override;
-	virtual void upload_buffer(char* buffer_data_ptr) override;
-	virtual void record_render_commands(RenderCommands& rc) override;
-	virtual void arrange() override;
+  constexpr virtual VkDeviceSize buffer_size() const override { return c_buffer_size; }
+
+  virtual void init() override;
+  virtual void upload_buffer(char* buffer_data_ptr) override;
+  virtual void record_render_commands(RenderCommands &rc) override;
+  virtual void arrange() override;
 };
 
-class Label : public Element
-{
+class Label : public Element {
   struct GlyphData
   {
     TexturedPoint pts[4];
   };
+
 private:
   std::string m_text;
   Base::font_ptr_t m_font;
@@ -85,22 +83,23 @@ private:
 
 protected:
   std::size_t m_n_glyphs = 0;
+
 public:
-
   template<typename T>
-  Label(Base* base, T&& text) : Element::Element(base), m_text(std::forward<T>(text)),
-   m_font(base->default_font()) {}
+  Label(Base* base, T &&text) : Element::Element(base), m_text(std::forward<T>(text)), m_font(base->default_font())
+  {}
 
-  virtual VkDeviceSize buffer_size() const override {
+  virtual VkDeviceSize buffer_size() const override
+  {
     return m_font->glyphs.glyph_count(m_text) * (sizeof(GlyphData) + 5 * sizeof(std::uint16_t)) - sizeof(std::uint16_t);
   }
-  
+
   virtual void init() override;
   virtual void upload_buffer(char* buffer_data_ptr) override;
-  virtual void record_render_commands(RenderCommands& rc) override;
+  virtual void record_render_commands(RenderCommands &rc) override;
   virtual void arrange() override;
 };
 
-}
+} // namespace Vroum3d::Gui
 
 #endif

@@ -1,30 +1,27 @@
 #include "../vroum3d/vroum3d.h"
+
 #include <vulkan/vulkan_core.h>
 
 using namespace Vroum3d::Core;
 
 int main(int, char*[])
 {
-	Display disp;
-	DisplayInstance inst(disp);
+  Display disp;
+  DisplayInstance inst(disp);
 
-	PipelineResource pr(inst);
+  PipelineResource pr(inst);
 
-	Pipeline pipe(pr, RenderPipelineInformation(pr, "simple.vert.spv", "simple.frag.spv", {{12}}, {{0, 0}}));
+  Pipeline pipe(pr, RenderPipelineInformation(pr, "simple.vert.spv", "simple.frag.spv", {{12}}, {{0, 0}}));
 
-	VkDescriptorSetLayout dsl_uni;
-	{
-		PipelineResource::DescriptorSetDescription des;
-		des.add_binding(0,
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			1,
-			VK_SHADER_STAGE_VERTEX_BIT
-		       | VK_SHADER_STAGE_FRAGMENT_BIT);
-		
-		dsl_uni = pr.get_descriptor_set_layout(std::move(des));
-	}
+  VkDescriptorSetLayout dsl_uni;
+  {
+    PipelineResource::DescriptorSetDescription des;
+    des.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
-	(void)dsl_uni;
+    dsl_uni = pr.get_descriptor_set_layout(std::move(des));
+  }
 
-	return 0;
+  (void)dsl_uni;
+
+  return 0;
 }

@@ -2,47 +2,45 @@
 #define VROUM3D_UTILITY_H_INCLUDED
 
 #include "debug.h"
-
 #include "volk_wrapper.h"
 
-#include <utility>
-#include <vector>
 #include <cstdint>
 #include <tuple>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 namespace Vroum3d
 {
 
-class NonCopyable
-{
+class NonCopyable {
 public:
-	constexpr NonCopyable() {}
+  constexpr NonCopyable() {}
 
-	constexpr NonCopyable(const NonCopyable& from) = delete;
-	constexpr NonCopyable& operator=(const NonCopyable& rhs) = delete;
+  constexpr NonCopyable(const NonCopyable &from) = delete;
+  constexpr NonCopyable &operator=(const NonCopyable &rhs) = delete;
 };
 
-class NonMovable : public NonCopyable
-{
+class NonMovable : public NonCopyable {
 public:
   constexpr NonMovable() {}
-  constexpr NonMovable(NonMovable&& from) = delete;
-  constexpr NonMovable& operator=(NonMovable&& from) = delete;
+
+  constexpr NonMovable(NonMovable &&from) = delete;
+  constexpr NonMovable &operator=(NonMovable &&from) = delete;
 };
 
 template<typename T>
 struct AssignDestroy : public NonCopyable
 {
-	constexpr AssignDestroy() = default;
+  constexpr AssignDestroy() = default;
 
-	constexpr AssignDestroy(AssignDestroy&&) {};
+  constexpr AssignDestroy(AssignDestroy &&) {};
 
-	constexpr AssignDestroy& operator=(AssignDestroy&&)
-	{
-		static_cast<T*>(this)->destroy();
-		return *this;
-	}
+  constexpr AssignDestroy &operator=(AssignDestroy &&)
+  {
+    static_cast<T*>(this)->destroy();
+    return *this;
+  }
 };
 
 /**
@@ -51,61 +49,68 @@ struct AssignDestroy : public NonCopyable
  * Do not derive from NonMovable to not hinder EBO (Empty Base Optimization)
  */
 template<typename T, T Def = 0>
-class Handle
-{
-	T m_hdl = def;
+class Handle {
+  T m_hdl = def;
+
 public:
-	constexpr static auto def = Def;
+  static constexpr auto def = Def;
 
-	constexpr Handle() : m_hdl(def) {}
-	constexpr Handle(T val) : m_hdl(val) {}
-	constexpr Handle(Handle&& rhs) : m_hdl(std::exchange(rhs.m_hdl, def)) {}
+  constexpr Handle() : m_hdl(def) {}
 
-  constexpr Handle(const Handle&) = delete;
-  constexpr Handle& operator=(const Handle&) = delete;
+  constexpr Handle(T val) : m_hdl(val) {}
 
-	constexpr Handle& operator=(Handle&& rhs)
-	{
-		m_hdl = std::exchange(rhs.m_hdl, def);
-		return *this;
-	}
+  constexpr Handle(Handle &&rhs) : m_hdl(std::exchange(rhs.m_hdl, def)) {}
 
-	constexpr Handle& operator=(T val)
-	{
-		m_hdl = val;
-		return *this;
-	}
-	
-	constexpr const T& get() const {return m_hdl;}
+  constexpr Handle(const Handle &) = delete;
+  constexpr Handle &operator=(const Handle &) = delete;
 
-	constexpr operator const T&() const {return get();}
-	constexpr auto operator&() {return &m_hdl;} /** Not really useful according to C++ standard */
-	constexpr auto operator&() const {return &m_hdl;} /** Not really useful according to C++ standard */
+  constexpr Handle &operator=(Handle &&rhs)
+  {
+    m_hdl = std::exchange(rhs.m_hdl, def);
+    return *this;
+  }
 
-	constexpr const auto& operator*() const {return *m_hdl;}
-	constexpr auto& operator*() {return *m_hdl;}
-	constexpr auto operator->() const {return m_hdl;}
-	constexpr auto operator->() {return m_hdl;}
+  constexpr Handle &operator=(T val)
+  {
+    m_hdl = val;
+    return *this;
+  }
 
-	template<typename Fun, std::enable_if_t<std::is_invocable_v<Fun, T&>, bool> = true>
-	void destroy_with(Fun&& fun)
-	{
-		if(m_hdl != def)
-		{
-			fun(m_hdl);
-			m_hdl = def;
-		}
-	}
+  constexpr const T &get() const { return m_hdl; }
 
-	template<typename Fun, std::enable_if_t<std::is_invocable_v<Fun>, bool> = true>
-	void destroy_with(Fun&& fun)
-	{
-		if(m_hdl != def)
-		{
-			fun();
-			m_hdl = def;
-		}
-	}
+  constexpr operator const T &() const { return get(); }
+
+  constexpr auto operator&() { return &m_hdl; } /** Not really useful according to C++ standard */
+
+  constexpr auto operator&() const { return &m_hdl; } /** Not really useful according to C++ standard */
+
+  constexpr const auto &operator*() const { return *m_hdl; }
+
+  constexpr auto &operator*() { return *m_hdl; }
+
+  constexpr auto operator->() const { return m_hdl; }
+
+  constexpr auto operator->() { return m_hdl; }
+
+  template<typename Fun, std::enable_if_t<std::is_invocable_v<Fun, T &>, bool> = true>
+  void destroy_with(Fun &&fun)
+  {
+    if(m_hdl != def)
+    {
+      fun(m_hdl);
+      m_hdl = def;
+    }
+  }
+
+  template<typename Fun, std::enable_if_t<std::is_invocable_v<Fun>, bool> = true>
+  void destroy_with(Fun &&fun)
+  {
+    if(m_hdl != def)
+    {
+      fun();
+      m_hdl = def;
+    }
+  }
 };
 
 template<typename T>
@@ -114,58 +119,55 @@ using VkHandle = Handle<T, VK_NULL_HANDLE>;
 namespace enumerate
 {
 
-	template <typename T>
-	struct res {
-		constexpr static bool is_enum_fun = false;
-	};
-
-	template<typename R, typename ... Args>
-	struct res<R(*)(Args...)>
-	{
-		constexpr static bool is_enum_fun = true;
-		constexpr static bool void_res = std::is_void_v<R>;
-		using result_t = std::remove_pointer_t<typename std::tuple_element<sizeof...(Args) - 1, std::tuple<Args...>>::type>;
-	};
-}
-
-template<typename Func, typename ... Args,
-	std::enable_if_t<!enumerate::res<Func>::void_res, bool> = true>
-std::vector<typename enumerate::res<Func>::result_t> wrap_enumerate(Func f,Args&&...ags)
+template<typename T>
+struct res
 {
-	static_assert(enumerate::res<Func>::is_enum_fun, "This function must be called with a Vulkan enumerator function");
+  static constexpr bool is_enum_fun = false;
+};
 
-	using res = typename enumerate::res<Func>::result_t;
-	std::uint32_t size;
-	
-	auto_check(f(ags..., &size, nullptr));
-
-	std::vector<res> vec(size);
-
-	auto_check(f(ags..., &size, vec.data()));
-
-	return vec;
-}
-
-
-template<typename Func, typename ... Args,
-	std::enable_if_t<enumerate::res<Func>::void_res, bool> = true>
-std::vector<typename enumerate::res<Func>::result_t> wrap_enumerate(Func f, Args&&...ags)
+template<typename R, typename... Args>
+struct res<R (*)(Args...)>
 {
-	static_assert(enumerate::res<Func>::is_enum_fun, "This function must be called with a Vulkan enumerator function");
+  static constexpr bool is_enum_fun = true;
+  static constexpr bool void_res = std::is_void_v<R>;
+  using result_t = std::remove_pointer_t<typename std::tuple_element<sizeof...(Args) - 1, std::tuple<Args...>>::type>;
+};
+} // namespace enumerate
 
-	using res = typename enumerate::res<Func>::result_t;
-	std::uint32_t size;
-	
-	f(ags..., &size, nullptr);
+template<typename Func, typename... Args, std::enable_if_t<!enumerate::res<Func>::void_res, bool> = true>
+std::vector<typename enumerate::res<Func>::result_t> wrap_enumerate(Func f, Args &&... ags)
+{
+  static_assert(enumerate::res<Func>::is_enum_fun, "This function must be called with a Vulkan enumerator function");
 
-	std::vector<res> vec(size);
+  using res = typename enumerate::res<Func>::result_t;
+  std::uint32_t size;
 
-	f(ags..., &size, vec.data());
+  auto_check(f(ags..., &size, nullptr));
 
-	return vec;
+  std::vector<res> vec(size);
 
+  auto_check(f(ags..., &size, vec.data()));
+
+  return vec;
 }
 
+template<typename Func, typename... Args, std::enable_if_t<enumerate::res<Func>::void_res, bool> = true>
+std::vector<typename enumerate::res<Func>::result_t> wrap_enumerate(Func f, Args &&... ags)
+{
+  static_assert(enumerate::res<Func>::is_enum_fun, "This function must be called with a Vulkan enumerator function");
+
+  using res = typename enumerate::res<Func>::result_t;
+  std::uint32_t size;
+
+  f(ags..., &size, nullptr);
+
+  std::vector<res> vec(size);
+
+  f(ags..., &size, vec.data());
+
+  return vec;
 }
+
+} // namespace Vroum3d
 
 #endif

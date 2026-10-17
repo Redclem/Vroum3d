@@ -1,0 +1,159 @@
+BasedOnStyle: LLVM
+IndentWidth: 2
+
+
+Language: Cpp
+DerivePointerAlignment: false
+
+AccessModifierOffset: -2
+AlignAfterOpenBracket: true
+
+AllowShortBlocksOnASingleLine: Always
+AllowShortCaseExpressionOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortCompoundRequirementOnASingleLine: true
+
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Inline
+
+AllowShortIfStatementsOnASingleLine: Never
+
+AllowShortLambdasOnASingleLine: All
+
+AllowShortLoopsOnASingleLine: true
+AllowShortNamespacesOnASingleLine: false
+
+
+AlwaysBreakBeforeMultilineStrings: true
+BitFieldColonSpacing: Both
+
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterEnum: true
+  AfterCaseLabel: false
+  AfterControlStatement: Always
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: true
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeLambdaBody: false
+  BeforeWhile: false
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyNamespace: false
+  SplitEmptyRecord: false
+
+BracedInitializerIndentWidth: 2
+BreakAdjacentStringLiterals: true
+BreakAfterAttributes: Always
+
+BreakAfterReturnType: Automatic
+BreakArrays: false
+BreakBeforeBinaryOperators: NonAssignment
+
+BreakBeforeConceptDeclarations: Always
+
+BreakBeforeTemplateCloser: true
+BreakBeforeTernaryOperators: true
+BreakBinaryOperations: Never
+BreakConstructorInitializers: AfterColon
+BreakFunctionDefinitionParameters: false
+BreakInheritanceList: AfterComma
+
+BreakStringLiterals: true
+BreakTemplateDeclarations: Yes
+ColumnLimit: 170
+
+CompactNamespaces: false
+ConstructorInitializerIndentWidth: 2
+ContinuationIndentWidth: 2
+EmptyLineAfterAccessModifier: Never
+EmptyLineBeforeAccessModifier: LogicalBlock
+
+EnumTrailingComma: Leave
+FixNamespaceComments: true
+IncludeBlocks: Regroup
+IndentAccessModifiers: false 
+IndentCaseBlocks: true
+IndentCaseLabels: false
+IndentExportBlock: false
+IndentExternBlock: false
+IndentGotoLabels: false
+IndentPPDirectives: AfterHash
+IndentRequiresClause: false
+IndentWrappedFunctionNames: false
+
+InsertBraces: false
+InsertNewlineAtEOF: true
+InsertTrailingCommas: None
+
+IntegerLiteralSeparator:
+  Binary: 0
+  Decimal: 0
+  Hex: 0
+
+LineEnding: DeriveLF
+
+MaxEmptyLinesToKeep: 3
+
+PPIndentWidth: 2
+
+
+PackConstructorInitializers: BinPack
+
+PointerAlignment: Left
+
+QualifierAlignment: Custom
+QualifierOrder: [inline, friend, static, constexpr, const, volatile, restrict, type]
+
+ReferenceAlignment: Right
+ReflowComments: Always
+RemoveBracesLLVM: False
+
+RemoveEmptyLinesInUnwrappedLines: true
+RemoveParentheses: Leave
+
+RequiresClausePosition: OwnLine
+RequiresExpressionIndentation: Keyword
+
+SeparateDefinitionBlocks: Always
+ShortNamespaceLines: 0
+
+SortIncludes:
+  Enabled: true
+  IgnoreCase: false
+
+SortUsingDeclarations: true
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceAfterOperatorKeyword: false
+SpaceAfterTemplateKeyword: false
+SpaceAroundPointerQualifiers: Default
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCaseColon: false
+SpaceBeforeCpp11BracedList: false
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: Never
+SpaceBeforeRangeBasedForLoopColon: false
+SpaceBeforeSquareBrackets: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: Never
+SpacesInCStyleCastParentheses: false
+SpacesInConditionalStatement: false
+SpacesInContainerLiterals: false
+SpacesInLineCommentPrefix:
+  Minimum: 1
+  Maximum: 1
+
+SpacesInParens: Never
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+Standard: Latest
+TabWidth: 4
+
+WrapNamespaceBodyWithEmptyLines: Leave
+

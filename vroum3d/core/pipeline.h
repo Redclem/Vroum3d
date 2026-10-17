@@ -1,520 +1,426 @@
 #ifndef VROUM3D_CORE_PIPELINE_H_INCLUDED
 #define VROUM3D_CORE_PIPELINE_H_INCLUDED
 
-#include "instance.h"
 #include "../utility.h"
+#include "../volk_wrapper.h"
+#include "instance.h"
+
 #include <algorithm>
 #include <compare>
+#include <map>
 #include <memory>
 #include <set>
-#include <string_view>
-#include "../volk_wrapper.h"
-
 #include <spirv_reflect.h>
-
-#include <map>
+#include <string_view>
 
 namespace Vroum3d::Core
 {
 
 /* Manages shaders, layouts, descriptor set layouts, .... */
-class PipelineResource : public AssignDestroy<PipelineResource>
-{
-	VkHandle<VkPipelineCache> m_cache;
-	VkDevice m_device;
-	VkFormat m_color_format, m_depth_format;
+class PipelineResource : public AssignDestroy<PipelineResource> {
+  VkHandle<VkPipelineCache> m_cache;
+  VkDevice m_device;
+  VkFormat m_color_format, m_depth_format;
+
 public:
-	
-	constexpr static std::uint32_t c_variable_binding_max_size = 1 << 16;
+  static constexpr std::uint32_t c_variable_binding_max_size = 1 << 16;
 
-	struct ShaderModule
-	{
-		VkHandle<VkShaderModule> vk_mod;
-		SpvReflectShaderModule spv_module{};
-	};
+  struct ShaderModule
+  {
+    VkHandle<VkShaderModule> vk_mod;
+    SpvReflectShaderModule spv_module{};
+  };
 
-	struct DescriptorSetDescription
-	{
-		struct BindingInfo
-		{
-			VkDescriptorType descriptorType;
-			std::uint32_t descriptorCount;
-			VkShaderStageFlags stageFlags;
-			bool immusamp = false;
+  struct DescriptorSetDescription
+  {
+    struct BindingInfo
+    {
+      VkDescriptorType descriptorType;
+      std::uint32_t descriptorCount;
+      VkShaderStageFlags stageFlags;
+      bool immusamp = false;
 
-      auto operator<=>(const BindingInfo& rhs) const
+      auto operator<=>(const BindingInfo &rhs) const
       {
-        if(auto cmp = descriptorType <=> rhs.descriptorType; cmp != std::strong_ordering::equal) return cmp;
-        if(auto cmp = descriptorCount <=> rhs.descriptorCount; cmp != std::strong_ordering::equal) return cmp;
-        if(auto cmp = stageFlags <=> rhs.stageFlags; cmp != std::strong_ordering::equal) return cmp;
+        if(auto cmp = descriptorType <=> rhs.descriptorType; cmp != std::strong_ordering::equal)
+          return cmp;
+        if(auto cmp = descriptorCount <=> rhs.descriptorCount; cmp != std::strong_ordering::equal)
+          return cmp;
+        if(auto cmp = stageFlags <=> rhs.stageFlags; cmp != std::strong_ordering::equal)
+          return cmp;
         return immusamp <=> rhs.immusamp;
       }
-		};
+    };
 
+    std::map<std::uint32_t, BindingInfo> bindings;
 
+    void load_descriptor_set(const SpvReflectDescriptorSet*, VkShaderStageFlags);
 
-		std::map<std::uint32_t, BindingInfo> bindings;
-
-		void load_descriptor_set(const SpvReflectDescriptorSet*, VkShaderStageFlags);
-
-		void add_binding(std::uint32_t binding, VkDescriptorType tpe, std::uint32_t descriptorCount, VkShaderStageFlags stages)
+    void add_binding(std::uint32_t binding, VkDescriptorType tpe, std::uint32_t descriptorCount, VkShaderStageFlags stages)
     {
       bindings.emplace(binding, BindingInfo{tpe, descriptorCount, stages});
     }
-		
-    auto operator<=>(const DescriptorSetDescription& rhs) const
+
+    auto operator<=>(const DescriptorSetDescription &rhs) const
     {
       return std::lexicographical_compare_three_way(bindings.begin(), bindings.end(), rhs.bindings.begin(), rhs.bindings.end(),
-                                                    [](const auto&a, const auto& b){return a.second <=> b.second;});
+                                                    [](const auto &a, const auto &b) { return a.second <=> b.second; });
     }
-	};
+  };
 
-	using shader_module_t = ShaderModule;
-	using shaders_t = std::map<std::string, shader_module_t>;
+  using shader_module_t = ShaderModule;
+  using shaders_t = std::map<std::string, shader_module_t>;
+
 private:
-	shaders_t m_shaders;
+  shaders_t m_shaders;
 
-	
-	using descriptor_set_description_t = DescriptorSetDescription;
-	using descriptor_set_layouts_t = std::map<DescriptorSetDescription, VkHandle<VkDescriptorSetLayout>>;
+  using descriptor_set_description_t = DescriptorSetDescription;
+  using descriptor_set_layouts_t = std::map<DescriptorSetDescription, VkHandle<VkDescriptorSetLayout>>;
 
-	descriptor_set_layouts_t m_descriptor_set_layouts;
+  descriptor_set_layouts_t m_descriptor_set_layouts;
 
-	struct PipelineLayoutDescription
-	{
-		std::vector<VkDescriptorSetLayout> layouts;
-		std::vector<VkPushConstantRange> pranges;
+  struct PipelineLayoutDescription
+  {
+    std::vector<VkDescriptorSetLayout> layouts;
+    std::vector<VkPushConstantRange> pranges;
 
     struct PushConstantRangeThreeWayCompare
     {
-      auto operator()(const VkPushConstantRange& a, const VkPushConstantRange& b)
+      auto operator()(const VkPushConstantRange &a, const VkPushConstantRange &b)
       {
-        if(auto cmp = a.stageFlags <=> b.stageFlags; cmp != std::strong_ordering::equal) return cmp;
-        if(auto cmp = a.offset <=> b.offset; cmp != std::strong_ordering::equal) return cmp;
+        if(auto cmp = a.stageFlags <=> b.stageFlags; cmp != std::strong_ordering::equal)
+          return cmp;
+        if(auto cmp = a.offset <=> b.offset; cmp != std::strong_ordering::equal)
+          return cmp;
         return a.size <=> b.size;
       }
     };
 
-    auto operator<=>(const PipelineLayoutDescription& rhs) const
+    auto operator<=>(const PipelineLayoutDescription &rhs) const
     {
-      if(auto cmp = std::lexicographical_compare_three_way(layouts.begin(), layouts.end(), rhs.layouts.begin(), rhs.layouts.end());
-        cmp != std::strong_ordering::equal) return cmp;
+      if(auto cmp = std::lexicographical_compare_three_way(layouts.begin(), layouts.end(), rhs.layouts.begin(), rhs.layouts.end()); cmp != std::strong_ordering::equal)
+        return cmp;
       return std::lexicographical_compare_three_way(pranges.begin(), pranges.end(), rhs.pranges.begin(), rhs.pranges.end(), PushConstantRangeThreeWayCompare());
     }
-	};
+  };
 
-	using pipeline_layout_description_t = PipelineLayoutDescription;
-	using pipeline_layouts_t = std::map<PipelineLayoutDescription, VkHandle<VkPipelineLayout>>;
+  using pipeline_layout_description_t = PipelineLayoutDescription;
+  using pipeline_layouts_t = std::map<PipelineLayoutDescription, VkHandle<VkPipelineLayout>>;
 
-	pipeline_layouts_t m_pipeline_layouts;
+  pipeline_layouts_t m_pipeline_layouts;
 
-	constexpr static std::size_t c_n_immutable_samplers = 1;
+  static constexpr std::size_t c_n_immutable_samplers = 1;
 
-	std::array<VkHandle<VkSampler>, c_n_immutable_samplers> m_immutable_samplers;
+  std::array<VkHandle<VkSampler>, c_n_immutable_samplers> m_immutable_samplers;
 
 public:
-
-  class PipelineLayouts : pipeline_layouts_t::iterator
-  {
+  class PipelineLayouts : pipeline_layouts_t::iterator {
     using base_t = pipeline_layouts_t::iterator;
-    
+
     friend PipelineResource;
+
     PipelineLayouts(base_t b) : base_t(b) {}
 
-    const base_t& base() const {return static_cast<const base_t&>(*this);}
+    const base_t &base() const { return static_cast<const base_t &>(*this); }
+
   public:
     PipelineLayouts() {}
 
-    VkPipelineLayout layout() const {return base()->second;}
-    const auto& descriptor_set_layouts() const {return base()->first.layouts;}
+    VkPipelineLayout layout() const { return base()->second; }
+
+    const auto &descriptor_set_layouts() const { return base()->first.layouts; }
   };
 
-  VkDevice device() const {return m_device;}
+  VkDevice device() const { return m_device; }
 
-	constexpr static const char * cache_pth = "vk_pipeline_cache";
-	PipelineResource(DisplayInstance& inst) : m_device(inst.device()), m_color_format(inst.color_format()),
-		m_depth_format(inst.depth_format())
-	{
-		init_cache();
-	}
+  static constexpr const char* cache_pth = "vk_pipeline_cache";
 
-	const VkFormat& color_format() const {return m_color_format;}
-	const VkFormat& depth_format() const {return m_depth_format;}
+  PipelineResource(DisplayInstance &inst) : m_device(inst.device()), m_color_format(inst.color_format()), m_depth_format(inst.depth_format()) { init_cache(); }
 
-	void destroy()
-	{
-		for(auto& elem : m_immutable_samplers)
-			elem.destroy_with([&](auto samp){vkDestroySampler(device(), samp, nullptr);});
+  const VkFormat &color_format() const { return m_color_format; }
 
-		write_cache();
+  const VkFormat &depth_format() const { return m_depth_format; }
 
-		m_cache.destroy_with([&](auto cache){vkDestroyPipelineCache(m_device, cache, nullptr);});
+  void destroy()
+  {
+    for(auto &elem: m_immutable_samplers) elem.destroy_with([&](auto samp) { vkDestroySampler(device(), samp, nullptr); });
 
-		for(auto& [_, mod] : m_shaders)
-		{
-			if(VK_NULL_HANDLE != mod.vk_mod)
-				vkDestroyShaderModule(m_device, mod.vk_mod, nullptr);
-			spvReflectDestroyShaderModule(&mod.spv_module);
-		}
+    write_cache();
 
-		m_shaders.clear();
+    m_cache.destroy_with([&](auto cache) { vkDestroyPipelineCache(m_device, cache, nullptr); });
 
-		for(auto& [_, dsl] : m_descriptor_set_layouts)
-		{
-			if(VK_NULL_HANDLE != dsl)
-				vkDestroyDescriptorSetLayout(m_device, dsl, nullptr);
-		}
+    for(auto &[_, mod]: m_shaders)
+    {
+      if(VK_NULL_HANDLE != mod.vk_mod)
+        vkDestroyShaderModule(m_device, mod.vk_mod, nullptr);
+      spvReflectDestroyShaderModule(&mod.spv_module);
+    }
 
-		m_descriptor_set_layouts.clear();
+    m_shaders.clear();
 
-		for(auto& [_, pl] : m_pipeline_layouts)
-		{
-			if(VK_NULL_HANDLE != pl)
-				vkDestroyPipelineLayout(m_device, pl, nullptr);
-		}
+    for(auto &[_, dsl]: m_descriptor_set_layouts)
+    {
+      if(VK_NULL_HANDLE != dsl)
+        vkDestroyDescriptorSetLayout(m_device, dsl, nullptr);
+    }
+
+    m_descriptor_set_layouts.clear();
+
+    for(auto &[_, pl]: m_pipeline_layouts)
+    {
+      if(VK_NULL_HANDLE != pl)
+        vkDestroyPipelineLayout(m_device, pl, nullptr);
+    }
 
     m_pipeline_layouts.clear();
-	}
+  }
 
-	~PipelineResource()
-	{
-		destroy();
-	}
+  ~PipelineResource() { destroy(); }
 
-	VkDescriptorSetLayout get_descriptor_set_layout(DescriptorSetDescription&&);
+  VkDescriptorSetLayout get_descriptor_set_layout(DescriptorSetDescription &&);
 
-	template<typename ... Shaders>
-	PipelineLayouts get_shader_layouts(Shaders&& ... shaders)
+  template<typename... Shaders>
+  PipelineLayouts get_shader_layouts(Shaders &&... shaders)
   {
-	  std::array<const ShaderModule*, sizeof...(shaders)> shad_array({&shaders...});
+    std::array<const ShaderModule*, sizeof...(shaders)> shad_array({&shaders...});
     return get_shader_layouts(shad_array.begin(), shad_array.end());
   }
 
   template<typename Iter, std::enable_if_t<!std::is_same_v<Iter, ShaderModule>, bool> = true>
   PipelineLayouts get_shader_layouts(Iter first, Iter last);
 
-	const ShaderModule& require_shader(std::string_view path);
+  const ShaderModule &require_shader(std::string_view path);
 
-	VkPipelineCache cache() const {return m_cache;}
+  VkPipelineCache cache() const { return m_cache; }
 
 private:
-	void init_cache();
+  void init_cache();
 
-	void write_cache();
+  void write_cache();
 
-	void require_immutable_samplers(std::size_t n_samplers);
+  void require_immutable_samplers(std::size_t n_samplers);
 
-	constexpr static const char* c_immutable_samplers_name = "u_immutable_samplers";
-	constexpr static std::array<VkSamplerCreateInfo, c_n_immutable_samplers> c_immutable_sampler_info = {{
-		{
-			VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-			nullptr,
-			0,
-			VK_FILTER_LINEAR,
-			VK_FILTER_LINEAR,
-			VK_SAMPLER_MIPMAP_MODE_LINEAR,
-			VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-			VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-			VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-			0.0f,
-			VK_FALSE,
-			0.0f,
-			VK_FALSE,
-			VK_COMPARE_OP_EQUAL,
-			0.0f,
-			0.0f,
-			VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
-			VK_FALSE
-		}
-		}};
-
+  static constexpr const char* c_immutable_samplers_name = "u_immutable_samplers";
+  static constexpr std::array<VkSamplerCreateInfo, c_n_immutable_samplers> c_immutable_sampler_info = {
+    {{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO, nullptr, 0, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0.0f, VK_FALSE, 0.0f, VK_FALSE, VK_COMPARE_OP_EQUAL, 0.0f, 0.0f,
+      VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK, VK_FALSE}}};
 };
 
-/** Base pipeline class equipped to store a reference to its layout and relevant descriptor set layouts */
-class BasePipeline : public AssignDestroy<BasePipeline>
-{
+/** Base pipeline class equipped to store a reference to its layout and
+ * relevant descriptor set layouts */
+class BasePipeline : public AssignDestroy<BasePipeline> {
 public:
   using PipelineLayouts = PipelineResource::PipelineLayouts;
 
   BasePipeline(VkDevice device) : m_device(device) {}
 
-	void destroy()
-	{
-		m_pipeline.destroy_with([&](auto pipe){vkDestroyPipeline(m_device, pipe, nullptr);});
-	}
+  void destroy()
+  {
+    m_pipeline.destroy_with([&](auto pipe) { vkDestroyPipeline(m_device, pipe, nullptr); });
+  }
 
-	~BasePipeline()
-	{
-		destroy();
-	}
+  ~BasePipeline() { destroy(); }
 
-	VkPipeline pipeline() const {return m_pipeline;}
+  VkPipeline pipeline() const { return m_pipeline; }
 
-  VkPipelineLayout layout() const {return m_layouts.layout();}
-  const auto& descriptor_set_layouts() const {return m_layouts.descriptor_set_layouts();}
+  VkPipelineLayout layout() const { return m_layouts.layout(); }
 
-  VkDescriptorSetLayout descriptor_set_layout(auto idx) const {return m_layouts.descriptor_set_layouts()[idx];}
+  const auto &descriptor_set_layouts() const { return m_layouts.descriptor_set_layouts(); }
+
+  VkDescriptorSetLayout descriptor_set_layout(auto idx) const { return m_layouts.descriptor_set_layouts()[idx]; }
 
 protected:
-	VkDevice m_device;
+  VkDevice m_device;
 
-	VkHandle<VkPipeline> m_pipeline;
-  
+  VkHandle<VkPipeline> m_pipeline;
+
   PipelineLayouts m_layouts;
 };
 
 /** Base graphics pipeline class */
-class Pipeline : public BasePipeline
-{
+class Pipeline : public BasePipeline {
 public:
+  template<typename PipelineInformation>
+  Pipeline(PipelineResource &pr, PipelineInformation &&pi) : BasePipeline(pr.device())
+  {
+    create_pipeline(pr, std::forward<PipelineInformation>(pi));
+  }
 
-	template<typename PipelineInformation>
-	Pipeline(PipelineResource& pr, PipelineInformation&& pi) : BasePipeline(pr.device())
-	{
-		create_pipeline(pr, std::forward<PipelineInformation>(pi));
-	}
+  template<typename PipelineInformation>
+  void create_pipeline(PipelineResource &pr, PipelineInformation &&pi);
 
-	template<typename PipelineInformation>
-	void create_pipeline(PipelineResource &pr, PipelineInformation&& pi);
 private:
 };
 
-
-
-/*******************************//**
-  * Implems of template functions
-***********************************/
-
+/*******************************/ /**
+                                   * Implems of template functions
+                                   ***********************************/
 
 template<typename Iter, std::enable_if_t<!std::is_same_v<Iter, PipelineResource::ShaderModule>, bool>>
 PipelineResource::PipelineLayouts PipelineResource::get_shader_layouts(Iter first, Iter last)
 {
-	std::vector<DescriptorSetDescription> descriptions;
-	std::map<std::pair<std::uint32_t, std::uint32_t>, VkShaderStageFlags> push_consts;
+  std::vector<DescriptorSetDescription> descriptions;
+  std::map<std::pair<std::uint32_t, std::uint32_t>, VkShaderStageFlags> push_consts;
 
-	for(; first != last; ++first)
-	{
+  for(; first != last; ++first)
+  {
     const ShaderModule* smod = *first;
 
-		std::uint32_t n_ds;
-		spvr_check(spvReflectEnumerateDescriptorSets(&smod->spv_module, &n_ds, nullptr));
-		VkShaderStageFlags stage = static_cast<VkShaderStageFlags>(smod->spv_module.shader_stage);
+    std::uint32_t n_ds;
+    spvr_check(spvReflectEnumerateDescriptorSets(&smod->spv_module, &n_ds, nullptr));
+    VkShaderStageFlags stage = static_cast<VkShaderStageFlags>(smod->spv_module.shader_stage);
 
-		if(n_ds != 0)
-		{
-			std::vector<SpvReflectDescriptorSet*> ds(n_ds);
-			spvr_check(spvReflectEnumerateDescriptorSets(&smod->spv_module, &n_ds, ds.data()));
+    if(n_ds != 0)
+    {
+      std::vector<SpvReflectDescriptorSet*> ds(n_ds);
+      spvr_check(spvReflectEnumerateDescriptorSets(&smod->spv_module, &n_ds, ds.data()));
 
-			std::uint32_t max_set(0);
+      std::uint32_t max_set(0);
 
-			for(auto* desc : ds)
-				max_set = std::max(max_set, desc->set);
+      for(auto* desc: ds) max_set = std::max(max_set, desc->set);
 
-			if(descriptions.size() <= max_set)
-				descriptions.resize(max_set + 1);
+      if(descriptions.size() <= max_set)
+        descriptions.resize(max_set + 1);
 
-			for(auto* desc_set : ds)
-			{
-				descriptions[desc_set->set].load_descriptor_set(desc_set,
-					stage);
-			}
-		}
+      for(auto* desc_set: ds) { descriptions[desc_set->set].load_descriptor_set(desc_set, stage); }
+    }
 
-		for(auto pc_iter = smod->spv_module.push_constant_blocks,
-			pc_end = smod->spv_module.push_constant_blocks + smod->spv_module.push_constant_block_count; pc_iter != pc_end; ++pc_iter)
-		{
-			auto [iter, ins] = push_consts.emplace(std::pair{pc_iter->offset, pc_iter->size}, stage);
-			if(!ins) iter->second |= stage;
-		}
-	}
+    for(auto pc_iter = smod->spv_module.push_constant_blocks, pc_end = smod->spv_module.push_constant_blocks + smod->spv_module.push_constant_block_count;
+        pc_iter != pc_end; ++pc_iter)
+    {
+      auto [iter, ins] = push_consts.emplace(std::pair{pc_iter->offset, pc_iter->size}, stage);
+      if(!ins)
+        iter->second |= stage;
+    }
+  }
 
-	std::vector<VkDescriptorSetLayout> layouts(descriptions.size());
+  std::vector<VkDescriptorSetLayout> layouts(descriptions.size());
 
-	std::transform(descriptions.begin(), descriptions.end(), layouts.begin(),
-	 [&](DescriptorSetDescription& des) {return get_descriptor_set_layout(std::move(des));}
-	);
+  std::transform(descriptions.begin(), descriptions.end(), layouts.begin(), [&](DescriptorSetDescription &des) { return get_descriptor_set_layout(std::move(des)); });
 
-	std::vector<VkPushConstantRange> ranges(push_consts.size());
+  std::vector<VkPushConstantRange> ranges(push_consts.size());
 
-	std::transform(push_consts.begin(), push_consts.end(), ranges.begin(),
-	 [](const auto& pc) -> VkPushConstantRange {
-	 return {
-		pc.second,
-		pc.first.first,
-		pc.first.second};
-	 });
+  std::transform(push_consts.begin(), push_consts.end(), ranges.begin(),
+                 [](const auto &pc) -> VkPushConstantRange { return {pc.second, pc.first.first, pc.first.second}; });
 
-	auto [iter, wasins] = m_pipeline_layouts.emplace(
-		PipelineLayoutDescription{std::move(layouts), std::move(ranges)},
-		VK_NULL_HANDLE);
+  auto [iter, wasins] = m_pipeline_layouts.emplace(PipelineLayoutDescription{std::move(layouts), std::move(ranges)}, VK_NULL_HANDLE);
 
-	if(!wasins) return iter;
+  if(!wasins)
+    return iter;
 
-	VkPipelineLayoutCreateInfo pli{
-		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		nullptr,
-		0,
-		std::uint32_t(iter->first.layouts.size()),
-		iter->first.layouts.data(),
-		std::uint32_t(iter->first.pranges.size()),
-		iter->first.pranges.data()
-	};
+  VkPipelineLayoutCreateInfo pli{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+                                 nullptr,
+                                 0,
+                                 std::uint32_t(iter->first.layouts.size()),
+                                 iter->first.layouts.data(),
+                                 std::uint32_t(iter->first.pranges.size()),
+                                 iter->first.pranges.data()};
 
-	vk_check(vkCreatePipelineLayout(m_device, &pli, nullptr, &iter->second));
+  vk_check(vkCreatePipelineLayout(m_device, &pli, nullptr, &iter->second));
 
-	return iter;
+  return iter;
 }
 
 template<typename PipelineInformation>
-void Pipeline::create_pipeline(PipelineResource& pr, PipelineInformation&& pi)
+void Pipeline::create_pipeline(PipelineResource &pr, PipelineInformation &&pi)
 {
   m_layouts = pi.get_layouts();
 
-	VkGraphicsPipelineCreateInfo gpi;
-	gpi.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	gpi.pNext = nullptr;
-	gpi.flags = 0;
+  VkGraphicsPipelineCreateInfo gpi;
+  gpi.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+  gpi.pNext = nullptr;
+  gpi.flags = 0;
 
-	const auto& shad_stages = pi.get_stages();
-	gpi.stageCount = shad_stages.size();
-	gpi.pStages = shad_stages.data();
+  const auto &shad_stages = pi.get_stages();
+  gpi.stageCount = shad_stages.size();
+  gpi.pStages = shad_stages.data();
 
-	const auto& vbds = pi.get_vertex_binding_descriptions();
-	const auto& vads = pi.get_vertex_attribute_descriptions();
+  const auto &vbds = pi.get_vertex_binding_descriptions();
+  const auto &vads = pi.get_vertex_attribute_descriptions();
 
-	VkPipelineVertexInputStateCreateInfo visi{
-		VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		nullptr,
-		0,
-		std::uint32_t(vbds.size()),
-		vbds.data(),
-		std::uint32_t(vads.size()),
-		vads.data()
-	};
+  VkPipelineVertexInputStateCreateInfo visi{
+    VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO, nullptr, 0, std::uint32_t(vbds.size()), vbds.data(), std::uint32_t(vads.size()), vads.data()};
 
-	gpi.pVertexInputState = &visi;
-	
-	VkPipelineInputAssemblyStateCreateInfo pias{
-		VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		nullptr,
-		0,
-		pi.get_primitive_topology(),
-		pi.get_primitive_restart_enable()
-	};
+  gpi.pVertexInputState = &visi;
 
-	gpi.pInputAssemblyState = &pias;
+  VkPipelineInputAssemblyStateCreateInfo pias{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO, nullptr, 0, pi.get_primitive_topology(),
+                                              pi.get_primitive_restart_enable()};
 
-	VkPipelineTessellationStateCreateInfo tsi{
-		VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
-		nullptr,
-		0,
-		0
-	};
+  gpi.pInputAssemblyState = &pias;
 
-	gpi.pTessellationState = &tsi;
+  VkPipelineTessellationStateCreateInfo tsi{VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO, nullptr, 0, 0};
 
-	VkPipelineViewportStateCreateInfo vsi{
-		VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-		nullptr,
-		0,
-		1,
-		nullptr,
-		1,
-		nullptr
-	};
+  gpi.pTessellationState = &tsi;
 
-	gpi.pViewportState = &vsi;
+  VkPipelineViewportStateCreateInfo vsi{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO, nullptr, 0, 1, nullptr, 1, nullptr};
 
-	/*! TODO:  More settings for rasterization and default values
-	    *  \todo  More settings for rasterization and default values
-	    */
-	VkPipelineRasterizationStateCreateInfo rsi{
-		VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-		nullptr,
-		0,
-		VK_FALSE,
-		pi.rasterizer_discard_enable(),
-		VK_POLYGON_MODE_FILL,
-		VK_CULL_MODE_NONE,
-		VK_FRONT_FACE_COUNTER_CLOCKWISE,
-		VK_FALSE,
-		0.0f,
-		0.0f,
-		0.0f,
-		1.0f
-	};
+  gpi.pViewportState = &vsi;
 
-	gpi.pRasterizationState = &rsi;
+  /*! TODO:  More settings for rasterization and default values
+   *  \todo  More settings for rasterization and default values
+   */
+  VkPipelineRasterizationStateCreateInfo rsi{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+                                             nullptr,
+                                             0,
+                                             VK_FALSE,
+                                             pi.rasterizer_discard_enable(),
+                                             VK_POLYGON_MODE_FILL,
+                                             VK_CULL_MODE_NONE,
+                                             VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                                             VK_FALSE,
+                                             0.0f,
+                                             0.0f,
+                                             0.0f,
+                                             1.0f};
 
-	VkPipelineMultisampleStateCreateInfo msi{
-		VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		nullptr,
-		0,
-		VK_SAMPLE_COUNT_1_BIT,
-		VK_FALSE,
-		0.0f,
-		nullptr,
-		VK_FALSE,
-		VK_FALSE
-	};
+  gpi.pRasterizationState = &rsi;
 
-	gpi.pMultisampleState = &msi;
+  VkPipelineMultisampleStateCreateInfo msi{
+    VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO, nullptr, 0, VK_SAMPLE_COUNT_1_BIT, VK_FALSE, 0.0f, nullptr, VK_FALSE, VK_FALSE};
 
-	VkPipelineDepthStencilStateCreateInfo dssi{
-		VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-		nullptr,
-		0,
-		pi.depth_test_enable(),
-		pi.depth_write_enable(),
-		pi.depth_compare_op(),
-    VK_FALSE,
-		VK_FALSE,
-		{}, {},
-		0.0f,
-		1.0f
-	};
+  gpi.pMultisampleState = &msi;
 
-	gpi.pDepthStencilState = &dssi;
+  VkPipelineDepthStencilStateCreateInfo dssi{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+                                             nullptr,
+                                             0,
+                                             pi.depth_test_enable(),
+                                             pi.depth_write_enable(),
+                                             pi.depth_compare_op(),
+                                             VK_FALSE,
+                                             VK_FALSE,
+                                             {},
+                                             {},
+                                             0.0f,
+                                             1.0f};
 
-	auto cbas = pi.blend_attachment_states();
+  gpi.pDepthStencilState = &dssi;
 
-	VkPipelineColorBlendStateCreateInfo cbsi{
-		VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-		nullptr,
-		0,
-		VK_FALSE,
-		VK_LOGIC_OP_NO_OP,
-		cbas.size(),
-		cbas.data(),
-		{0}
-	};
+  auto cbas = pi.blend_attachment_states();
 
-	gpi.pColorBlendState = &cbsi;
+  VkPipelineColorBlendStateCreateInfo cbsi{
+    VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO, nullptr, 0, VK_FALSE, VK_LOGIC_OP_NO_OP, cbas.size(), cbas.data(), {0}};
 
-	std::array<VkDynamicState, 2> ds{VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+  gpi.pColorBlendState = &cbsi;
 
-	VkPipelineDynamicStateCreateInfo dsi{
-		VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-		nullptr,
-		0,
-		std::uint32_t(ds.size()),
-		ds.data()
-	};
+  std::array<VkDynamicState, 2> ds{VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 
-	gpi.pDynamicState = &dsi;
+  VkPipelineDynamicStateCreateInfo dsi{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO, nullptr, 0, std::uint32_t(ds.size()), ds.data()};
 
-	gpi.layout = layout();
-	gpi.renderPass = VK_NULL_HANDLE;
+  gpi.pDynamicState = &dsi;
 
-	VkPipelineRenderingCreateInfo pri = pi.rendering_info();
+  gpi.layout = layout();
+  gpi.renderPass = VK_NULL_HANDLE;
 
-	gpi.pNext = &pri;
+  VkPipelineRenderingCreateInfo pri = pi.rendering_info();
+
+  gpi.pNext = &pri;
   gpi.basePipelineHandle = pi.base_pipeline_handle();
   gpi.basePipelineIndex = pi.base_pipeline_index();
 
-	vk_check(vkCreateGraphicsPipelines(m_device, pr.cache(), 1, &gpi, nullptr, &m_pipeline));
-}	
-
+  vk_check(vkCreateGraphicsPipelines(m_device, pr.cache(), 1, &gpi, nullptr, &m_pipeline));
 }
+
+} // namespace Vroum3d::Core
 
 #endif
