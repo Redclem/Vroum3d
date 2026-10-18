@@ -21,7 +21,7 @@ public:
   using vertex_t = Math::vec3;
 
   void upload_as(VkDeviceOrHostAddressConstKHR data_source, VkDeviceOrHostAddressConstKHR index_data, VkCommandPool cmd_pool, uint32_t n_vertex, uint32_t n_index,
-                 VkDeviceOrHostAddressKHR scratch);
+                 VkBuffer scratch_buffer, VkDeviceOrHostAddressKHR scratch);
   void create_as(uint32_t n_vertex, uint32_t n_index, VkDeviceSize &scratch_size);
 
   void destroy();

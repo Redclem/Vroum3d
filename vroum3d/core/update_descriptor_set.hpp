@@ -111,6 +111,7 @@ struct WriteAccelerationStructure
   VkWriteDescriptorSet export_write() const
   {
     auto write = m_location.get_write_skeleton();
+    write.descriptorCount = m_acc_structs.size();
     write.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     write.pNext = &m_write_acc;
 

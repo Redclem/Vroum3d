@@ -77,7 +77,7 @@ class DefaultInstanceInfo : public InstanceInfoDebug<debug> {
    * -> VkInstance created, with extensions and layers returned from inst_exts_lays() and pNext from instance_pnext().
    * -> (if debug) debug messenger created, with debug messenger creation info from debug_messenger_info().
    * -> (if display) send VkSurfaceKHR handle to InstanceInfo using set_surface
-   * -> Physical Devices rated by int64_t rate_physical_device()
+   * -> Physical Devices rated by int64_t rate_physical_device(VkPhysicalDevice, void*)
    * -> Physical Device features queried by query_features(VkPhysicalDevice) and store in struct (Not in vkXXfeats, they may be cleared!)
    * -> device pNext chain built and returned by build_device_pnext(VkPhysicalDevice) using structs in InstanceInfo
    * -> device create with extensions from dev_exts()
@@ -191,11 +191,12 @@ public:
    * A negative return value means the device is not suitable for use.
    * Default function gives zero to all devices.
    */
-  int64_t rate_physical_device(VkPhysicalDevice pdev)
+  int64_t rate_physical_device(VkPhysicalDevice pdev, void* pNext = nullptr)
   {
     m_Features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     m_Features2.pNext = &m_Vulkan12Features;
     m_Vulkan12Features.pNext = &m_Vulkan13Features;
+    m_Vulkan13Features.pNext = pNext;
 
     vkGetPhysicalDeviceFeatures2(pdev, &m_Features2);
 
@@ -288,9 +289,9 @@ struct DisplayInstanceInfo : public InstanceInfo
 
   VkImageUsageFlags depth_image_additional_usage() const { return 0; }
 
-  int64_t rate_physical_device(VkPhysicalDevice pdev)
+  int64_t rate_physical_device(VkPhysicalDevice pdev, void* pNext = nullptr)
   {
-    auto score = InstanceInfo::rate_physical_device(pdev);
+    auto score = InstanceInfo::rate_physical_device(pdev, pNext);
 
     if(this->m_Vulkan13Features.dynamicRendering != VK_TRUE)
       return -1;

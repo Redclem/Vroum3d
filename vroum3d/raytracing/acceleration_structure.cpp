@@ -15,80 +15,6 @@ void SimpleTriangleAccelerationStructure::destroy()
   m_instance->free(m_buffer_mem);
 }
 
-void SimpleTriangleAccelerationStructure::upload_as(VkDeviceOrHostAddressConstKHR vertex_data, VkDeviceOrHostAddressConstKHR index_data, VkCommandPool cmd_pool,
-                                                    uint32_t n_vertex, uint32_t n_index, VkDeviceOrHostAddressKHR scratch)
-{
-  /*VkBufferDeviceAddressInfo bdi{
-    VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-    nullptr,
-    m_buffer
-  };
-
-  VkDeviceAddress adr = vkGetBufferDeviceAddress(device(), &bdi);*/
-
-  Core::CommandBuffer cmd_buf(*m_instance, cmd_pool);
-  cmd_buf.begin_primary();
-
-  VkAccelerationStructureGeometryKHR geom{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-                                          nullptr,
-                                          VK_GEOMETRY_TYPE_TRIANGLES_KHR,
-                                          {.triangles = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-                                                         nullptr,
-                                                         VK_FORMAT_R32G32B32_SFLOAT,
-                                                         vertex_data,
-                                                         sizeof(vertex_t),
-                                                         n_vertex - 1,
-                                                         VK_INDEX_TYPE_UINT32,
-                                                         index_data,
-                                                         {.hostAddress = nullptr}}},
-                                          0};
-
-  VkAccelerationStructureBuildGeometryInfoKHR bgi{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
-                                                  nullptr,
-                                                  VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
-                                                  0,
-                                                  VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
-                                                  VK_NULL_HANDLE,
-                                                  m_blas,
-                                                  1,
-                                                  &geom,
-                                                  nullptr,
-                                                  scratch};
-
-  VkAccelerationStructureBuildRangeInfoKHR asbr{n_index / 3, 0, 0, 0};
-
-  auto p_asbr = &asbr;
-
-  cmd_buf.cmd(vkCmdBuildAccelerationStructuresKHR, 1, &bgi, &p_asbr);
-
-  VkAccelerationStructureDeviceAddressInfoKHR asdai{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr, m_blas};
-
-  VkDeviceAddress blas_address = vkGetAccelerationStructureDeviceAddressKHR(device(), &asdai);
-
-  Core::Buffer tlas_build_buffer(*m_instance, sizeof(VkAccelerationStructureInstanceKHR),
-                                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-
-  *reinterpret_cast<VkAccelerationStructureInstanceKHR*>(tlas_build_buffer.map()) = {
-    VkTransformMatrixKHR{{{1.0f, 0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f}}}, 0, 0xFF, 0, 0, blas_address};
-
-  tlas_build_buffer.flush_unmap();
-
-  geom.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
-  geom.geometry.instances = VkAccelerationStructureGeometryInstancesDataKHR{
-    VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR, nullptr, VK_FALSE, {.deviceAddress = tlas_build_buffer.device_address()}};
-
-  bgi.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-  bgi.dstAccelerationStructure = m_tlas;
-
-  asbr.primitiveCount = 1;
-
-  cmd_buf.cmd(vkCmdBuildAccelerationStructuresKHR, 1, &bgi, &p_asbr);
-
-  cmd_buf.end();
-  m_instance->quick_submit(cmd_buf.cmd_buf(), m_instance->compute_queue());
-}
-
 void SimpleTriangleAccelerationStructure::create_as(uint32_t n_vertex, uint32_t n_index, VkDeviceSize &scratch_size)
 {
   VkAccelerationStructureGeometryKHR bl_geom{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -187,4 +113,94 @@ void SimpleTriangleAccelerationStructure::create_buffer(VkDeviceSize size)
 
   m_buffer_mem = m_instance->allocate(mr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
   vkBindBufferMemory(device(), m_buffer, m_buffer_mem.memory(), m_buffer_mem.offset());
+}
+
+void SimpleTriangleAccelerationStructure::upload_as(VkDeviceOrHostAddressConstKHR vertex_data, VkDeviceOrHostAddressConstKHR index_data, VkCommandPool cmd_pool,
+                                                    uint32_t n_vertex, uint32_t n_index, VkBuffer scratch_buffer, VkDeviceOrHostAddressKHR scratch_addr)
+{
+  /*VkBufferDeviceAddressInfo bdi{
+    VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+    nullptr,
+    m_buffer
+  };
+
+  VkDeviceAddress adr = vkGetBufferDeviceAddress(device(), &bdi);*/
+
+  Core::CommandBuffer cmd_buf(*m_instance, cmd_pool);
+  cmd_buf.begin_primary();
+
+  VkAccelerationStructureGeometryKHR geom{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+                                          nullptr,
+                                          VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+                                          {.triangles = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+                                                         nullptr,
+                                                         VK_FORMAT_R32G32B32_SFLOAT,
+                                                         vertex_data,
+                                                         sizeof(vertex_t),
+                                                         n_vertex - 1,
+                                                         VK_INDEX_TYPE_UINT32,
+                                                         index_data,
+                                                         {.hostAddress = nullptr}}},
+                                          0 & VK_GEOMETRY_OPAQUE_BIT_KHR};
+
+  VkAccelerationStructureBuildGeometryInfoKHR bgi{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+                                                  nullptr,
+                                                  VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+                                                  0,
+                                                  VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
+                                                  VK_NULL_HANDLE,
+                                                  m_blas,
+                                                  1,
+                                                  &geom,
+                                                  nullptr,
+                                                  scratch_addr};
+
+  VkAccelerationStructureBuildRangeInfoKHR asbr{n_index / 3, 0, 0, 0};
+
+  auto p_asbr = &asbr;
+
+  cmd_buf.cmd(vkCmdBuildAccelerationStructuresKHR, 1, &bgi, &p_asbr);
+
+  VkBufferMemoryBarrier2 bmb{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
+                             nullptr,
+                             VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+                             VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+                             VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+                             VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+                             0,
+                             0,
+                             scratch_buffer,
+                             0,
+                             VK_WHOLE_SIZE};
+
+  VkDependencyInfo di{VK_STRUCTURE_TYPE_DEPENDENCY_INFO, nullptr, 0, 0, nullptr, 1, &bmb, 0, nullptr};
+
+  cmd_buf.cmd(vkCmdPipelineBarrier2, &di);
+
+  VkAccelerationStructureDeviceAddressInfoKHR asdai{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr, m_blas};
+
+  VkDeviceAddress blas_address = vkGetAccelerationStructureDeviceAddressKHR(device(), &asdai);
+
+  Core::Buffer tlas_build_buffer(*m_instance, sizeof(VkAccelerationStructureInstanceKHR),
+                                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+  *reinterpret_cast<VkAccelerationStructureInstanceKHR*>(tlas_build_buffer.map()) = {
+    VkTransformMatrixKHR{{{1.0f, 0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f}}}, 0, 0xFF, 0, 0, blas_address};
+
+  tlas_build_buffer.flush_unmap();
+
+  geom.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+  geom.geometry.instances = VkAccelerationStructureGeometryInstancesDataKHR{
+    VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR, nullptr, VK_FALSE, {.deviceAddress = tlas_build_buffer.device_address()}};
+
+  bgi.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+  bgi.dstAccelerationStructure = m_tlas;
+
+  asbr.primitiveCount = 1;
+
+  cmd_buf.cmd(vkCmdBuildAccelerationStructuresKHR, 1, &bgi, &p_asbr);
+
+  cmd_buf.end();
+  m_instance->quick_submit(cmd_buf.cmd_buf(), m_instance->compute_queue());
 }

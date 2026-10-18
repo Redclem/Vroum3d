@@ -23,9 +23,9 @@ int main(int, char*[])
 
   CommandPool cmd_pool(inst, inst.compute_queue_index());
 
-  Math::vec3 data[] = {{0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}};
+  Math::vec3 data[] = {{-1.0f, -1.0f, 0.0f}, {1.0f, -1.0f, 0.0f}, {-1.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 0.0f}};
 
-  uint32_t indexes[] = {0, 1, 2};
+  uint32_t indexes[] = {0, 1, 2, 1, 2, 3};
 
   Buffer buf(inst, sizeof(data) + sizeof(indexes), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
@@ -39,16 +39,17 @@ int main(int, char*[])
   Raytracing::SimpleTriangleAccelerationStructure as(inst);
 
   VkDeviceSize scratch_size;
-  as.create_as(3, 3, scratch_size);
+  as.create_as(4, 6, scratch_size);
 
   {
     Buffer scratch_buffer(inst, scratch_size,
                           VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 256);
 
     auto addr = buf.device_address();
 
-    as.upload_as({.deviceAddress = addr}, {.deviceAddress = addr + sizeof(data)}, cmd_pool, 3, 3, {.deviceAddress = scratch_buffer.device_address()});
+    as.upload_as({.deviceAddress = addr}, {.deviceAddress = addr + sizeof(data)}, cmd_pool, 4, 6, scratch_buffer.buffer(),
+                 {.deviceAddress = scratch_buffer.device_address()});
   }
 
   DescriptorPool des_pool(inst, 32, {{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 32}});
@@ -79,7 +80,7 @@ int main(int, char*[])
 
       cmd_buf.bind_graphics_pipeline(inst, pipe.pipeline());
 
-      cmd_buf.cmd(vkCmdBindDescriptorSets, VK_PIPELINE_BIND_POINT_COMPUTE, pipe.layout(), 0, 1, &ds, 0, nullptr);
+      cmd_buf.cmd(vkCmdBindDescriptorSets, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.layout(), 0, 1, &ds, 0, nullptr);
       cmd_buf.cmd(vkCmdDraw, 3, 1, 0, 0);
 
       cmd_buf.end_rendering(inst);

@@ -44,7 +44,8 @@ int main(int, char*[])
 
     auto addr = buf.device_address();
 
-    as.upload_as({.deviceAddress = addr}, {.deviceAddress = addr + sizeof(data)}, cmd_pool, 3, 3, {.deviceAddress = scratch_buffer.device_address()});
+    as.upload_as({.deviceAddress = addr}, {.deviceAddress = addr + sizeof(data)}, cmd_pool, 3, 3, scratch_buffer.buffer(),
+                 {.deviceAddress = scratch_buffer.device_address()});
   }
 
   vkDestroyCommandPool(inst.device(), cmd_pool, nullptr);
