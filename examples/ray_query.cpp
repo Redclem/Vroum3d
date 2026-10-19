@@ -5,9 +5,11 @@
 #include "core/pipeline_info.h"
 #include "core/update_descriptor_set.hpp"
 #include "debug.h"
+#include "math/mat.hpp"
 #include "raytracing/acceleration_structure.h"
 #include "raytracing/instance_info.h"
 
+#include <SDL3/SDL_events.h>
 #include <thread>
 #include <vulkan/vulkan_core.h>
 
@@ -52,15 +54,28 @@ int main(int, char*[])
                  {.deviceAddress = scratch_buffer.device_address()});
   }
 
-  DescriptorPool des_pool(inst, 32, {{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 32}});
+  DescriptorPool des_pool(inst, 32, {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 32}, {VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 32}});
 
   Core::Pipeline pipe(pr, RenderPipelineInformation(pr, "ray_query.vert.spv", "ray_query.frag.spv", {}, {}));
 
-  VkDescriptorSet ds = des_pool.allocate_descriptor_set(pipe.descriptor_set_layout(0));
+  std::array<VkDescriptorSet, Instance::c_frames_in_flight> ds;
+  des_pool.allocate_descriptor_sets({pipe.descriptor_set_layout(0), pipe.descriptor_set_layout(0)}, ds);
 
+  struct UniformStruct
+  {
+    Math::mat4 mat;
+    Math::vec3 camera_pos;
+  } uni;
+
+  Buffer uni_buf(inst, 2 * sizeof(UniformStruct), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+  
+  for(int i(0); i != ds.size(); ++i)
   {
     using namespace UpdateDescriptorSet;
-    update_descriptor_sets(inst.device(), WriteAccelerationStructure<>({ds, 0, 0}, {as.tlas()}));
+    update_descriptor_sets(inst.device(),
+        WriteAccelerationStructure<>({ds[i], 0, 0}, {as.tlas()}),
+        WriteBuffers<>({ds[i], 0, 0}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, {{uni_buf.buffer(), sizeof(UniformStruct) * i, sizeof(UniformStruct)}})
+    );
   }
 
   CommandPool pool(inst, inst.graphic_queue_index(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
@@ -68,10 +83,24 @@ int main(int, char*[])
   bool run = true;
   CommandBufferVector cmd_bufs(inst, pool, DisplayInstance::c_frames_in_flight);
 
+  bool forw = false;
+  bool backw = false;
+  bool left = false;
+  bool right = false;
+
+  SDL_Event evnt;
+  Math::Camera cam(Math::vec3{0.0, 0.0, -2.0});
+  constexpr float c_mouse_sens = 0.01f;
   while(run)
   {
     if(inst.render_done() && inst.acquire_next_image())
     {
+      auto screen_to_cam_matrix = Math::scale(Math::vec4(1.0, inst.h() / inst.w(), 1.0, 1.0));
+      screen_to_cam_matrix = cam.get_inv_matrix() * screen_to_cam_matrix;
+
+      uni.mat = screen_to_cam_matrix;
+      uni.camera_pos = cam.position();
+
       auto cmd_buf = cmd_bufs[inst.next_frame()];
 
       cmd_buf.reset();
@@ -80,7 +109,7 @@ int main(int, char*[])
 
       cmd_buf.bind_graphics_pipeline(inst, pipe.pipeline());
 
-      cmd_buf.cmd(vkCmdBindDescriptorSets, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.layout(), 0, 1, &ds, 0, nullptr);
+      cmd_buf.cmd(vkCmdBindDescriptorSets, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.layout(), 0, 1, &ds[0], 0, nullptr);
       cmd_buf.cmd(vkCmdDraw, 3, 1, 0, 0);
 
       cmd_buf.end_rendering(inst);
@@ -91,14 +120,47 @@ int main(int, char*[])
     else
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
-    SDL_Event evnt;
     while(SDL_PollEvent(&evnt))
-      if(evnt.type == SDL_EVENT_QUIT)
+      switch(evnt.type)
+      {
+      case SDL_EVENT_QUIT:
       {
         run = false;
         break;
       }
+      case SDL_EVENT_MOUSE_MOTION:
+        cam.add_yaw(c_mouse_sens * evnt.motion.xrel);
+        cam.add_pitch(c_mouse_sens * evnt.motion.yrel);
+
+        break;
+      case SDL_EVENT_KEY_DOWN:
+      case SDL_EVENT_KEY_UP:
+        if(evnt.key.repeat) break;
+        bool keydown = SDL_EVENT_KEY_DOWN == evnt.type;
+        switch(evnt.key.key)
+        {
+        case SDLK_Z:
+          forw = keydown;
+          break;
+        case SDLK_S:
+          backw = keydown;
+          break;
+        case SDLK_Q:
+          left = keydown;
+          break;
+        case SDLK_D:
+          right = keydown;
+          break;
+        }
+      }
+
+    Math::vec3 vel(0);
+    if(forw) vel.z -= 1.0;
+    if(backw) vel.z += 1.0;
+    if(right) vel.x += 1.0;
+    if(left) vel.x -= 1.0;
   }
+ 
 
   vkDeviceWaitIdle(inst.device());
 

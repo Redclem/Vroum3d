@@ -6,6 +6,7 @@
 #include "instance.h"
 
 #include <algorithm>
+#include <initializer_list>
 #include <type_traits>
 #include <vulkan/vulkan_core.h>
 
@@ -291,15 +292,15 @@ public:
 
   ~DescriptorPool() { destroy(); }
 
-  template<typename ContainerIn, typename ContainerOut>
+  template<typename ContainerOut, typename ContainerIn = std::initializer_list<VkDescriptorSetLayout>>
   void allocate_descriptor_sets(const ContainerIn &layouts, ContainerOut &sets_out, const void* pnext = nullptr)
   {
-    VkDescriptorSetAllocateInfo ai{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, pnext, m_descriptor_pool, uint32_t(layouts.size()), layouts.data()};
+    VkDescriptorSetAllocateInfo ai{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, pnext, m_descriptor_pool, uint32_t(layouts.size()), std::data(layouts)};
 
     vk_check(vkAllocateDescriptorSets(m_device, &ai, sets_out.data()));
   }
 
-  template<typename ContainerIn, typename ContainerOut, typename VarSizes, std::enable_if_t<!std::is_pointer_v<VarSizes>, bool> = true>
+  template<typename ContainerOut, typename VarSizes, std::enable_if_t<!std::is_pointer_v<VarSizes>, bool> = true, typename ContainerIn = std::initializer_list<VkDescriptorSetLayout>>
   void allocate_descriptor_sets(const ContainerIn &layouts, ContainerOut &sets_out, const VarSizes &var_sizes)
   {
     VkDescriptorSetVariableDescriptorCountAllocateInfo vsi{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO, nullptr, uint32_t(var_sizes.size()),

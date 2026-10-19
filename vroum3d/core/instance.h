@@ -16,7 +16,6 @@
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan_core.h>
-#include <vulkan/vulkan_profiles.hpp>
 
 namespace Vroum3d::Core
 {

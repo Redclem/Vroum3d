@@ -16,6 +16,7 @@
 #include "gui/element.h"
 #include "math/mat.hpp"
 #include "math/vec.hpp"
+#include "math/camera.hpp"
 #include "raytracing/acceleration_structure.h"
 #include "raytracing/instance_info.h"
 #include "raytracing/pipeline.h"
