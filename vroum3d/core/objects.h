@@ -3,6 +3,7 @@
 
 #include "../utility.h"
 #include "../volk_wrapper.h"
+#include "allocator.h"
 #include "instance.h"
 
 #include <algorithm>
@@ -31,6 +32,8 @@ public:
 
   Buffer(Allocator &alloc, VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags mp, VkDeviceSize alignment = 0) : m_alloc(&alloc), m_dev(alloc.device())
   { create_buffer(bs, use, mp, alignment); }
+
+  Buffer(Allocator &alloc) : m_alloc(&alloc) {}
 
   void destroy()
   {
