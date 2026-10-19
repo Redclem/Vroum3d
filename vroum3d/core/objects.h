@@ -33,7 +33,7 @@ public:
   Buffer(Allocator &alloc, VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags mp, VkDeviceSize alignment = 0) : m_alloc(&alloc), m_dev(alloc.device())
   { create_buffer(bs, use, mp, alignment); }
 
-  Buffer(Allocator &alloc) : m_alloc(&alloc) {}
+  Buffer(Allocator &alloc) : m_alloc(&alloc), m_dev(alloc.device()) {}
 
   void destroy()
   {
