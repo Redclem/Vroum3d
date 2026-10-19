@@ -119,21 +119,26 @@ struct WriteAccelerationStructure
   }
 };
 
-template<typename Write0, typename... Writes>
-void assemble_writes(const Write0 &write0, const Writes &... writes, VkWriteDescriptorSet* dst)
+template<typename Write>
+void assemble_writes(VkWriteDescriptorSet* wds, Write&& write)
 {
-  *dst = write0.export_write();
+  *wds = write.export_write();
+}
 
-  if constexpr(sizeof...(Writes))
-    assemble_writes(writes..., dst + 1);
+template<typename Write0, typename ... Writes>
+void assemble_writes(VkWriteDescriptorSet* wds, Write0&& write0, Writes&& ... writes)
+{
+  *wds = write0.export_write();
+
+  assemble_writes(wds + 1, std::forward<Writes>(writes)...);
 }
 
 template<typename... Writes>
-void update_descriptor_sets(VkDevice dev, const Writes &... writes)
+void update_descriptor_sets(VkDevice dev, Writes&&... writes)
 {
   std::array<VkWriteDescriptorSet, sizeof...(Writes)> des_writes;
 
-  assemble_writes(writes..., des_writes.data());
+  assemble_writes(des_writes.data(), std::forward<Writes>(writes)...);
 
   vkUpdateDescriptorSets(dev, des_writes.size(), std::data(des_writes), 0, nullptr);
 }

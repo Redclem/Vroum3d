@@ -7,12 +7,16 @@ layout(location = 0) in vec2 i_pos;
 layout(location = 0) out vec4 o_color;
 
 layout(binding = 0) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 1) uniform Uni
+{
+  mat4 transform;
+} uni;
 
 void main()
 {
   // Ray origin on the plane Z = -2.0, pointing directly down +Z toward Z = 0
-  vec3 ray_origin = vec3(i_pos.x * 2.0, i_pos.y * 2.0, -2.0);
-  vec3 ray_dir    = vec3(0.0, 0.0, 1.0);
+  vec3 ray_origin = (uni.transform * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+  vec3 ray_dir    = normalize((uni.transform * vec4(i_pos, 1.0, 1.0)).xyz - ray_origin);
 
   float tMin = 0.001;
   float tMax = 100.0;

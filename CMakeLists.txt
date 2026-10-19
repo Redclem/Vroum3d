@@ -97,11 +97,35 @@ target_compile_options(vroum3d PRIVATE ${VROUM3D_CXXFLAGS})
 target_link_libraries(vroum3d PUBLIC SDL3::SDL3  spirv-reflect-static volk::volk)
 target_include_directories(vroum3d INTERFACE vroum3d ext)
 
+add_library(vroum3d_shaders INTERFACE)
+
+function (add_shader sh)
+	get_filename_component(sh_name_we ${sh} NAME_WE)
+	get_filename_component(sh_ext ${sh} LAST_EXT)
+
+  set(SHADERS_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders/")
+  set(SHADERS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders/")
+
+  make_directory(${SHADERS_BINARY_DIR})
+
+	add_custom_command(OUTPUT "${SHADERS_BINARY_DIR}/${sh}.spv"
+		COMMAND "glslc" "--target-env=vulkan1.4" "${SHADERS_SOURCE_DIR}/${sh}" "-o" "${SHADERS_BINARY_DIR}/${sh}.spv"
+		DEPENDS "${SHADERS_SOURCE_DIR}/${sh}"
+	)
+
+	add_custom_target(shader_${sh} ALL
+		DEPENDS "${SHADERS_BINARY_DIR}/${sh}.spv"
+	)
+
+  add_dependencies(vroum3d_shaders shader_${sh})
+
+endfunction()
+
 function(add_example ex_name)
 
 	add_executable(${ex_name} "examples/${ex_name}.cpp")
 
-	target_link_libraries(${ex_name} vroum3d)
+	target_link_libraries(${ex_name} vroum3d vroum3d_shaders)
 
 	target_link_options(${ex_name} PRIVATE ${EXEC_LINK_OPTS})
 
@@ -128,7 +152,7 @@ function(add_exec_test test_name)
 
 	add_executable(test_${test_name} "tests/${test_name}.cpp")
 
-	target_link_libraries(test_${test_name} vroum3d)
+	target_link_libraries(test_${test_name} vroum3d vroum3d_shaders)
 
 	target_link_options(test_${test_name} PRIVATE ${EXEC_LINK_OPTS})
 
@@ -153,25 +177,6 @@ if(VROUM3D_TESTS)
 
   set(VROUM3D_SHADERS ON)
 endif()
-
-function (add_shader sh)
-	get_filename_component(sh_name_we ${sh} NAME_WE)
-	get_filename_component(sh_ext ${sh} LAST_EXT)
-
-  set(SHADERS_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders/")
-  set(SHADERS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders/")
-
-  make_directory(${SHADERS_BINARY_DIR})
-
-	add_custom_command(OUTPUT "${SHADERS_BINARY_DIR}/${sh}.spv"
-		COMMAND "glslc" "--target-env=vulkan1.4" "${SHADERS_SOURCE_DIR}/${sh}" "-o" "${SHADERS_BINARY_DIR}/${sh}.spv"
-		DEPENDS "${SHADERS_SOURCE_DIR}/${sh}"
-	)
-
-	add_custom_target(shader_${sh} ALL
-		DEPENDS "${SHADERS_BINARY_DIR}/${sh}.spv"
-	)
-endfunction()
 
 if(VROUM3D_SHADERS)
   add_shader(empty.frag)

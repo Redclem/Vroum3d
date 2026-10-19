@@ -34,6 +34,11 @@ public:
     return translate(m_position) * mat4(rotate<1>(-m_yaw) * rotate<0>(-m_pitch));
   }
 
+  mat3 get_inv_matrix_orient_only() const
+  {
+    return rotate<1>(-m_yaw) * rotate<0>(-m_pitch);
+  }
+
   const auto& position() const {return m_position;}
 
 protected:

@@ -5,6 +5,7 @@
 #include "../utility.h"
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_video.h>
 
 namespace Vroum3d::Core
@@ -34,6 +35,16 @@ public:
   SDL_Window* window() const { return m_wind; }
 
   SDL_Surface* surface() const { return m_surf; }
+
+  void set_window_relative_mouse_mode(bool relMode)
+  {
+    SDL_SetWindowRelativeMouseMode(m_wind, relMode);
+  }
+
+  void set_window_mouse_grab(bool mouseGrab)
+  {
+    SDL_SetWindowMouseGrab(m_wind, mouseGrab);
+  }
 };
 
 } // namespace Vroum3d::Core

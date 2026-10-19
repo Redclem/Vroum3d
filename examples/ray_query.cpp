@@ -61,20 +61,25 @@ int main(int, char*[])
   std::array<VkDescriptorSet, Instance::c_frames_in_flight> ds;
   des_pool.allocate_descriptor_sets({pipe.descriptor_set_layout(0), pipe.descriptor_set_layout(0)}, ds);
 
-  struct UniformStruct
+  struct RawUniformStruct
   {
     Math::mat4 mat;
     Math::vec3 camera_pos;
-  } uni;
+  };
+
+  struct UniformStruct : RawUniformStruct{
+    char pad[sizeof(RawUniformStruct) & 63 ? 64 - (sizeof(RawUniformStruct) & 63) : 0];
+  };
 
   Buffer uni_buf(inst, 2 * sizeof(UniformStruct), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+  UniformStruct* uni_data = reinterpret_cast<UniformStruct*>(uni_buf.map());
   
-  for(int i(0); i != ds.size(); ++i)
+  for(std::size_t i(0); i != ds.size(); ++i)
   {
     using namespace UpdateDescriptorSet;
     update_descriptor_sets(inst.device(),
         WriteAccelerationStructure<>({ds[i], 0, 0}, {as.tlas()}),
-        WriteBuffers<>({ds[i], 0, 0}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, {{uni_buf.buffer(), sizeof(UniformStruct) * i, sizeof(UniformStruct)}})
+        WriteBuffers<>({ds[i], 1, 0}, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, {{uni_buf.buffer(), sizeof(UniformStruct) * i, sizeof(UniformStruct)}})
     );
   }
 
@@ -91,12 +96,18 @@ int main(int, char*[])
   SDL_Event evnt;
   Math::Camera cam(Math::vec3{0.0, 0.0, -2.0});
   constexpr float c_mouse_sens = 0.01f;
+  constexpr float c_timestep = 0.01f;
+
+  disp.set_window_relative_mouse_mode(true);
+
   while(run)
   {
     if(inst.render_done() && inst.acquire_next_image())
     {
-      auto screen_to_cam_matrix = Math::scale(Math::vec4(1.0, inst.h() / inst.w(), 1.0, 1.0));
+      auto screen_to_cam_matrix = Math::scale(Math::vec4(1.0, float(inst.h()) / float(inst.w()), 1.0, 1.0));
       screen_to_cam_matrix = cam.get_inv_matrix() * screen_to_cam_matrix;
+
+      auto& uni = uni_data[inst.next_frame()];
 
       uni.mat = screen_to_cam_matrix;
       uni.camera_pos = cam.position();
@@ -129,8 +140,8 @@ int main(int, char*[])
         break;
       }
       case SDL_EVENT_MOUSE_MOTION:
-        cam.add_yaw(c_mouse_sens * evnt.motion.xrel);
-        cam.add_pitch(c_mouse_sens * evnt.motion.yrel);
+        cam.add_yaw(-c_mouse_sens * evnt.motion.xrel);
+        cam.add_pitch(-c_mouse_sens * evnt.motion.yrel);
 
         break;
       case SDL_EVENT_KEY_DOWN:
@@ -155,12 +166,15 @@ int main(int, char*[])
       }
 
     Math::vec3 vel(0);
-    if(forw) vel.z -= 1.0;
-    if(backw) vel.z += 1.0;
+    if(forw) vel.z += 1.0;
+    if(backw) vel.z -= 1.0;
     if(right) vel.x += 1.0;
     if(left) vel.x -= 1.0;
+
+    cam.add_position(cam.get_inv_matrix_orient_only() * vel * c_timestep);
   }
- 
+  
+  uni_buf.unmap();
 
   vkDeviceWaitIdle(inst.device());
 
