@@ -42,12 +42,9 @@ public:
 
       auto operator<=>(const BindingInfo &rhs) const
       {
-        if(auto cmp = descriptorType <=> rhs.descriptorType; cmp != std::strong_ordering::equal)
-          return cmp;
-        if(auto cmp = descriptorCount <=> rhs.descriptorCount; cmp != std::strong_ordering::equal)
-          return cmp;
-        if(auto cmp = stageFlags <=> rhs.stageFlags; cmp != std::strong_ordering::equal)
-          return cmp;
+        if(auto cmp = descriptorType <=> rhs.descriptorType; cmp != std::strong_ordering::equal) return cmp;
+        if(auto cmp = descriptorCount <=> rhs.descriptorCount; cmp != std::strong_ordering::equal) return cmp;
+        if(auto cmp = stageFlags <=> rhs.stageFlags; cmp != std::strong_ordering::equal) return cmp;
         return immusamp <=> rhs.immusamp;
       }
     };
@@ -57,9 +54,7 @@ public:
     void load_descriptor_set(const SpvReflectDescriptorSet*, VkShaderStageFlags);
 
     void add_binding(std::uint32_t binding, VkDescriptorType tpe, std::uint32_t descriptorCount, VkShaderStageFlags stages)
-    {
-      bindings.emplace(binding, BindingInfo{tpe, descriptorCount, stages});
-    }
+    { bindings.emplace(binding, BindingInfo{tpe, descriptorCount, stages}); }
 
     auto operator<=>(const DescriptorSetDescription &rhs) const
     {
@@ -88,10 +83,8 @@ private:
     {
       auto operator()(const VkPushConstantRange &a, const VkPushConstantRange &b)
       {
-        if(auto cmp = a.stageFlags <=> b.stageFlags; cmp != std::strong_ordering::equal)
-          return cmp;
-        if(auto cmp = a.offset <=> b.offset; cmp != std::strong_ordering::equal)
-          return cmp;
+        if(auto cmp = a.stageFlags <=> b.stageFlags; cmp != std::strong_ordering::equal) return cmp;
+        if(auto cmp = a.offset <=> b.offset; cmp != std::strong_ordering::equal) return cmp;
         return a.size <=> b.size;
       }
     };
@@ -151,8 +144,7 @@ public:
 
     for(auto &[_, mod]: m_shaders)
     {
-      if(VK_NULL_HANDLE != mod.vk_mod)
-        vkDestroyShaderModule(m_device, mod.vk_mod, nullptr);
+      if(VK_NULL_HANDLE != mod.vk_mod) vkDestroyShaderModule(m_device, mod.vk_mod, nullptr);
       spvReflectDestroyShaderModule(&mod.spv_module);
     }
 
@@ -160,16 +152,14 @@ public:
 
     for(auto &[_, dsl]: m_descriptor_set_layouts)
     {
-      if(VK_NULL_HANDLE != dsl)
-        vkDestroyDescriptorSetLayout(m_device, dsl, nullptr);
+      if(VK_NULL_HANDLE != dsl) vkDestroyDescriptorSetLayout(m_device, dsl, nullptr);
     }
 
     m_descriptor_set_layouts.clear();
 
     for(auto &[_, pl]: m_pipeline_layouts)
     {
-      if(VK_NULL_HANDLE != pl)
-        vkDestroyPipelineLayout(m_device, pl, nullptr);
+      if(VK_NULL_HANDLE != pl) vkDestroyPipelineLayout(m_device, pl, nullptr);
     }
 
     m_pipeline_layouts.clear();
@@ -243,9 +233,7 @@ class Pipeline : public BasePipeline {
 public:
   template<typename PipelineInformation>
   Pipeline(PipelineResource &pr, PipelineInformation &&pi) : BasePipeline(pr.device())
-  {
-    create_pipeline(pr, std::forward<PipelineInformation>(pi));
-  }
+  { create_pipeline(pr, std::forward<PipelineInformation>(pi)); }
 
   template<typename PipelineInformation>
   void create_pipeline(PipelineResource &pr, PipelineInformation &&pi);
@@ -280,8 +268,7 @@ PipelineResource::PipelineLayouts PipelineResource::get_shader_layouts(Iter firs
 
       for(auto* desc: ds) max_set = std::max(max_set, desc->set);
 
-      if(descriptions.size() <= max_set)
-        descriptions.resize(max_set + 1);
+      if(descriptions.size() <= max_set) descriptions.resize(max_set + 1);
 
       for(auto* desc_set: ds) { descriptions[desc_set->set].load_descriptor_set(desc_set, stage); }
     }
@@ -290,8 +277,7 @@ PipelineResource::PipelineLayouts PipelineResource::get_shader_layouts(Iter firs
         pc_iter != pc_end; ++pc_iter)
     {
       auto [iter, ins] = push_consts.emplace(std::pair{pc_iter->offset, pc_iter->size}, stage);
-      if(!ins)
-        iter->second |= stage;
+      if(!ins) iter->second |= stage;
     }
   }
 
@@ -306,8 +292,7 @@ PipelineResource::PipelineLayouts PipelineResource::get_shader_layouts(Iter firs
 
   auto [iter, wasins] = m_pipeline_layouts.emplace(PipelineLayoutDescription{std::move(layouts), std::move(ranges)}, VK_NULL_HANDLE);
 
-  if(!wasins)
-    return iter;
+  if(!wasins) return iter;
 
   VkPipelineLayoutCreateInfo pli{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
                                  nullptr,

@@ -40,8 +40,7 @@ public:
 
     m_dbg_messenger.destroy_with([&](auto msg) {
       PFN_vkDestroyDebugUtilsMessengerEXT fn = reinterpret_cast<decltype(fn)>(vkGetInstanceProcAddr(inst, "vkDestroyDebugUtilsMessengerEXT"));
-      if(fn)
-        fn(inst, msg, nullptr);
+      if(fn) fn(inst, msg, nullptr);
     });
   }
 
@@ -269,8 +268,7 @@ public:
   {
     auto res = vkWaitForFences(m_dev, 1, &m_frame_sync[m_next_frame].render_done_fence, VK_TRUE, 0);
 
-    if(res > 0)
-      return false;
+    if(res > 0) return false;
 
     vk_check(res);
 
@@ -347,8 +345,7 @@ void Instance::choose_pdev(InstanceInfo &info)
     }
   }
 
-  if(best_score < 0)
-    throw std::runtime_error("No compatible physical device found.");
+  if(best_score < 0) throw std::runtime_error("No compatible physical device found.");
 
   m_pdev = best_pdev;
 }

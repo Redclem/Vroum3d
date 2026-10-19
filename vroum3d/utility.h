@@ -19,6 +19,9 @@ public:
 
   constexpr NonCopyable(const NonCopyable &from) = delete;
   constexpr NonCopyable &operator=(const NonCopyable &rhs) = delete;
+
+  constexpr NonCopyable(NonCopyable &&) = default;
+  constexpr NonCopyable &operator=(NonCopyable &) = default;
 };
 
 class NonMovable : public NonCopyable {
@@ -29,6 +32,15 @@ public:
   constexpr NonMovable &operator=(NonMovable &&from) = delete;
 };
 
+/** Base class for non-movable objects requiring destruction through a destroy() function.
+ *
+ *
+ *  The destroy() function of the derived object will be called:
+ *  - During the move assignment operator of this class.
+ *
+ *  @warning You still need to call destroy in your destructor!
+ *
+ */
 template<typename T>
 struct AssignDestroy : public NonCopyable
 {

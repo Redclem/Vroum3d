@@ -24,8 +24,7 @@ public:
 
   Display(const char* title = "Vroum3d app", int w = 1280, int h = 720, int flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE)
   {
-    if(SDL_WasInit(SDL_INIT_VIDEO) != SDL_INIT_VIDEO)
-      sdl_check(SDL_Init(SDL_INIT_VIDEO));
+    if(SDL_WasInit(SDL_INIT_VIDEO) != SDL_INIT_VIDEO) sdl_check(SDL_Init(SDL_INIT_VIDEO));
 
     m_wind = SDL_CreateWindow(title, w, h, flags);
 
@@ -36,15 +35,9 @@ public:
 
   SDL_Surface* surface() const { return m_surf; }
 
-  void set_window_relative_mouse_mode(bool relMode)
-  {
-    SDL_SetWindowRelativeMouseMode(m_wind, relMode);
-  }
+  void set_window_relative_mouse_mode(bool relMode) { SDL_SetWindowRelativeMouseMode(m_wind, relMode); }
 
-  void set_window_mouse_grab(bool mouseGrab)
-  {
-    SDL_SetWindowMouseGrab(m_wind, mouseGrab);
-  }
+  void set_window_mouse_grab(bool mouseGrab) { SDL_SetWindowMouseGrab(m_wind, mouseGrab); }
 };
 
 } // namespace Vroum3d::Core

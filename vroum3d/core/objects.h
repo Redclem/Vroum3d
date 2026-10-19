@@ -23,18 +23,14 @@ public:
 
   /** Buffer constructor : creates buffer and allocs mem
    * \param alloc Allocator to create buffer with
-   * \param use Buffer usage
    * \param bs Buffer size
+   * \param use Buffer usage
    * \param mp Memory properties of the memory to bind to the buffer
    * \param alignment Requested memory alignment. Should be a power of 2. Defaults to 0, i.e. minimal according to buffer's requirements.
    */
 
   Buffer(Allocator &alloc, VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags mp, VkDeviceSize alignment = 0) : m_alloc(&alloc), m_dev(alloc.device())
-  {
-    create_buffer(bs, use, mp, alignment);
-  }
-
-  Buffer(Buffer &&) = default;
+  { create_buffer(bs, use, mp, alignment); }
 
   void destroy()
   {
@@ -87,8 +83,17 @@ public:
 
   operator VkBuffer() const { return buffer(); }
 
-private:
-  void create_buffer(VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags memprops, VkDeviceSize alignment)
+  /**
+   * Create Buffer
+   *
+   * Create Buffer. Do not create if buffer already exists without destroy prior.
+   *
+   * \param bs Buffer size
+   * \param use Buffer usage
+   * \param mp Memory properties of the memory to bind to the buffer
+   * \param alignment Requested memory alignment. Should be a power of 2. Defaults to 0, i.e. minimal according to buffer's requirements.
+   */
+  void create_buffer(VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags mp, VkDeviceSize alignment = 0)
   {
     VkBufferCreateInfo bi{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr, 0, bs, use, VK_SHARING_MODE_EXCLUSIVE, 0, nullptr};
 
@@ -97,14 +102,14 @@ private:
     VkMemoryRequirements mr;
     vkGetBufferMemoryRequirements(m_dev, m_buffer, &mr);
 
-    if(alignment > mr.alignment)
-      mr.alignment = alignment;
+    if(alignment > mr.alignment) mr.alignment = alignment;
 
-    m_mem = m_alloc->allocate(m_alloc->find_mem_index(mr, memprops), mr.size, mr.alignment);
+    m_mem = m_alloc->allocate(m_alloc->find_mem_index(mr, mp), mr.size, mr.alignment);
 
     vk_check(vkBindBufferMemory(m_dev, m_buffer, m_mem.memory(), m_mem.offset()));
   }
 
+private:
   Allocator* m_alloc;
   VkDevice m_dev;
   VkHandle<VkBuffer> m_buffer;
@@ -148,9 +153,7 @@ public:
 
   template<typename CmdFun, typename... Args>
   void cmd(CmdFun cf, Args &&... ags)
-  {
-    cf(m_cmd_buf, std::forward<Args>(ags)...);
-  }
+  { cf(m_cmd_buf, std::forward<Args>(ags)...); }
 
   const VkCommandBuffer &cmd_buf() const { return m_cmd_buf; }
 
@@ -215,9 +218,7 @@ public:
   CommandBufferVector() = default;
 
   CommandBufferVector(const Instance &inst, VkCommandPool cmd_pool, uint32_t n_buffer, bool primary = true) : m_dev(inst.device()), m_cmd_pool(cmd_pool)
-  {
-    allocate_command_buffers(n_buffer, primary);
-  }
+  { allocate_command_buffers(n_buffer, primary); }
 
   void destroy()
   {
@@ -300,7 +301,8 @@ public:
     vk_check(vkAllocateDescriptorSets(m_device, &ai, sets_out.data()));
   }
 
-  template<typename ContainerOut, typename VarSizes, std::enable_if_t<!std::is_pointer_v<VarSizes>, bool> = true, typename ContainerIn = std::initializer_list<VkDescriptorSetLayout>>
+  template<typename ContainerOut, typename VarSizes, std::enable_if_t<!std::is_pointer_v<VarSizes>, bool> = true,
+           typename ContainerIn = std::initializer_list<VkDescriptorSetLayout>>
   void allocate_descriptor_sets(const ContainerIn &layouts, ContainerOut &sets_out, const VarSizes &var_sizes)
   {
     VkDescriptorSetVariableDescriptorCountAllocateInfo vsi{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO, nullptr, uint32_t(var_sizes.size()),

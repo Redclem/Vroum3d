@@ -156,8 +156,7 @@ public:
 
   void arrange()
   {
-    if(!m_root_elem)
-      return;
+    if(!m_root_elem) return;
     m_root_elem->set_position({0, 0, m_instance->w(), m_instance->h()});
     m_root_elem->arrange();
   }
@@ -175,21 +174,15 @@ public:
 
   template<typename T>
   texture_ptr_t require_texture(T &&pth)
-  {
-    return &m_textures.emplace(std::forward<T>(pth), Texture{}).first->second;
-  }
+  { return &m_textures.emplace(std::forward<T>(pth), Texture{}).first->second; }
 
   template<typename Pth>
   font_ptr_t require_font(Pth &&pth)
-  {
-    return &m_fonts.emplace(std::forward<Pth>(pth), FontAtlas{}).first->second;
-  }
+  { return &m_fonts.emplace(std::forward<Pth>(pth), FontAtlas{}).first->second; }
 
   template<typename Pth>
   void set_default_font(Pth &&pth)
-  {
-    m_default_font = require_font(std::forward<Pth>(pth));
-  }
+  { m_default_font = require_font(std::forward<Pth>(pth)); }
 
   void render();
 
