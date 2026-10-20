@@ -32,6 +32,16 @@ public:
 
   VkAccelerationStructureKHR tlas() const { return m_tlas; }
 
+  struct Mesh
+  {
+    uint32_t geometry_custom_index;
+    uint32_t n_vertex;
+    uint32_t n_index;
+    VkDeviceAddress vertex_addr, index_addr;
+  };
+
+  void create_as(const std::vector<Mesh> &meshes, VkDeviceSize &scratch_size);
+  void upload_as(const std::vector<Mesh> &meshes, VkCommandPool comp_pool, VkBuffer scratch, VkDeviceAddress scratch_addr);
 
 private:
   Core::Instance* m_instance;
