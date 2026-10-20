@@ -2,6 +2,7 @@
 
 #include "../core/objects.h"
 
+#include <algorithm>
 #include <vulkan/vulkan_core.h>
 
 using namespace Vroum3d::Raytracing;
@@ -262,10 +263,12 @@ void SimpleTriangleAccelerationStructure::create_as(const std::vector<Mesh> &mes
   tl_size_info.pNext = nullptr;
 
 
-  uint32_t prim_count(0), one = 1;
-  for(const auto &elem: meshes) prim_count += elem.n_index;
+  uint32_t one = 1;
+  std::vector<uint32_t> prim_count(bl_geoms.size());
 
-  vkGetAccelerationStructureBuildSizesKHR(device(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &bl_bgi, &prim_count, &bl_size_info);
+  std::transform(meshes.begin(), meshes.end(), prim_count.begin(), [](const Mesh &m) { return m.n_index / 3; });
+
+  vkGetAccelerationStructureBuildSizesKHR(device(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &bl_bgi, prim_count.data(), &bl_size_info);
 
   vkGetAccelerationStructureBuildSizesKHR(device(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &tl_bgi, &one, &tl_size_info);
 

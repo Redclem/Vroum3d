@@ -76,7 +76,7 @@ add_library(vroum3d STATIC
 )
 
 target_compile_features(vroum3d PUBLIC cxx_std_20)
-set_property(TARGET vroum3d PROPERTY CXX_STANDARD 20)
+set_property(TARGET vroum3d PROPERTY CXX_STANDARD_REQUIRED ON)
 
 if(VROUM3D_ENABLE_SYNCVAL)
   set(VROUM3D_COMPILE_DEF ${VROUM3D_COMPILE_DEF} VROUM3D_ENABLE_SYNCVAL)

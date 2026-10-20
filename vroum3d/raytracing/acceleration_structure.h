@@ -34,7 +34,6 @@ public:
 
   struct Mesh
   {
-    uint32_t geometry_custom_index;
     uint32_t n_vertex;
     uint32_t n_index;
     VkDeviceAddress vertex_addr, index_addr;

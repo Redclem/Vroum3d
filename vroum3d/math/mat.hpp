@@ -14,7 +14,7 @@
 namespace Vroum3d::Math
 {
 
-
+/** Row major */
 template<typename ScalT, std::size_t N>
 struct mat : mat_root
 {
@@ -43,6 +43,19 @@ struct mat : mat_root
   scal_t &at(std::size_t i, std::size_t j) { return data[j][i]; }
 
   const scal_t &at(std::size_t i, std::size_t j) const { return data[j][i]; }
+
+  template<typename FScalT>
+  constexpr mat(const mat<FScalT, N> &from)
+  {
+    from.foreach([&](auto &val, auto i, auto j) { at(i, j) = val; });
+  }
+
+  template<typename FScalT>
+  constexpr mat &operator=(const mat<FScalT, N> &from)
+  {
+    from.foreach([&](auto &val, auto i, auto j) { at(i, j) = val; });
+    return *this;
+  }
 
   template<typename Fun, std::enable_if_t<std::is_invocable_v<Fun, scal_t &, std::size_t, std::size_t>, bool> = true>
   void foreach(const Fun &fun)
@@ -248,7 +261,7 @@ auto proj(ScalT angle, ScalT ar, ScalT nearz, ScalT farz)
 
   ScalT angle_tan = std::tan(angle / 2);
 
-  res_t res = res_t::scale(generic_vec4<ScalT>(1 / angle_tan, -ar / angle_tan, -a, 0));
+  res_t res = res_t::scale(generic_vec4<ScalT>(1 / angle_tan, ar / angle_tan, -a, 0));
   res[2][3] = -b;
   res[3][2] = -1;
 
@@ -302,6 +315,42 @@ auto ortho_transform(const generic_vec3<ScalT> &projx, const generic_vec3<ScalT>
   projz.foreach([&](auto val) { res[2][idx++] = val; });
 
   return res;
+}
+
+template<typename ScalT>
+mat<ScalT, 3> quater_rotate(ScalT x, ScalT y, ScalT z, ScalT s)
+{
+  auto x2 = x * x;
+  auto y2 = y * y;
+  auto z2 = z * z;
+
+  mat<ScalT, 3> res;
+  res[0][0] = 1 - 2 * (y2 + z2);
+  res[0][1] = 2 * (x * y - s * z);
+  res[0][2] = 2 * (x * z + s * y);
+  res[1][0] = 2 * (x * y + s * z);
+  res[1][1] = 1 - 2 * (x2 + z2);
+  res[1][2] = 2 * (y * z - s * x);
+  res[2][0] = 2 * (x * z - s * y);
+  res[2][1] = 2 * (y * z + s * x);
+  res[2][2] = 1 - 2 * (x2 + y2);
+
+  return res;
+}
+
+/** Applicable for ROTATE * SCALE matrices (ROTATE can be any isometric) */
+template<typename ScalT>
+mat<ScalT, 3> associated_normal_transform(const mat<ScalT, 3> &t)
+{
+  using vec_t = generic_vec3<ScalT>;
+
+  vec_t norms(vec_t(t[0][0], t[1][0], t[2][0]).norm(), vec_t(t[0][1], t[1][1], t[2][1]).norm(), vec_t(t[0][2], t[1][2], t[2][2]).norm());
+
+  norms.x = 1 / norms.x / norms.x;
+  norms.y = 1 / norms.y / norms.y;
+  norms.z = 1 / norms.z / norms.z;
+
+  return t * scale(norms);
 }
 
 typedef mat<float, 4> mat4;
