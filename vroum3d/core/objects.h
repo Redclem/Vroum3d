@@ -304,12 +304,12 @@ public:
     vk_check(vkAllocateDescriptorSets(m_device, &ai, sets_out.data()));
   }
 
-  template<typename ContainerOut, typename VarSizes, std::enable_if_t<!std::is_pointer_v<VarSizes>, bool> = true,
+  template<typename ContainerOut, typename VarSizes = std::initializer_list<uint32_t>, std::enable_if_t<!std::is_pointer_v<VarSizes>, bool> = true,
            typename ContainerIn = std::initializer_list<VkDescriptorSetLayout>>
   void allocate_descriptor_sets(const ContainerIn &layouts, ContainerOut &sets_out, const VarSizes &var_sizes)
   {
     VkDescriptorSetVariableDescriptorCountAllocateInfo vsi{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO, nullptr, uint32_t(var_sizes.size()),
-                                                           var_sizes.data()};
+                                                           std::data(var_sizes)};
 
     allocate_descriptor_sets(layouts, sets_out, &vsi);
   }
