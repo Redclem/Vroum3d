@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <unordered_set>
+#include <vulkan/vulkan_core.h>
 
 namespace Vroum3d::Core
 {
@@ -32,18 +33,12 @@ public:
   static std::uint32_t int_log2(VkDeviceSize x)
   {
     std::uint32_t log(0);
-    if(x >= (1ull << 32))
-      log |= 32, x >>= 32;
-    if(x >= (1ull << 16))
-      log |= 16ull, x >>= 16;
-    if(x >= (1ull << 8))
-      log |= 8, x >>= 8;
-    if(x >= (1ull << 4))
-      log |= 4, x >>= 4;
-    if(x >= (1ull << 2))
-      log |= 2, x >>= 2;
-    if(x >= (1ull << 1))
-      log |= 1ull, x >>= 1;
+    if(x >= (1ull << 32)) log |= 32, x >>= 32;
+    if(x >= (1ull << 16)) log |= 16ull, x >>= 16;
+    if(x >= (1ull << 8)) log |= 8, x >>= 8;
+    if(x >= (1ull << 4)) log |= 4, x >>= 4;
+    if(x >= (1ull << 2)) log |= 2, x >>= 2;
+    if(x >= (1ull << 1)) log |= 1ull, x >>= 1;
 
     return log;
   }
@@ -51,18 +46,12 @@ public:
   static std::uint32_t fsb(uint64_t a)
   {
     int l(0);
-    if((a & 0xFFFFFFFF) == 0)
-      l |= 32, a >>= 32;
-    if((a & 0xFFFF) == 0)
-      l |= 16, a >>= 16;
-    if((a & 0xFF) == 0)
-      l |= 8, a >>= 8;
-    if((a & 0xF) == 0)
-      l |= 4, a >>= 4;
-    if((a & 0x3) == 0)
-      l |= 2, a >>= 2;
-    if((a & 0x1) == 0)
-      l |= 1, a >>= 1;
+    if((a & 0xFFFFFFFF) == 0) l |= 32, a >>= 32;
+    if((a & 0xFFFF) == 0) l |= 16, a >>= 16;
+    if((a & 0xFF) == 0) l |= 8, a >>= 8;
+    if((a & 0xF) == 0) l |= 4, a >>= 4;
+    if((a & 0x3) == 0) l |= 2, a >>= 2;
+    if((a & 0x1) == 0) l |= 1, a >>= 1;
     return l;
   }
 
@@ -167,8 +156,7 @@ private:
     void unset_free_flag(const addr_t &addr)
     {
       sec_bins[addr.first].free &= ~(1ull << addr.second);
-      if(!sec_bins[addr.first].free)
-        free &= ~(1ull << addr.first);
+      if(!sec_bins[addr.first].free) free &= ~(1ull << addr.first);
     }
   };
 
@@ -221,7 +209,6 @@ private:
   // Remove block from list of free blocks of its pool
   void remove_free_list(block_ptr_t removed);
 
-  // Map
 
 public:
   void set_device_address_enabled(bool enabled = true) { m_enable_device_address = enabled; }
@@ -265,16 +252,18 @@ public:
   /** Allocate memory with given index, size, alignment. Use find_mem_index to easily determine memory index
    * On vulkan exception in memory allocation, state is unchanged.
    * */
+  [[nodiscard]]
   allocated_memory_t allocate(std::uint32_t mem_idx, VkDeviceSize s, VkDeviceSize alignment = 1)
   {
-    if constexpr(debug)
-      check(s <= c_largest_block_size);
+    if constexpr(debug) check(s <= c_largest_block_size);
     return allocate_inner(mem_idx, s, alignment);
   }
 
   /** Allocate memory for given requirements with given memory property bits
    */
-  allocated_memory_t allocate(const VkMemoryRequirements &mr, VkMemoryPropertyFlags mf) { return allocate_inner(find_mem_index(mr, mf), mr.size, mr.alignment); }
+  [[nodiscard]]
+  allocated_memory_t allocate(const VkMemoryRequirements &mr, VkMemoryPropertyFlags mf)
+  { return allocate_inner(find_mem_index(mr, mf), mr.size, mr.alignment); }
 
   /** Map memory block to host memory (or compute pointer from already mapped) */
   char* map(block_ptr_t block);
@@ -286,8 +275,7 @@ public:
    * Already checks if memory is coherent to avoid superfluous API calls.*/
   void flush(block_ptr_t block)
   {
-    if(block->device_memory_block->coherent)
-      return;
+    if(block->device_memory_block->coherent) return;
 
     flush_inner(block);
   }
@@ -296,8 +284,7 @@ public:
    * Already checks if memory is coherent to avoid superfluous API calls.*/
   void invalidate(block_ptr_t block)
   {
-    if(block->device_memory_block->coherent)
-      return;
+    if(block->device_memory_block->coherent) return;
 
     invalidate_inner(block);
   }
@@ -361,8 +348,7 @@ public:
   // Free memory
   void free(allocated_memory_t am)
   {
-    if(am)
-      free(am.base());
+    if(am) free(am.base());
   }
 
   // Free memory
@@ -378,11 +364,51 @@ public:
   // Free memory
   void free(const owned_memory_t &om)
   {
-    if(om)
-      free(om.base());
+    if(om) free(om.base());
   }
 
   VkDevice device() const { return m_device; }
+
+  /** Allocate & bind for given objects */
+  [[nodiscard]]
+  allocated_memory_t allocate_bind(VkBuffer buffer, VkMemoryPropertyFlags props)
+  {
+    VkMemoryRequirements mr;
+    vkGetBufferMemoryRequirements(device(), buffer, &mr);
+
+    auto mem = allocate(mr, props);
+    vkBindBufferMemory(device(), buffer, mem.memory(), mem.offset());
+
+    return mem;
+  }
+
+  /** Allocate & bind for given objects w/ offset */
+  [[nodiscard]]
+  allocated_memory_t allocate_bind(VkBuffer buffer, VkMemoryPropertyFlags props, VkDeviceSize alignment)
+  {
+    VkMemoryRequirements mr;
+    vkGetBufferMemoryRequirements(device(), buffer, &mr);
+
+    mr.alignment = std::max(mr.alignment, alignment);
+
+    auto mem = allocate(mr, props);
+    vkBindBufferMemory(device(), buffer, mem.memory(), mem.offset());
+
+    return mem;
+  }
+
+  /** Allocate & bind for given objects */
+  [[nodiscard]]
+  allocated_memory_t allocate_bind(VkImage image, VkMemoryPropertyFlags props)
+  {
+    VkMemoryRequirements mr;
+    vkGetImageMemoryRequirements(device(), image, &mr);
+
+    auto mem = allocate(mr, props);
+    vkBindImageMemory(device(), image, mem.memory(), mem.offset());
+
+    return mem;
+  }
 
   void destroy();
 
@@ -393,8 +419,7 @@ public:
     std::uint32_t bit(1);
     for(std::uint32_t idx(0); idx != m_mem_props.memoryTypeCount; ++idx)
     {
-      if(bit & mr.memoryTypeBits && (props & m_mem_props.memoryTypes[idx].propertyFlags) == props)
-        return idx;
+      if(bit & mr.memoryTypeBits && (props & m_mem_props.memoryTypes[idx].propertyFlags) == props) return idx;
     }
 
     throw std::runtime_error("No matching memory type");

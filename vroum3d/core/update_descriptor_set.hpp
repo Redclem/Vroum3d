@@ -90,7 +90,7 @@ struct WriteImages
     auto write = m_location.get_write_skeleton();
     write.descriptorType = m_type;
     write.descriptorCount = m_images.size();
-    write.pBufferInfo = std::data(m_images);
+    write.pImageInfo = std::data(m_images);
 
     return write;
   }
@@ -120,13 +120,11 @@ struct WriteAccelerationStructure
 };
 
 template<typename Write>
-void assemble_writes(VkWriteDescriptorSet* wds, Write&& write)
-{
-  *wds = write.export_write();
-}
+void assemble_writes(VkWriteDescriptorSet* wds, Write &&write)
+{ *wds = write.export_write(); }
 
-template<typename Write0, typename ... Writes>
-void assemble_writes(VkWriteDescriptorSet* wds, Write0&& write0, Writes&& ... writes)
+template<typename Write0, typename... Writes>
+void assemble_writes(VkWriteDescriptorSet* wds, Write0 &&write0, Writes &&... writes)
 {
   *wds = write0.export_write();
 
@@ -134,7 +132,7 @@ void assemble_writes(VkWriteDescriptorSet* wds, Write0&& write0, Writes&& ... wr
 }
 
 template<typename... Writes>
-void update_descriptor_sets(VkDevice dev, Writes&&... writes)
+void update_descriptor_sets(VkDevice dev, Writes &&... writes)
 {
   std::array<VkWriteDescriptorSet, sizeof...(Writes)> des_writes;
 

@@ -102,14 +102,7 @@ public:
 
     vk_check(vkCreateBuffer(m_dev, &bi, nullptr, &m_buffer));
 
-    VkMemoryRequirements mr;
-    vkGetBufferMemoryRequirements(m_dev, m_buffer, &mr);
-
-    if(alignment > mr.alignment) mr.alignment = alignment;
-
-    m_mem = m_alloc->allocate(m_alloc->find_mem_index(mr, mp), mr.size, mr.alignment);
-
-    vk_check(vkBindBufferMemory(m_dev, m_buffer, m_mem.memory(), m_mem.offset()));
+    m_mem = m_alloc->allocate_bind(m_buffer, mp, alignment);
   }
 
 private:
