@@ -130,6 +130,8 @@ public:
 
   PipelineResource(DisplayInstance &inst) : m_device(inst.device()), m_color_format(inst.color_format()), m_depth_format(inst.depth_format()) { init_cache(); }
 
+  PipelineResource(Instance &inst) : m_device(inst.device()) { init_cache(); }
+
   const VkFormat &color_format() const { return m_color_format; }
 
   const VkFormat &depth_format() const { return m_depth_format; }
