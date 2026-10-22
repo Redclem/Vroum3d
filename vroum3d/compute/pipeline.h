@@ -10,13 +10,18 @@ class PipelineInformation {
 protected:
   Core::PipelineResource &m_pr;
   const Core::PipelineResource::ShaderModule* m_shader;
+  const char* m_entry;
 
 public:
-  PipelineInformation(Core::PipelineResource &pr, const char* shader) : m_pr(pr), m_shader(&m_pr.require_shader(shader)) {}
+  static constexpr const char* c_default_entry = "main";
+
+  PipelineInformation(Core::PipelineResource &pr, const char* shader, const char* entry = c_default_entry) :
+    m_pr(pr), m_shader(&m_pr.require_shader(shader)), m_entry(entry)
+  {}
 
   VkPipelineShaderStageCreateInfo get_stage()
   {
-    return {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_COMPUTE_BIT, m_shader->vk_mod, "main", nullptr};
+    return {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_COMPUTE_BIT, m_shader->vk_mod, m_entry, nullptr};
   }
 
   auto get_layouts() { return m_pr.get_shader_layouts(*m_shader); }
