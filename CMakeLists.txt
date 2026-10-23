@@ -101,13 +101,14 @@ target_include_directories(vroum3d INTERFACE vroum3d ext)
 
 add_library(vroum3d_shaders INTERFACE)
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  set(GLSLC_FLAGS "-g")
-else()
-  set(GLSLC_FLAGS "")
-endif()
-
 function (add_shader sh)
+
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(GLSLC_FLAGS "-g")
+  else()
+    set(GLSLC_FLAGS "-g")
+  endif()
+
 	get_filename_component(sh_name_we ${sh} NAME_WE)
 	get_filename_component(sh_ext ${sh} LAST_EXT)
 
@@ -117,7 +118,7 @@ function (add_shader sh)
   make_directory(${SHADERS_BINARY_DIR})
 
 	add_custom_command(OUTPUT "${SHADERS_BINARY_DIR}/${sh}.spv"
-    COMMAND "glslc" "--target-env=vulkan1.4" "${SHADERS_SOURCE_DIR}/${sh}" "-o" "${SHADERS_BINARY_DIR}/${sh}.spv" ${GLSLC_FLAGS}
+    COMMAND "glslc" "--target-env=vulkan1.4" "${SHADERS_SOURCE_DIR}/${sh}" "-o" "${SHADERS_BINARY_DIR}/${sh}.spv" "${GLSLC_FLAGS}"
 		DEPENDS "${SHADERS_SOURCE_DIR}/${sh}"
 	)
 
