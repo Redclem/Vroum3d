@@ -6,7 +6,6 @@
 #include <cassert>
 #include <filesystem>
 #include <stdexcept>
-#include <vulkan/vulkan_core.h>
 
 namespace Vroum3d::Core
 {
@@ -99,23 +98,33 @@ void Allocator::destroy()
 
 void Allocator::insert_block(std::uint32_t mem_idx, block_ptr_t block, PrimaryBin::addr_t addr)
 {
+  assert(block->size + block->offset <= c_largest_block_size);
+
   auto &bin = m_prim_bins[mem_idx];
   block_ptr_t &oldblock = bin.head_ptr_at(addr);
 
+  assert(!oldblock || oldblock->list_prev == nullptr);
+
   if(oldblock)
+  {
     oldblock->list_prev = block;
+
+    assert(oldblock->size + oldblock->offset <= c_largest_block_size);
+    assert(!oldblock || bin.addr(oldblock->size) == addr);
+  }
   else // Set free flag
     bin.set_free_flag(addr);
 
+  block->list_prev = nullptr;
   block->list_next = oldblock;
   block->free = true;
   oldblock = block;
+
+  assert(!oldblock || oldblock->list_prev == nullptr);
 }
 
 Allocator::block_ptr_t Allocator::get_block(std::uint32_t mem_idx, VkDeviceSize size)
 {
-  // TODO : implement and use first set bit functions here.
-
   auto &bin = m_prim_bins[mem_idx];
   auto [idx_prim, idx_sec] = bin.addr(size);
 
@@ -209,6 +218,8 @@ Allocator::block_ptr_t Allocator::allocate_inner(std::uint32_t mem_idx, VkDevice
       {
         pb->size = new_size;
       }
+
+      assert(pb->size + pb->offset <= c_largest_block_size);
     }
     else
     { // Create new free block
@@ -225,6 +236,8 @@ Allocator::block_ptr_t Allocator::allocate_inner(std::uint32_t mem_idx, VkDevice
       nb->phys_prev->phys_next = nb;
       block->phys_prev = nb;
 
+      assert(nb->size + nb->offset <= c_largest_block_size);
+
       insert_block(mem_idx, nb);
     }
     block->offset += added_bytes;
@@ -236,6 +249,8 @@ Allocator::block_ptr_t Allocator::allocate_inner(std::uint32_t mem_idx, VkDevice
     auto residual = split_block(size, block);
     insert_block(mem_idx, residual);
   }
+
+  assert(block->size + block->offset <= c_largest_block_size);
 
   return block;
 }
@@ -327,6 +342,8 @@ void Allocator::remove_free_list(block_ptr_t removed)
 
     if(auto lhn = list_head->list_next; lhn)
     {
+      assert(lhn->size + lhn->offset <= c_largest_block_size);
+
       lhn->list_prev = nullptr;
       list_head = lhn;
     }

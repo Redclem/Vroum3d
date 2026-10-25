@@ -77,6 +77,20 @@ public:
     const auto &operator*() const { return tget->element; }
 
     const auto* operator->() const { return &tget->element; }
+
+    auto operator<=>(const ConstPtr<PtrType> &rhs) const { return tget <=> rhs.tget; }
+
+    auto operator==(const ConstPtr<PtrType> &rhs) const { return tget == rhs.tget; }
+
+    auto operator!=(const ConstPtr<PtrType> &rhs) const { return tget != rhs.tget; }
+
+    auto operator<=(const ConstPtr<PtrType> &rhs) const { return tget <= rhs.tget; }
+
+    auto operator>=(const ConstPtr<PtrType> &rhs) const { return tget >= rhs.tget; }
+
+    auto operator>(const ConstPtr<PtrType> &rhs) const { return tget > rhs.tget; }
+
+    auto operator<(const ConstPtr<PtrType> &rhs) const { return tget < rhs.tget; }
   };
 
   template<typename PtrType>

@@ -2,10 +2,10 @@
 
 #include "../vroum3d/vroum3d.h"
 
-#include <iterator>
 #include <random>
 
 using namespace Vroum3d::Core;
+
 using namespace Vroum3d;
 
 constexpr std::size_t n_blocks = 10000;
@@ -61,6 +61,8 @@ int main(int, char*[])
     auto b_idx = std::uniform_int_distribution<std::size_t>(0, blocks.size() - 1)(rng);
 
     auto block = std::exchange(blocks[b_idx], std::move(blocks.back()));
+
+    check(block.size() + block.offset() <= Allocator::c_largest_block_size);
 
     blocks.pop_back();
 
