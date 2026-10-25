@@ -269,13 +269,14 @@ public:
   /** Allocate memory with given index, size, alignment. Use find_mem_index to easily determine memory index
    * On vulkan exception in memory allocation, state is unchanged.
    *
-   * for image or buffer allocation, prefer dedicated methods that handle binding and dedicated allocations.
+   * for image or buffer allocation, prefer allocate_bind methods that handle binding and dedicated allocations.
    * */
   [[nodiscard]]
   allocated_memory_t allocate(std::uint32_t mem_idx, VkDeviceSize s, VkDeviceSize alignment = 1)
   {
-    if constexpr(debug)
-      check(s <= c_largest_block_size);
+    if(s >= c_largest_block_size)
+      return allocate_dedicated(mem_idx, s);
+
     return allocate_inner(mem_idx, s, alignment);
   }
 
@@ -284,7 +285,7 @@ public:
   [[nodiscard]]
   allocated_memory_t allocate(const VkMemoryRequirements &mr, VkMemoryPropertyFlags mf)
   {
-    return allocate_inner(find_mem_index(mr, mf), mr.size, mr.alignment);
+    return allocate(find_mem_index(mr, mf), mr.size, mr.alignment);
   }
 
   /** Allocate dedicated memory */
