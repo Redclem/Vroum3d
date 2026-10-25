@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <unordered_set>
+#include <vulkan/vulkan_core.h>
 
 namespace Vroum3d::Core
 {
@@ -184,8 +185,11 @@ private:
 
   bool m_enable_device_address = false;
 
-  // Only call when associated memory index is empty. Returns a new block allocated through vk without inserting it in the pools.
-  block_ptr_t allocate_device_block(std::uint32_t index);
+  // Only call when associated memory index is empty. Returns a new block allocated in a new device block without inserting it in the pools.
+  block_ptr_t allocate_fresh_block(std::uint32_t index);
+
+  // Allocate device block with given index and size
+  device_block_ptr_t allocate_device_block(std::uint32_t index, VkDeviceSize size = c_largest_block_size, void* pnext = nullptr);
 
   void free_device_block(device_block_ptr_t block);
 
@@ -264,6 +268,8 @@ public:
 
   /** Allocate memory with given index, size, alignment. Use find_mem_index to easily determine memory index
    * On vulkan exception in memory allocation, state is unchanged.
+   *
+   * for image or buffer allocation, prefer dedicated methods that handle binding and dedicated allocations.
    * */
   [[nodiscard]]
   allocated_memory_t allocate(std::uint32_t mem_idx, VkDeviceSize s, VkDeviceSize alignment = 1)
@@ -280,6 +286,18 @@ public:
   {
     return allocate_inner(find_mem_index(mr, mf), mr.size, mr.alignment);
   }
+
+  /** Allocate dedicated memory */
+  [[nodiscard]]
+  allocated_memory_t allocate_dedicated(uint32_t mem_idx, VkDeviceSize s, void* pnext = nullptr);
+
+  [[nodiscard]]
+  allocated_memory_t allocate_dedicated(const VkMemoryRequirements &mr, VkMemoryPropertyFlags mf, void* pnext = nullptr)
+  {
+    return allocate_dedicated(find_mem_index(mr, mf), mr.size, pnext);
+  }
+
+  void free_dedicated(block_ptr_t b);
 
   /** Flush mapped memory.
    * Already checks if memory is coherent to avoid superfluous API calls.*/
@@ -409,15 +427,51 @@ public:
 
   /** Allocate & bind for given objects w/ offset */
   [[nodiscard]]
-  allocated_memory_t allocate_bind(VkBuffer buffer, VkMemoryPropertyFlags props, VkDeviceSize alignment)
+  allocated_memory_t allocate_bind(VkBuffer buffer, VkMemoryPropertyFlags props, VkDeviceSize alignment = 1)
   {
-    VkMemoryRequirements mr;
-    vkGetBufferMemoryRequirements(device(), buffer, &mr);
+    VkBufferMemoryRequirementsInfo2 bmri{VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2, nullptr, buffer};
 
-    mr.alignment = std::max(mr.alignment, alignment);
+    VkMemoryDedicatedRequirements mdr{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS, nullptr, 0, 0};
 
-    auto mem = allocate(mr, props);
+    VkMemoryRequirements2 mr{VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2, &mdr, {}};
+
+    vkGetBufferMemoryRequirements2(device(), &bmri, &mr);
+
+    if(mdr.requiresDedicatedAllocation || mdr.prefersDedicatedAllocation)
+    {
+      VkMemoryDedicatedAllocateInfo dai{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr, VK_NULL_HANDLE, buffer};
+
+      return allocate_dedicated(mr.memoryRequirements, props, &dai);
+    }
+
+    mr.memoryRequirements.alignment = std::max(mr.memoryRequirements.alignment, alignment);
+
+    auto mem = allocate(mr.memoryRequirements, props);
     vkBindBufferMemory(device(), buffer, mem.memory(), mem.offset());
+
+    return mem;
+  }
+
+  [[nodiscard]]
+  allocated_memory_t allocate_bind(VkImage image, VkMemoryPropertyFlags props)
+  {
+    VkImageMemoryRequirementsInfo2 imri{VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2, nullptr, image};
+
+    VkMemoryDedicatedRequirements mdr{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS, nullptr, 0, 0};
+
+    VkMemoryRequirements2 mr{VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2, &mdr, {}};
+
+    vkGetImageMemoryRequirements2(device(), &imri, &mr);
+
+    if(mdr.requiresDedicatedAllocation == VK_TRUE || mdr.prefersDedicatedAllocation == VK_TRUE)
+    {
+      VkMemoryDedicatedAllocateInfo dai{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr, image, VK_NULL_HANDLE};
+
+      return allocate_dedicated(mr.memoryRequirements, props, &dai);
+    }
+
+    auto mem = allocate(mr.memoryRequirements, props);
+    vkBindImageMemory(device(), image, mem.memory(), mem.offset());
 
     return mem;
   }

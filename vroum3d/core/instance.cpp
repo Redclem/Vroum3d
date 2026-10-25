@@ -326,17 +326,12 @@ void DisplayInstance::create_depth_images()
   VkImageViewCreateInfo vi{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, nullptr, 0, VK_NULL_HANDLE, VK_IMAGE_VIEW_TYPE_2D, m_depth_format, vkutil::components_id,
                            {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1}};
 
-  VkMemoryRequirements mr;
-
   for(auto &elem: m_frame_sync)
   {
     vk_check(vkCreateImage(m_dev, &ii, nullptr, &elem.depth_image));
-    vkGetImageMemoryRequirements(m_dev, elem.depth_image, &mr);
 
-    elem.depth_mem = allocate(vkutil::find_mem_index(m_pdev, mr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), mr.size, mr.alignment);
-
+    elem.depth_mem = allocate_bind(elem.depth_image, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     vi.image = elem.depth_image;
-    vk_check(vkBindImageMemory(m_dev, elem.depth_image, elem.depth_mem.memory(), elem.depth_mem.offset()));
 
     vk_check(vkCreateImageView(m_dev, &vi, nullptr, &elem.depth_view));
   }

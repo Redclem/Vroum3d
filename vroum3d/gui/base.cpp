@@ -18,6 +18,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <vulkan/vulkan_core.h>
 
 using namespace Vroum3d::Gui;
 using namespace Vroum3d::Core;
@@ -141,13 +142,8 @@ void Base::init()
 
   vk_check(vkCreateBuffer(m_device, &bnfo, nullptr, &m_buffer));
 
-  VkMemoryRequirements bmr;
-  vkGetBufferMemoryRequirements(m_device, m_buffer, &bmr);
-
-  m_buffer_mem = m_instance->allocate(bmr, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  m_buffer_mem = m_instance->allocate_bind(m_buffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
   m_mapped_buffer_ptr = instance()->map(m_buffer_mem);
-
-  vk_check(vkBindBufferMemory(device(), m_buffer, m_buffer_mem.memory(), m_buffer_mem.offset()));
 
   Buffer buf(*m_instance, buffer_upl_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
@@ -394,12 +390,7 @@ VkDeviceSize Base::load_textures(std::vector<StbiPtr> &textures)
 
     vk_check(vkCreateImage(m_device, &imnfo, nullptr, &tex.img));
 
-    VkMemoryRequirements imr;
-    vkGetImageMemoryRequirements(m_device, tex.img, &imr);
-
-    tex.mem = m_instance->allocate(imr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    vk_check(vkBindImageMemory(device(), tex.img, tex.mem.memory(), tex.mem.offset()));
-
+    tex.mem = m_instance->allocate_bind(tex.img, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     VkImageViewCreateInfo vnfo{
       VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, nullptr, 0, tex.img, VK_IMAGE_VIEW_TYPE_2D, tex.format, vkutil::components_id, vkutil::color_subres_plain};
@@ -484,12 +475,7 @@ VkDeviceSize Base::load_font_bitmaps(std::vector<Base::font_bitmap_t> &bitmaps)
 
     vk_check(vkCreateImage(m_device, &imnfo, nullptr, &font.img));
 
-    VkMemoryRequirements imr;
-    vkGetImageMemoryRequirements(m_device, font.img, &imr);
-
-    font.mem = m_instance->allocate(imr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    vk_check(vkBindImageMemory(device(), font.img, font.mem.memory(), font.mem.offset()));
-
+    font.mem = m_instance->allocate_bind(font.img, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     VkImageViewCreateInfo vnfo{
       VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, nullptr, 0, font.img, VK_IMAGE_VIEW_TYPE_2D, format, vkutil::components_id, vkutil::color_subres_plain};

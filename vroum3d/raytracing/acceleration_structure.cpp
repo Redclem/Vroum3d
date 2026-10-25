@@ -109,11 +109,7 @@ void SimpleTriangleAccelerationStructure::create_buffer(VkDeviceSize size)
 
   vk_check(vkCreateBuffer(device(), &bi, nullptr, &m_buffer));
 
-  VkMemoryRequirements mr;
-  vkGetBufferMemoryRequirements(device(), m_buffer, &mr);
-
-  m_buffer_mem = m_instance->allocate(mr, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  vkBindBufferMemory(device(), m_buffer, m_buffer_mem.memory(), m_buffer_mem.offset());
+  m_buffer_mem = m_instance->allocate_bind(m_buffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 }
 
 void SimpleTriangleAccelerationStructure::upload_as(VkDeviceOrHostAddressConstKHR vertex_data, VkDeviceOrHostAddressConstKHR index_data, VkCommandPool cmd_pool,

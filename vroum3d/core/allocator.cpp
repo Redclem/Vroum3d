@@ -6,6 +6,7 @@
 #include <cassert>
 #include <filesystem>
 #include <stdexcept>
+#include <vulkan/vulkan_core.h>
 
 namespace Vroum3d::Core
 {
@@ -22,7 +23,7 @@ void Allocator::init(VkDevice dev, VkPhysicalDevice pdev)
   m_nonCoherentAtomSize = props.limits.nonCoherentAtomSize;
 }
 
-Allocator::block_ptr_t Allocator::allocate_device_block(std::uint32_t idx)
+Allocator::device_block_ptr_t Allocator::allocate_device_block(std::uint32_t idx, VkDeviceSize size, void* pnext)
 {
   union mh_t
   {
@@ -38,7 +39,7 @@ Allocator::block_ptr_t Allocator::allocate_device_block(std::uint32_t idx)
 
   if constexpr(!c_dry_allocation)
   {
-    VkMemoryAllocateInfo mai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, VkDeviceSize(c_largest_block_size), idx};
+    VkMemoryAllocateInfo mai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, pnext, size, idx};
 
     VkMemoryAllocateFlagsInfoKHR fi;
 
@@ -65,11 +66,18 @@ Allocator::block_ptr_t Allocator::allocate_device_block(std::uint32_t idx)
   device_block->next = m_first_device_block;
   m_first_device_block = device_block;
 
+  return device_block;
+}
+
+Allocator::block_ptr_t Allocator::allocate_fresh_block(std::uint32_t idx)
+{
+  auto device_block = allocate_device_block(idx);
+
   block_ptr_t new_block = m_bag.allocate();
 
   new_block->size = c_largest_block_size;
   new_block->offset = 0;
-  new_block->mem_handle = mh;
+  new_block->mem_handle = device_block->mem_handle;
   new_block->mem_idx = idx;
   new_block->device_memory_block = device_block;
 
@@ -134,7 +142,7 @@ Allocator::block_ptr_t Allocator::get_block(std::uint32_t mem_idx, VkDeviceSize 
     idx_prim++;
 
     if(idx_prim == c_prim_bin_size)
-      return allocate_device_block(mem_idx);
+      return allocate_fresh_block(mem_idx);
 
     idx_sec = 0;
   }
@@ -154,7 +162,7 @@ Allocator::block_ptr_t Allocator::get_block(std::uint32_t mem_idx, VkDeviceSize 
 
     if(free_shift == 0) // No more blocks !
     {
-      return allocate_device_block(mem_idx);
+      return allocate_fresh_block(mem_idx);
     }
 
     idx_prim = idx_prim + fsb(free_shift);
@@ -366,6 +374,12 @@ void Allocator::remove_free_list(block_ptr_t removed)
 
 void Allocator::free(block_ptr_t b)
 {
+  if(b->dedicated)
+  {
+    free_dedicated(b);
+    return;
+  }
+
   b = merge_insert(b);
 
   if(b->size == c_largest_block_size)
@@ -450,6 +464,28 @@ void Allocator::invalidate_inner(block_ptr_t block)
   VkMappedMemoryRange mr{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, nullptr, block->mem_handle, invalidate_ofs, invalidate_len};
 
   vk_check(vkInvalidateMappedMemoryRanges(m_device, 1, &mr));
+}
+
+Allocator::allocated_memory_t Allocator::allocate_dedicated(uint32_t mem_idx, VkDeviceSize s, void* pnext)
+{
+  auto dev_block = allocate_device_block(mem_idx, s, pnext);
+
+  auto block = m_bag.allocate();
+
+  block->size = s;
+  block->offset = 0;
+  block->mem_idx = mem_idx;
+  block->free = false;
+  block->dedicated = true;
+  block->mem_handle = dev_block->mem_handle;
+
+  return block;
+}
+
+void Allocator::free_dedicated(block_ptr_t b)
+{
+  free_device_block(b->device_memory_block);
+  m_bag.release(b);
 }
 
 } // namespace Vroum3d::Core
