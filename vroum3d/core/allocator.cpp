@@ -478,6 +478,7 @@ Allocator::allocated_memory_t Allocator::allocate_dedicated(uint32_t mem_idx, Vk
   block->free = false;
   block->dedicated = true;
   block->mem_handle = dev_block->mem_handle;
+  block->device_memory_block = dev_block;
 
   return block;
 }

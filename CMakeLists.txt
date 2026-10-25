@@ -185,6 +185,7 @@ if(VROUM3D_TESTS)
   add_exec_test(pipeline)
   add_exec_test(descriptor_sets)
   add_exec_test(compute_pipeline)
+  add_exec_test(large_buffers)
 
   set(VROUM3D_SHADERS ON)
 endif()

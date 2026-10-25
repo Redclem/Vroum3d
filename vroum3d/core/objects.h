@@ -22,6 +22,9 @@ class Buffer : public AssignDestroy<Buffer> {
 public:
   Buffer() {}
 
+  Buffer(Buffer &&) = default;
+  Buffer &operator=(Buffer &&) = default;
+
   /** Buffer constructor : creates buffer and allocs mem
    * \param alloc Allocator to create buffer with
    * \param bs Buffer size
@@ -31,7 +34,9 @@ public:
    */
 
   Buffer(Allocator &alloc, VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags mp, VkDeviceSize alignment = 0) : m_alloc(&alloc), m_dev(alloc.device())
-  { create_buffer(bs, use, mp, alignment); }
+  {
+    create_buffer(bs, use, mp, alignment);
+  }
 
   Buffer(Allocator &alloc) : m_alloc(&alloc), m_dev(alloc.device()) {}
 
@@ -149,7 +154,9 @@ public:
 
   template<typename CmdFun, typename... Args>
   void cmd(CmdFun cf, Args &&... ags)
-  { cf(m_cmd_buf, std::forward<Args>(ags)...); }
+  {
+    cf(m_cmd_buf, std::forward<Args>(ags)...);
+  }
 
   const VkCommandBuffer &cmd_buf() const { return m_cmd_buf; }
 
@@ -214,7 +221,9 @@ public:
   CommandBufferVector() = default;
 
   CommandBufferVector(const Instance &inst, VkCommandPool cmd_pool, uint32_t n_buffer, bool primary = true) : m_dev(inst.device()), m_cmd_pool(cmd_pool)
-  { allocate_command_buffers(n_buffer, primary); }
+  {
+    allocate_command_buffers(n_buffer, primary);
+  }
 
   void destroy()
   {
