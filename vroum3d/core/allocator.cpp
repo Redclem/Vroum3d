@@ -1,11 +1,11 @@
 #include "allocator.h"
+
 #include "../testing.h"
 
+#include <cassert>
 #include <filesystem>
 #include <stdexcept>
 #include <vulkan/vulkan_core.h>
-
-#include <cassert>
 
 namespace Vroum3d::Core
 {
@@ -16,10 +16,10 @@ void Allocator::init(VkDevice dev, VkPhysicalDevice pdev)
 
   vkGetPhysicalDeviceMemoryProperties(pdev, &m_mem_props);
 
-	VkPhysicalDeviceProperties props;
-	vkGetPhysicalDeviceProperties(pdev, &props);
+  VkPhysicalDeviceProperties props;
+  vkGetPhysicalDeviceProperties(pdev, &props);
 
-	m_nonCoherentAtomSize = props.limits.nonCoherentAtomSize;
+  m_nonCoherentAtomSize = props.limits.nonCoherentAtomSize;
 }
 
 Allocator::block_ptr_t Allocator::allocate_device_block(std::uint32_t idx)
@@ -27,38 +27,34 @@ Allocator::block_ptr_t Allocator::allocate_device_block(std::uint32_t idx)
   union mh_t
   {
     VkDeviceMemory dm;
-		device_block_ptr_t mh = nullptr;
+    device_block_ptr_t mh = nullptr;
 
-    operator VkDeviceMemory() const {return dm;}
-    operator std::uint64_t() const {return mh;}
+    operator VkDeviceMemory() const { return dm; }
+
+    operator std::uint64_t() const { return mh; }
   } mh;
 
-	auto device_block = m_device_blocks.allocate();
+  auto device_block = m_device_blocks.allocate();
 
   if constexpr(!c_dry_allocation)
   {
-    VkMemoryAllocateInfo mai{
-      VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-      nullptr,
-      VkDeviceSize(c_largest_block_size),
-      idx
-    };
+    VkMemoryAllocateInfo mai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, VkDeviceSize(c_largest_block_size), idx};
 
     vk_check(vkAllocateMemory(m_device, &mai, nullptr, &mh.dm));
   }
   else
     mh.mh = device_block;
-  
-	device_block->mem_handle = mh;
-	device_block->idx = idx;
-	device_block->visible = m_mem_props.memoryTypes[idx].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-	device_block->coherent = m_mem_props.memoryTypes[idx].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
-	if(m_first_device_block)
-		m_first_device_block->prev = device_block;
-	
-	device_block->next = m_first_device_block;
-	m_first_device_block = device_block;
+  device_block->mem_handle = mh;
+  device_block->idx = idx;
+  device_block->visible = m_mem_props.memoryTypes[idx].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+  device_block->coherent = m_mem_props.memoryTypes[idx].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+  if(m_first_device_block)
+    m_first_device_block->prev = device_block;
+
+  device_block->next = m_first_device_block;
+  m_first_device_block = device_block;
 
   block_ptr_t new_block = m_bag.allocate();
 
@@ -66,8 +62,8 @@ Allocator::block_ptr_t Allocator::allocate_device_block(std::uint32_t idx)
   new_block->offset = 0;
   new_block->mem_handle = mh;
   new_block->mem_idx = idx;
-	new_block->device_memory_block = device_block;
- 
+  new_block->device_memory_block = device_block;
+
   return new_block;
 }
 
@@ -75,43 +71,52 @@ void Allocator::destroy()
 {
   if constexpr(!c_dry_allocation)
   {
-		if constexpr(c_testing)
-		{
-			if(m_first_device_block)
-				throw std::runtime_error("Allocator has allocated device blocks at destruction");
-		}
+    if constexpr(c_testing)
+    {
+      if(m_first_device_block)
+        throw std::runtime_error("Allocator has allocated device blocks at destruction");
+    }
 
     for(device_block_ptr_t b(m_first_device_block); b;)
     {
       vkFreeMemory(m_device, b->mem_handle, nullptr);
-			auto tmp = b->next;
-			m_device_blocks.release(b);
-			b = tmp;
+      auto tmp = b->next;
+      m_device_blocks.release(b);
+      b = tmp;
     }
   }
 }
 
 void Allocator::insert_block(std::uint32_t mem_idx, block_ptr_t block, PrimaryBin::addr_t addr)
 {
-  auto& bin = m_prim_bins[mem_idx];
-  block_ptr_t& oldblock = bin.head_ptr_at(addr);
+  assert(block->size + block->offset <= c_largest_block_size);
+
+  auto &bin = m_prim_bins[mem_idx];
+  block_ptr_t &oldblock = bin.head_ptr_at(addr);
+
+  assert(!oldblock || oldblock->list_prev == nullptr);
 
   if(oldblock)
+  {
     oldblock->list_prev = block;
+
+    assert(oldblock->size + oldblock->offset <= c_largest_block_size);
+    assert(!oldblock || bin.addr(oldblock->size) == addr);
+  }
   else // Set free flag
     bin.set_free_flag(addr);
 
+  block->list_prev = nullptr;
   block->list_next = oldblock;
   block->free = true;
   oldblock = block;
 
+  assert(!oldblock || oldblock->list_prev == nullptr);
 }
 
 Allocator::block_ptr_t Allocator::get_block(std::uint32_t mem_idx, VkDeviceSize size)
 {
-  // TODO : implement and use first set bit functions here.
-
-  auto& bin = m_prim_bins[mem_idx];
+  auto &bin = m_prim_bins[mem_idx];
   auto [idx_prim, idx_sec] = bin.addr(size);
 
   // Increment bin
@@ -123,36 +128,36 @@ Allocator::block_ptr_t Allocator::get_block(std::uint32_t mem_idx, VkDeviceSize 
       return allocate_device_block(mem_idx);
 
     idx_sec = 0;
-
   }
-  else {
+  else
+  {
     idx_sec++;
   }
 
   // Find non empty bin
 
-  if(!(bin.free & (1ull << idx_prim)) // No right sec bin
-    || !(bin.sec_bins[idx_prim].free >> idx_sec)) // Or no right list in sec bin 
+  if(!(bin.free & (1ull << idx_prim))              // No right sec bin
+     || !(bin.sec_bins[idx_prim].free >> idx_sec)) // Or no right list in sec bin
   {
     idx_sec = 0; // Reset search for secondary block.
 
     auto free_shift = (bin.free >> idx_prim) & ~1ull;
-    
+
     if(free_shift == 0) // No more blocks !
     {
       return allocate_device_block(mem_idx);
     }
-    
+
     idx_prim = idx_prim + fsb(free_shift);
   }
 
-  auto& secbin = bin.sec_bins[idx_prim];
+  auto &secbin = bin.sec_bins[idx_prim];
   assert(secbin.free >> idx_sec);
 
   idx_sec += fsb(secbin.free >> idx_sec);
 
   // Found the list head!
-  auto& head = secbin.list_heads[idx_sec];
+  auto &head = secbin.list_heads[idx_sec];
   block_ptr_t block = head;
 
   if(auto ln = head->list_next; ln)
@@ -185,7 +190,7 @@ Allocator::block_ptr_t Allocator::allocate_inner(std::uint32_t mem_idx, VkDevice
   {
     auto added_bytes = alignment - aligndef;
     // There must be a physical previous block
-    
+
     auto pb = block->phys_prev;
     if(pb->free) // Enlarge previous free block
     {
@@ -200,23 +205,29 @@ Allocator::block_ptr_t Allocator::allocate_inner(std::uint32_t mem_idx, VkDevice
         pb->size = new_size;
         insert_block(mem_idx, pb, new_addr);
       }
-      else {
+      else
+      {
         pb->size = new_size;
       }
+
+      assert(pb->size + pb->offset <= c_largest_block_size);
     }
-    else { // Create new free block
+    else
+    { // Create new free block
       auto nb = m_bag.allocate();
       nb->size = added_bytes;
       nb->offset = block->offset;
       nb->mem_handle = block->mem_handle;
-			nb->device_memory_block = block->device_memory_block;
+      nb->device_memory_block = block->device_memory_block;
       nb->mem_idx = block->mem_idx;
 
-      // 4 pts to change in phys list 
+      // 4 pts to change in phys list
       nb->phys_next = block;
       nb->phys_prev = block->phys_prev;
       nb->phys_prev->phys_next = nb;
       block->phys_prev = nb;
+
+      assert(nb->size + nb->offset <= c_largest_block_size);
 
       insert_block(mem_idx, nb);
     }
@@ -230,6 +241,8 @@ Allocator::block_ptr_t Allocator::allocate_inner(std::uint32_t mem_idx, VkDevice
     insert_block(mem_idx, residual);
   }
 
+  assert(block->size + block->offset <= c_largest_block_size);
+
   return block;
 }
 
@@ -240,7 +253,7 @@ Allocator::block_ptr_t Allocator::split_block(VkDeviceSize size, block_ptr_t blo
 
   remain_block->size = block->size - size;
   remain_block->mem_handle = block->mem_handle;
-	remain_block->device_memory_block = block->device_memory_block;
+  remain_block->device_memory_block = block->device_memory_block;
   remain_block->offset = block->offset + size;
   remain_block->mem_idx = block->mem_idx;
 
@@ -290,45 +303,49 @@ Allocator::block_ptr_t Allocator::merge_insert(block_ptr_t b)
     assert(b->size + prev_block->size <= c_largest_block_size);
 
     // Update phyiscal list
-		prev_block->phys_next = b->phys_next;
+    prev_block->phys_next = b->phys_next;
 
-		if(b->phys_next)
-			b->phys_next->phys_prev = prev_block;
+    if(b->phys_next)
+      b->phys_next->phys_prev = prev_block;
 
-		remove_free_list(prev_block);
-    
+    remove_free_list(prev_block);
+
     // Adjust block size and offset
     prev_block->size += b->size;
 
     m_bag.release(b);
-		
-		b = prev_block;
+
+    b = prev_block;
   }
 
-	return b;
+  return b;
 }
-  
+
 void Allocator::remove_free_list(block_ptr_t removed)
 {
   // Remove from the free list; either it has a previous block in free list or not
   if(!removed->list_prev) // Find it ourselves
   {
-    auto& prim_bin = m_prim_bins[removed->mem_idx];
+    auto &prim_bin = m_prim_bins[removed->mem_idx];
     auto addr = prim_bin.addr(removed->size);
-    auto& list_head = prim_bin.head_ptr_at(addr); // List head is this block
+    auto &list_head = prim_bin.head_ptr_at(addr); // List head is this block
     assert(list_head == removed);
 
     if(auto lhn = list_head->list_next; lhn)
     {
-        lhn->list_prev = nullptr;
-        list_head = lhn;
+      assert(lhn->size + lhn->offset <= c_largest_block_size);
+
+      lhn->list_prev = nullptr;
+      list_head = lhn;
     }
-    else {
+    else
+    {
       list_head = nullptr;
       prim_bin.unset_free_flag(addr);
     }
   }
-  else {
+  else
+  {
     // Edit 2 pointers for linked list remove; do not care for ptr of remove block
     // Previous block exists and list is not empty
     if(removed->list_next)
@@ -342,100 +359,88 @@ void Allocator::free(block_ptr_t b)
 {
   b = merge_insert(b);
 
-	if(b->size == c_largest_block_size)
-	{
-		free_device_block(b->device_memory_block);
-		m_bag.release(b);
-	}
-	else
-		insert_block(b->mem_idx, b);
+  if(b->size == c_largest_block_size)
+  {
+    free_device_block(b->device_memory_block);
+    m_bag.release(b);
+  }
+  else
+    insert_block(b->mem_idx, b);
 }
 
 void Allocator::free_device_block(device_block_ptr_t block)
 {
-	if(block == m_first_device_block)
-		m_first_device_block = block->next;
-	else
-		block->prev->next = block->next;
+  if(block == m_first_device_block)
+    m_first_device_block = block->next;
+  else
+    block->prev->next = block->next;
 
-	if(block->next)
-		block->next->prev = block->prev;
+  if(block->next)
+    block->next->prev = block->prev;
 
-	vkFreeMemory(m_device, block->mem_handle, nullptr);
-	m_device_blocks.release(block);
+  vkFreeMemory(m_device, block->mem_handle, nullptr);
+  m_device_blocks.release(block);
 }
 
-char * Allocator::map(block_ptr_t block)
+char* Allocator::map(block_ptr_t block)
 {
-	auto dev_block = block->device_memory_block;
-	if(dev_block->mapped_addr)
-	{
-		dev_block->n_mapped++;
-	}
-	else
-	{
-		vk_check(vkMapMemory(m_device, dev_block->mem_handle, 0, VK_WHOLE_SIZE, 0, reinterpret_cast<void**>(&dev_block->mapped_addr)));
-		dev_block->n_mapped = 1;
-	}
+  auto dev_block = block->device_memory_block;
+  if(dev_block->mapped_addr)
+  {
+    dev_block->n_mapped++;
+  }
+  else
+  {
+    vk_check(vkMapMemory(m_device, dev_block->mem_handle, 0, VK_WHOLE_SIZE, 0, reinterpret_cast<void**>(&dev_block->mapped_addr)));
+    dev_block->n_mapped = 1;
+  }
 
-	return dev_block->mapped_addr + block->offset;
+  return dev_block->mapped_addr + block->offset;
 }
 
 void Allocator::unmap(block_ptr_t block)
 {
-	auto dev_block = block->device_memory_block;
+  auto dev_block = block->device_memory_block;
 
-	if(dev_block->n_mapped == 1)
-	{
-		vkUnmapMemory(m_device, dev_block->mem_handle);
-		dev_block->mapped_addr = nullptr;
-	}
-	else
-		dev_block->n_mapped--;
+  if(dev_block->n_mapped == 1)
+  {
+    vkUnmapMemory(m_device, dev_block->mem_handle);
+    dev_block->mapped_addr = nullptr;
+  }
+  else
+    dev_block->n_mapped--;
 }
 
 void Allocator::flush_inner(block_ptr_t block)
 {
-	auto atom_mask = m_nonCoherentAtomSize - 1;
-	auto inv_atom_mask = ~atom_mask;
+  auto atom_mask = m_nonCoherentAtomSize - 1;
+  auto inv_atom_mask = ~atom_mask;
 
-	VkDeviceSize flush_len = block->size + (block->offset & atom_mask);
-	VkDeviceSize flush_ofs = block->offset & inv_atom_mask;
+  VkDeviceSize flush_len = block->size + (block->offset & atom_mask);
+  VkDeviceSize flush_ofs = block->offset & inv_atom_mask;
 
-	if(flush_len & atom_mask)
-		flush_len = (flush_len & inv_atom_mask) + m_nonCoherentAtomSize;
+  if(flush_len & atom_mask)
+    flush_len = (flush_len & inv_atom_mask) + m_nonCoherentAtomSize;
 
-	VkMappedMemoryRange mr{
-		VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
-		nullptr,
-		block->mem_handle,
-		flush_ofs,
-		flush_len
-	};
+  VkMappedMemoryRange mr{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, nullptr, block->mem_handle, flush_ofs, flush_len};
 
-	vk_check(vkFlushMappedMemoryRanges(m_device, 1, &mr));
+  vk_check(vkFlushMappedMemoryRanges(m_device, 1, &mr));
 }
 
 void Allocator::invalidate_inner(block_ptr_t block)
 {
-	auto atom_mask = m_nonCoherentAtomSize - 1;
-	auto inv_atom_mask = ~atom_mask;
+  auto atom_mask = m_nonCoherentAtomSize - 1;
+  auto inv_atom_mask = ~atom_mask;
 
-	VkDeviceSize invalidate_len = block->size + (block->offset & atom_mask);
-	VkDeviceSize invalidate_ofs = block->offset & inv_atom_mask;
+  VkDeviceSize invalidate_len = block->size + (block->offset & atom_mask);
+  VkDeviceSize invalidate_ofs = block->offset & inv_atom_mask;
 
-	if(invalidate_len & atom_mask)
-		invalidate_len = (invalidate_len & inv_atom_mask) + m_nonCoherentAtomSize;
+  if(invalidate_len & atom_mask)
+    invalidate_len = (invalidate_len & inv_atom_mask) + m_nonCoherentAtomSize;
 
-	VkMappedMemoryRange mr{
-		VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
-		nullptr,
-		block->mem_handle,
-		invalidate_ofs,
-		invalidate_len
-	};
+  VkMappedMemoryRange mr{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, nullptr, block->mem_handle, invalidate_ofs, invalidate_len};
 
-	vk_check(vkInvalidateMappedMemoryRanges(m_device, 1, &mr));
+  vk_check(vkInvalidateMappedMemoryRanges(m_device, 1, &mr));
 }
 
-}
+} // namespace Vroum3d::Core

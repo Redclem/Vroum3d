@@ -25,6 +25,10 @@ FetchContent_Declare(
 	GIT_TAG main
 )
 
+if(NOT DEFINED KTX_FEATURE_TESTS)
+  set(KTX_FEATURE_TESTS OFF)
+endif()
+
 FetchContent_MakeAvailable(spirv_reflect)
 FetchContent_MakeAvailable(ktx_software)
 

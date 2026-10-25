@@ -3,111 +3,126 @@
 
 /** Bag container class, just contains a variable amount of elements.
  * Access through pointer only. Insertion / Removal in O(1).
-*/
+ */
 
 #include "utility.h"
+
 #include <memory>
 
 namespace Vroum3d
 {
 
 template<typename T, std::size_t Subbag_size = 1024, typename Allocator = std::allocator<T>>
-class Bag : public Allocator
-{
+class Bag : public Allocator {
 public:
-	using element_t = T;
-	using allocator_t = Allocator;
-	using allocator_traits_t = std::allocator_traits<allocator_t>;
+  using element_t = T;
+  using allocator_t = Allocator;
+  using allocator_traits_t = std::allocator_traits<allocator_t>;
 
-	constexpr static std::size_t c_subbag_size = Subbag_size;
+  static constexpr std::size_t c_subbag_size = Subbag_size;
+
 private:
+  union SubbagElement
+  {
+    union
+    {
+      SubbagElement* next;
+      element_t element;
+    };
 
-	union SubbagElement
-	{
-		union
-		{
-			SubbagElement* next;
-			element_t element;
-		};
+    SubbagElement() {}
+  };
 
-		SubbagElement() {}
-	};
+  struct Subbag
+  {
+    std::array<SubbagElement, c_subbag_size> sb_elems;
+    Subbag* next;
+  };
 
-	struct Subbag
-	{
-		std::array<SubbagElement, c_subbag_size> sb_elems;
-		Subbag* next;
-	};
-
-	Handle<Subbag*, nullptr> m_subbag;
-	SubbagElement * m_next_free = nullptr;
+  Handle<Subbag*, nullptr> m_subbag;
+  SubbagElement* m_next_free = nullptr;
   std::size_t m_idx_new_in_subbag = c_subbag_size;
 
 public:
+  Bag(allocator_t &&all = {}) : allocator_t(all) {}
 
-	Bag(allocator_t&& all = {}) : allocator_t(all) {}
-
-	void destroy()
-	{
-		for(Subbag* sb = m_subbag; sb;)
+  void destroy()
+  {
+    for(Subbag* sb = m_subbag; sb;)
     {
       auto tmp = sb->next;
-			delete sb;
+      delete sb;
       sb = tmp;
     }
+  }
 
-	}
+  ~Bag() { destroy(); }
 
-  ~Bag() {destroy();}
+  template<typename PtrType>
+  class ConstPtr {
+  protected:
+    using ptr_t = PtrType;
 
-	template<typename PtrType>
-	class ConstPtr
-	{
-	protected:
-		using ptr_t = PtrType;
+    ptr_t tget;
 
-		ptr_t tget;
+    friend class Bag;
 
-		friend class Bag;
-		ConstPtr(ptr_t t) : tget(t) {}
-	public:
+    ConstPtr(ptr_t t) : tget(t) {}
+
+  public:
     ConstPtr(std::nullptr_t = nullptr) : tget(nullptr) {}
 
-    operator bool() const {return tget != nullptr;}
+    operator bool() const { return tget != nullptr; }
 
-		const auto& operator*() const {return tget->element;}
-		const auto* operator->() const {return &tget->element;}
-	};
+    const auto &operator*() const { return tget->element; }
 
-	template<typename PtrType>
-	class Ptr : public ConstPtr<PtrType>
-	{
-		using base_t = ConstPtr<PtrType>;
-		using base_t::base_t, typename base_t::ptr_t;
+    const auto* operator->() const { return &tget->element; }
 
-		friend class Bag;
-		Ptr(ptr_t t) : base_t(t) {}
-	public:
+    auto operator<=>(const ConstPtr<PtrType> &rhs) const { return tget <=> rhs.tget; }
+
+    auto operator==(const ConstPtr<PtrType> &rhs) const { return tget == rhs.tget; }
+
+    auto operator!=(const ConstPtr<PtrType> &rhs) const { return tget != rhs.tget; }
+
+    auto operator<=(const ConstPtr<PtrType> &rhs) const { return tget <= rhs.tget; }
+
+    auto operator>=(const ConstPtr<PtrType> &rhs) const { return tget >= rhs.tget; }
+
+    auto operator>(const ConstPtr<PtrType> &rhs) const { return tget > rhs.tget; }
+
+    auto operator<(const ConstPtr<PtrType> &rhs) const { return tget < rhs.tget; }
+  };
+
+  template<typename PtrType>
+  class Ptr : public ConstPtr<PtrType> {
+    using base_t = ConstPtr<PtrType>;
+    using base_t::base_t, typename base_t::ptr_t;
+
+    friend class Bag;
+
+    Ptr(ptr_t t) : base_t(t) {}
+
+  public:
     Ptr(std::nullptr_t = nullptr) {}
-		auto& operator*() const {return base_t::tget->element;}
-		auto* operator->() const {return &base_t::tget->element;}
-	};
 
-	using const_ptr_t = ConstPtr<const SubbagElement*>;
-	using ptr_t = Ptr<SubbagElement*> ;
+    auto &operator*() const { return base_t::tget->element; }
+
+    auto* operator->() const { return &base_t::tget->element; }
+  };
+
+  using const_ptr_t = ConstPtr<const SubbagElement*>;
+  using ptr_t = Ptr<SubbagElement*>;
 
 private:
+  auto &alloc() { return static_cast<allocator_t &>(*this); }
 
-
-	auto& alloc() {return static_cast<allocator_t&>(*this);}
-
-	// Use when no new free element (m_next_free == nullptr)
-	void add_subbag()
-	{
-		Subbag* new_subb = new Subbag();
-		new_subb->next = m_subbag;
-		m_subbag = new_subb;
-	  m_idx_new_in_subbag = 0;
+  // Use when no new free element (m_next_free == nullptr)
+  void add_subbag()
+  {
+    Subbag* new_subb = new Subbag();
+    new_subb->next = m_subbag;
+    m_subbag = new_subb;
+    m_idx_new_in_subbag = 0;
   }
 
   SubbagElement* allocate_free()
@@ -128,9 +143,9 @@ private:
   }
 
 public:
-	ptr_t allocate()
-	{
-    SubbagElement * p;
+  ptr_t allocate()
+  {
+    SubbagElement* p;
     if(m_next_free)
       p = allocate_free();
     else
@@ -140,25 +155,24 @@ public:
     return ptr_t(p);
   }
 
-	void release(ptr_t ptr)
-	{
+  void release(ptr_t ptr)
+  {
     auto p = ptr.tget;
-		allocator_traits_t::destroy(alloc(), &p->element);
-		p->next = m_next_free;
-		m_next_free = p;
-	}
+    allocator_traits_t::destroy(alloc(), &p->element);
+    p->next = m_next_free;
+    m_next_free = p;
+  }
 
   std::size_t n_subbags() const
   {
     std::size_t ns(0);
-    for(Subbag* iter = m_subbag; iter; iter = iter->next)
-      ns++;
+    for(Subbag* iter = m_subbag; iter; iter = iter->next) ns++;
 
     return ns;
   }
 };
 
 
-}
+} // namespace Vroum3d
 
 #endif
