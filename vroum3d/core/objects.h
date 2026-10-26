@@ -14,14 +14,48 @@
 namespace Vroum3d::Core
 {
 
+class MemoryBackedObject : public AssignDestroy<MemoryBackedObject> {
+public:
+  MemoryBackedObject(Allocator &allocator) : m_allocator(&allocator) {}
+
+  MemoryBackedObject(MemoryBackedObject &&) = default;
+  MemoryBackedObject &operator=(MemoryBackedObject &&) = default;
+
+  ~MemoryBackedObject() { destroy(); }
+
+  void destroy()
+  {
+    if(m_allocator) m_allocator->free(m_mem);
+  }
+
+  VkDevice device() const { return m_allocator->device(); }
+
+  char* map() { return m_allocator->map(m_mem); }
+
+  void flush_unmap()
+  {
+    m_allocator->flush(m_mem);
+    m_allocator->unmap(m_mem);
+  }
+
+  void flush() { m_allocator->flush(m_mem); }
+
+  void unmap() { m_allocator->unmap(m_mem); }
+
+  void invalidate() { m_allocator->invalidate(m_mem); }
+
+protected:
+  Allocator* m_allocator;
+  Allocator::owned_memory_t m_mem;
+};
+
 /** Class for a simple buffer, owns the buffer */
-class Buffer : public AssignDestroy<Buffer> {
+class Buffer : public MemoryBackedObject,
+               public AssignDestroy<Buffer> {
 
   static constexpr VkDeviceSize c_max_atom_size = 256;
 
 public:
-  Buffer() {}
-
   Buffer(Buffer &&) = default;
   Buffer &operator=(Buffer &&) = default;
 
@@ -33,56 +67,22 @@ public:
    * \param alignment Requested memory alignment. Should be a power of 2. Defaults to 0, i.e. minimal according to buffer's requirements.
    */
 
-  Buffer(Allocator &alloc, VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags mp, VkDeviceSize alignment = 0) : m_alloc(&alloc), m_dev(alloc.device())
-  {
-    create_buffer(bs, use, mp, alignment);
-  }
+  Buffer(Allocator &alloc, VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags mp, VkDeviceSize alignment = 0) : MemoryBackedObject(alloc)
+  { create_buffer(bs, use, mp, alignment); }
 
-  Buffer(Allocator &alloc) : m_alloc(&alloc), m_dev(alloc.device()) {}
+  using MemoryBackedObject::MemoryBackedObject;
 
   void destroy()
   {
-    m_buffer.destroy_with([&](auto buf) {
-      vkDestroyBuffer(m_dev, buf, nullptr);
-      m_alloc->free(m_mem);
-    });
-  }
-
-  char* map() { return m_alloc->map(m_mem); }
-
-  void flush_unmap()
-  {
-    m_alloc->flush(m_mem);
-    m_alloc->unmap(m_mem);
-  }
-
-  void flush() { m_alloc->flush(m_mem); }
-
-  void unmap() { m_alloc->unmap(m_mem); }
-
-  void invalidate()
-  {
-    VkDeviceSize offset = m_mem.offset(), size = m_mem.size();
-
-    VkDeviceSize true_ofs = offset & ~(c_max_atom_size - 1);
-    VkDeviceSize rectified_size = size + offset - true_ofs;
-
-    if(rectified_size % c_max_atom_size)
-    {
-      rectified_size = (rectified_size & ~(c_max_atom_size - 1)) + c_max_atom_size;
-      rectified_size = std::min(rectified_size, Allocator::c_largest_block_size - true_ofs);
-    }
-
-    VkMappedMemoryRange mr{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, nullptr, m_mem.memory(), true_ofs, rectified_size};
-
-    vk_check(vkInvalidateMappedMemoryRanges(m_dev, 1, &mr));
+    m_buffer.destroy_with([&](auto buf) { vkDestroyBuffer(device(), buf, nullptr); });
+    MemoryBackedObject::destroy();
   }
 
   VkDeviceAddress device_address() const
   {
     VkBufferDeviceAddressInfoKHR dai{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr, m_buffer};
 
-    return vkGetBufferDeviceAddress(m_dev, &dai);
+    return vkGetBufferDeviceAddress(device(), &dai);
   }
 
   ~Buffer() { destroy(); }
@@ -105,16 +105,36 @@ public:
   {
     VkBufferCreateInfo bi{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr, 0, bs, use, VK_SHARING_MODE_EXCLUSIVE, 0, nullptr};
 
-    vk_check(vkCreateBuffer(m_dev, &bi, nullptr, &m_buffer));
+    vk_check(vkCreateBuffer(device(), &bi, nullptr, &m_buffer));
 
-    m_mem = m_alloc->allocate_bind(m_buffer, mp, alignment);
+    m_mem = m_allocator->allocate_bind(m_buffer, mp, alignment);
   }
 
 private:
-  Allocator* m_alloc;
-  VkDevice m_dev;
   VkHandle<VkBuffer> m_buffer;
+};
 
+class Image : public AssignDestroy<Image> {
+public:
+  Image(Allocator &alloc, VkImageType type, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkMemoryPropertyFlags mem_props, uint32_t miplevels = 1,
+        uint32_t arraylayers = 1, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL, VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT,
+        VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED) : m_allocator(&alloc)
+  {
+    VkImageCreateInfo ici{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, nullptr, 0,       type,       format, extent, miplevels, arraylayers, sample_count, tiling, usage,
+                          VK_SHARING_MODE_EXCLUSIVE,           0,       nullptr, init_layout};
+
+    vk_check(vkCreateImage(m_allocator->device(), &ici, nullptr, &m_image));
+
+    m_mem = m_allocator->allocate_bind(m_image, mem_props);
+  }
+
+  VkImage image() const { return m_image; }
+
+  operator VkImage() const { return image(); }
+
+private:
+  Allocator* m_allocator;
+  VkHandle<VkImage> m_image;
   Allocator::owned_memory_t m_mem;
 };
 
@@ -154,9 +174,7 @@ public:
 
   template<typename CmdFun, typename... Args>
   void cmd(CmdFun cf, Args &&... ags)
-  {
-    cf(m_cmd_buf, std::forward<Args>(ags)...);
-  }
+  { cf(m_cmd_buf, std::forward<Args>(ags)...); }
 
   const VkCommandBuffer &cmd_buf() const { return m_cmd_buf; }
 
@@ -221,9 +239,7 @@ public:
   CommandBufferVector() = default;
 
   CommandBufferVector(const Instance &inst, VkCommandPool cmd_pool, uint32_t n_buffer, bool primary = true) : m_dev(inst.device()), m_cmd_pool(cmd_pool)
-  {
-    allocate_command_buffers(n_buffer, primary);
-  }
+  { allocate_command_buffers(n_buffer, primary); }
 
   void destroy()
   {
