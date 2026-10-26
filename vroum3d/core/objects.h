@@ -5,6 +5,7 @@
 #include "../volk_wrapper.h"
 #include "allocator.h"
 #include "instance.h"
+#include "vkutil.h"
 
 #include <algorithm>
 #include <initializer_list>
@@ -68,7 +69,9 @@ public:
    */
 
   Buffer(Allocator &alloc, VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags mp, VkDeviceSize alignment = 0) : MemoryBackedObject(alloc)
-  { create_buffer(bs, use, mp, alignment); }
+  {
+    create_buffer(bs, use, mp, alignment);
+  }
 
   using MemoryBackedObject::MemoryBackedObject;
 
@@ -114,11 +117,24 @@ private:
   VkHandle<VkBuffer> m_buffer;
 };
 
-class Image : public AssignDestroy<Image> {
+class Image : public MemoryBackedObject,
+              public AssignDestroy<Image> {
 public:
+  Image(Image &&) = default;
+  Image &operator=(Image &&) = default;
+
+  using MemoryBackedObject::MemoryBackedObject;
+
   Image(Allocator &alloc, VkImageType type, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkMemoryPropertyFlags mem_props, uint32_t miplevels = 1,
         uint32_t arraylayers = 1, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL, VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT,
-        VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED) : m_allocator(&alloc)
+        VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED) : MemoryBackedObject(alloc)
+  {
+    create_image(type, format, extent, usage, mem_props, miplevels, arraylayers, tiling, sample_count, init_layout);
+  }
+
+  void create_image(VkImageType type, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkMemoryPropertyFlags mem_props, uint32_t miplevels = 1,
+                    uint32_t arraylayers = 1, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL, VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT,
+                    VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED)
   {
     VkImageCreateInfo ici{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, nullptr, 0,       type,       format, extent, miplevels, arraylayers, sample_count, tiling, usage,
                           VK_SHARING_MODE_EXCLUSIVE,           0,       nullptr, init_layout};
@@ -132,10 +148,59 @@ public:
 
   operator VkImage() const { return image(); }
 
+  void destroy()
+  {
+    m_image.destroy_with([&](VkImage im) { vkDestroyImage(device(), im, nullptr); });
+    MemoryBackedObject::destroy();
+  }
+
+  ~Image() { destroy(); }
+
 private:
   Allocator* m_allocator;
   VkHandle<VkImage> m_image;
   Allocator::owned_memory_t m_mem;
+};
+
+class ImageAndView : public Image,
+                     public AssignDestroy<ImageAndView> {
+public:
+  ImageAndView(ImageAndView &&) = default;
+  ImageAndView &operator=(ImageAndView &&) = default;
+
+  ImageAndView(Allocator alloc, VkImageType type, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkMemoryPropertyFlags mem_props, uint32_t miplevels = 1,
+               uint32_t arraylayers = 1, const VkComponentMapping &mapping = vkutil::components_id,
+               const VkImageSubresourceRange &subresrange = vkutil::color_subres_plain, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL,
+               VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT, VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED) :
+    Image(alloc, type, format, extent, usage, mem_props, miplevels, arraylayers, tiling, sample_count, init_layout)
+  {
+    create_view(vkutil::view_type_from_image_type(type), format, mapping, subresrange);
+  }
+
+  ImageAndView(Allocator &alloc) : Image(alloc) {}
+
+  operator VkImageView() const { return m_view; }
+
+  VkImageView view() const { return m_view; }
+
+  void create_view(VkImageViewType type, VkFormat format, const VkComponentMapping &mapping = vkutil::components_id,
+                   const VkImageSubresourceRange &subresrange = vkutil::color_subres_plain)
+  {
+    VkImageViewCreateInfo iwci{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, nullptr, 0, image(), type, format, mapping, subresrange};
+
+    vk_check(vkCreateImageView(device(), &iwci, nullptr, &m_view));
+  }
+
+  void destroy()
+  {
+    m_view.destroy_with([&](auto v) { vkDestroyImageView(device(), v, nullptr); });
+    Image::destroy();
+  }
+
+  ~ImageAndView() { destroy(); }
+
+private:
+  VkHandle<VkImageView> m_view;
 };
 
 class CommandPool : public AssignDestroy<CommandPool> {
@@ -174,7 +239,9 @@ public:
 
   template<typename CmdFun, typename... Args>
   void cmd(CmdFun cf, Args &&... ags)
-  { cf(m_cmd_buf, std::forward<Args>(ags)...); }
+  {
+    cf(m_cmd_buf, std::forward<Args>(ags)...);
+  }
 
   const VkCommandBuffer &cmd_buf() const { return m_cmd_buf; }
 
@@ -239,7 +306,9 @@ public:
   CommandBufferVector() = default;
 
   CommandBufferVector(const Instance &inst, VkCommandPool cmd_pool, uint32_t n_buffer, bool primary = true) : m_dev(inst.device()), m_cmd_pool(cmd_pool)
-  { allocate_command_buffers(n_buffer, primary); }
+  {
+    allocate_command_buffers(n_buffer, primary);
+  }
 
   void destroy()
   {
