@@ -33,18 +33,12 @@ public:
   static std::uint32_t int_log2(VkDeviceSize x)
   {
     std::uint32_t log(0);
-    if(x >= (1ull << 32))
-      log |= 32, x >>= 32;
-    if(x >= (1ull << 16))
-      log |= 16ull, x >>= 16;
-    if(x >= (1ull << 8))
-      log |= 8, x >>= 8;
-    if(x >= (1ull << 4))
-      log |= 4, x >>= 4;
-    if(x >= (1ull << 2))
-      log |= 2, x >>= 2;
-    if(x >= (1ull << 1))
-      log |= 1ull, x >>= 1;
+    if(x >= (1ull << 32)) log |= 32, x >>= 32;
+    if(x >= (1ull << 16)) log |= 16ull, x >>= 16;
+    if(x >= (1ull << 8)) log |= 8, x >>= 8;
+    if(x >= (1ull << 4)) log |= 4, x >>= 4;
+    if(x >= (1ull << 2)) log |= 2, x >>= 2;
+    if(x >= (1ull << 1)) log |= 1ull, x >>= 1;
 
     return log;
   }
@@ -52,18 +46,12 @@ public:
   static std::uint32_t fsb(uint64_t a)
   {
     int l(0);
-    if((a & 0xFFFFFFFF) == 0)
-      l |= 32, a >>= 32;
-    if((a & 0xFFFF) == 0)
-      l |= 16, a >>= 16;
-    if((a & 0xFF) == 0)
-      l |= 8, a >>= 8;
-    if((a & 0xF) == 0)
-      l |= 4, a >>= 4;
-    if((a & 0x3) == 0)
-      l |= 2, a >>= 2;
-    if((a & 0x1) == 0)
-      l |= 1, a >>= 1;
+    if((a & 0xFFFFFFFF) == 0) l |= 32, a >>= 32;
+    if((a & 0xFFFF) == 0) l |= 16, a >>= 16;
+    if((a & 0xFF) == 0) l |= 8, a >>= 8;
+    if((a & 0xF) == 0) l |= 4, a >>= 4;
+    if((a & 0x3) == 0) l |= 2, a >>= 2;
+    if((a & 0x1) == 0) l |= 1, a >>= 1;
     return l;
   }
 
@@ -169,8 +157,7 @@ private:
     void unset_free_flag(const addr_t &addr)
     {
       sec_bins[addr.first].free &= ~(1ull << addr.second);
-      if(!sec_bins[addr.first].free)
-        free &= ~(1ull << addr.first);
+      if(!sec_bins[addr.first].free) free &= ~(1ull << addr.first);
     }
   };
 
@@ -274,8 +261,7 @@ public:
   [[nodiscard]]
   allocated_memory_t allocate(std::uint32_t mem_idx, VkDeviceSize s, VkDeviceSize alignment = 1)
   {
-    if(s >= c_largest_block_size)
-      return allocate_dedicated(mem_idx, s);
+    if(s >= c_largest_block_size) return allocate_dedicated(mem_idx, s);
 
     return allocate_inner(mem_idx, s, alignment);
   }
@@ -284,9 +270,7 @@ public:
    */
   [[nodiscard]]
   allocated_memory_t allocate(const VkMemoryRequirements &mr, VkMemoryPropertyFlags mf)
-  {
-    return allocate(find_mem_index(mr, mf), mr.size, mr.alignment);
-  }
+  { return allocate(find_mem_index(mr, mf), mr.size, mr.alignment); }
 
   /** Allocate dedicated memory */
   [[nodiscard]]
@@ -294,9 +278,7 @@ public:
 
   [[nodiscard]]
   allocated_memory_t allocate_dedicated(const VkMemoryRequirements &mr, VkMemoryPropertyFlags mf, void* pnext = nullptr)
-  {
-    return allocate_dedicated(find_mem_index(mr, mf), mr.size, pnext);
-  }
+  { return allocate_dedicated(find_mem_index(mr, mf), mr.size, pnext); }
 
   void free_dedicated(block_ptr_t b);
 
@@ -304,8 +286,7 @@ public:
    * Already checks if memory is coherent to avoid superfluous API calls.*/
   void flush(block_ptr_t block)
   {
-    if(block->device_memory_block->coherent)
-      return;
+    if(block->device_memory_block->coherent) return;
 
     flush_inner(block);
   }
@@ -320,8 +301,7 @@ public:
    * Already checks if memory is coherent to avoid superfluous API calls.*/
   void invalidate(block_ptr_t block)
   {
-    if(block->device_memory_block->coherent)
-      return;
+    if(block->device_memory_block->coherent) return;
     invalidate_inner(block);
   }
 
@@ -384,8 +364,7 @@ public:
   // Free memory
   void free(allocated_memory_t am)
   {
-    if(am)
-      free(am.base());
+    if(am) free(am.base());
   }
 
   // Free memory
@@ -400,8 +379,7 @@ public:
 
   void free(const owned_memory_t &om)
   {
-    if(om)
-      free(om.base());
+    if(om) free(om.base());
   }
 
   VkDevice device() const { return m_device; }
@@ -415,8 +393,7 @@ public:
     std::uint32_t bit(1);
     for(std::uint32_t idx(0); idx != m_mem_props.memoryTypeCount; ++idx)
     {
-      if(bit & mr.memoryTypeBits && (props & m_mem_props.memoryTypes[idx].propertyFlags) == props)
-        return idx;
+      if(bit & mr.memoryTypeBits && (props & m_mem_props.memoryTypes[idx].propertyFlags) == props) return idx;
     }
 
     throw std::runtime_error("No matching memory type");
@@ -438,16 +415,20 @@ public:
 
     vkGetBufferMemoryRequirements2(device(), &bmri, &mr);
 
+    allocated_memory_t mem;
+
     if(mdr.requiresDedicatedAllocation || mdr.prefersDedicatedAllocation)
     {
       VkMemoryDedicatedAllocateInfo dai{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr, VK_NULL_HANDLE, buffer};
 
-      return allocate_dedicated(mr.memoryRequirements, props, &dai);
+      mem = allocate_dedicated(mr.memoryRequirements, props, &dai);
     }
+    else
+    {
+      mr.memoryRequirements.alignment = std::max(mr.memoryRequirements.alignment, alignment);
 
-    mr.memoryRequirements.alignment = std::max(mr.memoryRequirements.alignment, alignment);
-
-    auto mem = allocate(mr.memoryRequirements, props);
+      mem = allocate(mr.memoryRequirements, props);
+    }
     vkBindBufferMemory(device(), buffer, mem.memory(), mem.offset());
 
     return mem;
@@ -464,14 +445,19 @@ public:
 
     vkGetImageMemoryRequirements2(device(), &imri, &mr);
 
+    allocated_memory_t mem;
+
     if(mdr.requiresDedicatedAllocation == VK_TRUE || mdr.prefersDedicatedAllocation == VK_TRUE)
     {
       VkMemoryDedicatedAllocateInfo dai{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr, image, VK_NULL_HANDLE};
 
-      return allocate_dedicated(mr.memoryRequirements, props, &dai);
+      mem = allocate_dedicated(mr.memoryRequirements, props, &dai);
+    }
+    else
+    {
+      mem = allocate(mr.memoryRequirements, props);
     }
 
-    auto mem = allocate(mr.memoryRequirements, props);
     vkBindImageMemory(device(), image, mem.memory(), mem.offset());
 
     return mem;
