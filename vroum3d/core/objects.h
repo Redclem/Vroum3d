@@ -69,9 +69,7 @@ public:
    */
 
   Buffer(Allocator &alloc, VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags mp, VkDeviceSize alignment = 0) : MemoryBackedObject(alloc)
-  {
-    create_buffer(bs, use, mp, alignment);
-  }
+  { create_buffer(bs, use, mp, alignment); }
 
   using MemoryBackedObject::MemoryBackedObject;
 
@@ -128,9 +126,7 @@ public:
   Image(Allocator &alloc, VkImageType type, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkMemoryPropertyFlags mem_props, uint32_t miplevels = 1,
         uint32_t arraylayers = 1, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL, VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT,
         VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED) : MemoryBackedObject(alloc)
-  {
-    create_image(type, format, extent, usage, mem_props, miplevels, arraylayers, tiling, sample_count, init_layout);
-  }
+  { create_image(type, format, extent, usage, mem_props, miplevels, arraylayers, tiling, sample_count, init_layout); }
 
   void create_image(VkImageType type, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkMemoryPropertyFlags mem_props, uint32_t miplevels = 1,
                     uint32_t arraylayers = 1, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL, VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT,
@@ -173,9 +169,7 @@ public:
                const VkImageSubresourceRange &subresrange = vkutil::color_subres_plain, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL,
                VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT, VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED) :
     Image(alloc, type, format, extent, usage, mem_props, miplevels, arraylayers, tiling, sample_count, init_layout)
-  {
-    create_view(vkutil::view_type_from_image_type(type), format, mapping, subresrange);
-  }
+  { create_view(vkutil::view_type_from_image_type(type), format, mapping, subresrange); }
 
   ImageAndView(Allocator &alloc) : Image(alloc) {}
 
@@ -195,6 +189,15 @@ public:
   {
     m_view.destroy_with([&](auto v) { vkDestroyImageView(device(), v, nullptr); });
     Image::destroy();
+  }
+
+  void create_image_and_view(VkImageType type, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkMemoryPropertyFlags mem_props, uint32_t miplevels = 1,
+                             uint32_t arraylayers = 1, const VkComponentMapping &mapping = vkutil::components_id,
+                             const VkImageSubresourceRange &subresrange = vkutil::color_subres_plain, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL,
+                             VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT, VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED)
+  {
+    create_image(type, format, extent, usage, mem_props, miplevels, arraylayers, tiling, sample_count, init_layout);
+    create_view(vkutil::view_type_from_image_type(type), format, mapping, subresrange);
   }
 
   ~ImageAndView() { destroy(); }
@@ -239,9 +242,7 @@ public:
 
   template<typename CmdFun, typename... Args>
   void cmd(CmdFun cf, Args &&... ags)
-  {
-    cf(m_cmd_buf, std::forward<Args>(ags)...);
-  }
+  { cf(m_cmd_buf, std::forward<Args>(ags)...); }
 
   const VkCommandBuffer &cmd_buf() const { return m_cmd_buf; }
 
@@ -306,9 +307,7 @@ public:
   CommandBufferVector() = default;
 
   CommandBufferVector(const Instance &inst, VkCommandPool cmd_pool, uint32_t n_buffer, bool primary = true) : m_dev(inst.device()), m_cmd_pool(cmd_pool)
-  {
-    allocate_command_buffers(n_buffer, primary);
-  }
+  { allocate_command_buffers(n_buffer, primary); }
 
   void destroy()
   {
