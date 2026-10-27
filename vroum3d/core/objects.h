@@ -419,6 +419,12 @@ public:
     return out[0];
   }
 
+  VkDescriptorPool descriptor_pool() const { return m_descriptor_pool; }
+
+  operator VkDescriptorPool() const { return descriptor_pool(); }
+
+  void reset() { vkResetDescriptorPool(m_device, m_descriptor_pool, 0); }
+
 private:
   VkDevice m_device;
   VkHandle<VkDescriptorPool> m_descriptor_pool;
