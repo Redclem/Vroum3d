@@ -153,9 +153,7 @@ public:
   ~Image() { destroy(); }
 
 private:
-  Allocator* m_allocator;
   VkHandle<VkImage> m_image;
-  Allocator::owned_memory_t m_mem;
 };
 
 class ImageAndView : public Image,
