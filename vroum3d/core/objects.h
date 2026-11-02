@@ -8,7 +8,9 @@
 #include "vkutil.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <initializer_list>
+#include <limits>
 #include <type_traits>
 #include <vulkan/vulkan_core.h>
 
@@ -26,7 +28,8 @@ public:
 
   void destroy()
   {
-    if(m_allocator) m_allocator->free(m_mem);
+    if(m_allocator)
+      m_allocator->free(m_mem);
   }
 
   VkDevice device() const { return m_allocator->device(); }
@@ -69,7 +72,9 @@ public:
    */
 
   Buffer(Allocator &alloc, VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags mp, VkDeviceSize alignment = 0) : MemoryBackedObject(alloc)
-  { create_buffer(bs, use, mp, alignment); }
+  {
+    create_buffer(bs, use, mp, alignment);
+  }
 
   using MemoryBackedObject::MemoryBackedObject;
 
@@ -126,7 +131,9 @@ public:
   Image(Allocator &alloc, VkImageType type, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkMemoryPropertyFlags mem_props, uint32_t miplevels = 1,
         uint32_t arraylayers = 1, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL, VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT,
         VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED) : MemoryBackedObject(alloc)
-  { create_image(type, format, extent, usage, mem_props, miplevels, arraylayers, tiling, sample_count, init_layout); }
+  {
+    create_image(type, format, extent, usage, mem_props, miplevels, arraylayers, tiling, sample_count, init_layout);
+  }
 
   void create_image(VkImageType type, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkMemoryPropertyFlags mem_props, uint32_t miplevels = 1,
                     uint32_t arraylayers = 1, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL, VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT,
@@ -167,7 +174,9 @@ public:
                const VkImageSubresourceRange &subresrange = vkutil::color_subres_plain, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL,
                VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT, VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED) :
     Image(alloc, type, format, extent, usage, mem_props, miplevels, arraylayers, tiling, sample_count, init_layout)
-  { create_view(vkutil::view_type_from_image_type(type), format, mapping, subresrange); }
+  {
+    create_view(vkutil::view_type_from_image_type(type), format, mapping, subresrange);
+  }
 
   ImageAndView(Allocator &alloc) : Image(alloc) {}
 
@@ -240,7 +249,9 @@ public:
 
   template<typename CmdFun, typename... Args>
   void cmd(CmdFun cf, Args &&... ags)
-  { cf(m_cmd_buf, std::forward<Args>(ags)...); }
+  {
+    cf(m_cmd_buf, std::forward<Args>(ags)...);
+  }
 
   const VkCommandBuffer &cmd_buf() const { return m_cmd_buf; }
 
@@ -305,7 +316,9 @@ public:
   CommandBufferVector() = default;
 
   CommandBufferVector(const Instance &inst, VkCommandPool cmd_pool, uint32_t n_buffer, bool primary = true) : m_dev(inst.device()), m_cmd_pool(cmd_pool)
-  { allocate_command_buffers(n_buffer, primary); }
+  {
+    allocate_command_buffers(n_buffer, primary);
+  }
 
   void destroy()
   {
@@ -428,6 +441,60 @@ public:
 private:
   VkDevice m_device;
   VkHandle<VkDescriptorPool> m_descriptor_pool;
+};
+
+class Semaphore {
+public:
+  Semaphore(Instance &inst) : m_device(inst.device()) { create_semaphore(); }
+
+  void destroy()
+  {
+    m_semaphore.destroy_with([&](auto) { vkDestroySemaphore(m_device, m_semaphore, nullptr); });
+  }
+
+  void create_semaphore(bool timeline = false, uint64_t initial_value = 0)
+  {
+    VkSemaphoreTypeCreateInfo tci;
+
+    VkSemaphoreCreateInfo si{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, timeline ? &tci : nullptr, 0};
+
+    if(timeline)
+    {
+      tci = {VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO, nullptr, VK_SEMAPHORE_TYPE_TIMELINE, initial_value};
+    }
+
+    vkCreateSemaphore(m_device, &si, nullptr, &m_semaphore);
+  }
+
+  uint64_t get_counter_value()
+  {
+    uint64_t val;
+    vk_check(vkGetSemaphoreCounterValue(m_device, m_semaphore, &val));
+    return val;
+  }
+
+  /**
+   * Wait for semaphore to reach value
+   *
+   * Wait for a timeline semaphore to reach a given value with a timeout
+   *
+   * @param value Value to be waited for the semaphore to reach
+   * @param timeout Timeout for the wait operation. Defaults to max timeout
+   * @return true if semaphore reached value, false if timeout reached.
+   *
+   */
+  bool wait(uint64_t value, uint64_t timeout = std::numeric_limits<uint64_t>::max())
+  {
+    VkSemaphoreWaitInfo wi{VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO, nullptr, 0, 1, &m_semaphore, &value};
+
+    VkResult res = vkWaitSemaphores(m_device, &wi, timeout);
+
+    return res == VK_TIMEOUT ? false : (vk_check(res), true);
+  }
+
+private:
+  VkDevice m_device;
+  VkHandle<VkSemaphore> m_semaphore;
 };
 
 template<typename HandleType>
