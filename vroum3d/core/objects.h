@@ -226,6 +226,8 @@ public:
 
   ~CommandPool() { destroy(); }
 
+  void reset(VkCommandPoolResetFlags flags = 0) { vk_check(vkResetCommandPool(m_device, m_command_pool, flags)); }
+
 private:
   VkDevice m_device;
   VkHandle<VkCommandPool> m_command_pool;
@@ -234,7 +236,7 @@ private:
 template<typename HandleType = VkCommandBuffer>
 class CommandBufferRef {
 public:
-  void begin_primary();
+  void begin_primary(VkCommandBufferUsageFlags usage = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
   void begin_secondary_rendering(DisplayInstance &inst);
 
@@ -500,9 +502,9 @@ private:
 };
 
 template<typename HandleType>
-void CommandBufferRef<HandleType>::begin_primary()
+void CommandBufferRef<HandleType>::begin_primary(VkCommandBufferUsageFlags usage)
 {
-  VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, nullptr};
+  VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr, usage, nullptr};
 
   vk_check(vkBeginCommandBuffer(m_cmd_buf, &bi));
 }

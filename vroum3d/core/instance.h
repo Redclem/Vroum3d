@@ -137,21 +137,17 @@ public:
    */
   void quick_submit(VkCommandBuffer cmd_buf, VkQueue queue = VK_NULL_HANDLE);
 
-  template<typename Si>
-  void submit(VkQueue q, VkFence fnc, const std::vector<Si> &sub_infos)
+  template<typename Submit0, typename... SubmitInfos>
+  requires requires(Submit0 s0) { s0.submit_info; }
+  void submit(VkQueue q, VkFence fnc, Submit0 &&s0, SubmitInfos &&... submit_infos);
+
+  template<typename SubmitContainer = std::vector<SubmitInfo<>>>
+  void submit(VkQueue q, VkFence fnc, const SubmitContainer &sc)
   {
-    std::vector<VkSubmitInfo2> sis(sub_infos.size());
-    std::transform(sub_infos.begin(), sub_infos.end(), sis.begin(), [](const auto &si) { return si.submit_info(); });
+    std::vector<VkSubmitInfo2> sis(std::size(sc));
+    std::transform(sc.begin(), sc.end(), sis.begin(), [](const auto &in) { return in.submit_info(); });
 
     vk_check(vkQueueSubmit2(q, uint32_t(sis.size()), sis.data(), fnc));
-  }
-
-  template<typename... SubmitInfos>
-  void submit(VkQueue q, VkFence fnc, SubmitInfos &&... submit_infos)
-  {
-    std::array<VkSubmitInfo2, sizeof...(SubmitInfos)> si{{submit_infos.submit_info()...}};
-
-    vk_check(vkQueueSubmit2(q, uint32_t(si.size()), si.data(), fnc));
   }
 
 private:
@@ -368,6 +364,19 @@ void Instance::choose_pdev(InstanceInfo &info)
   m_pdev = best_pdev;
 }
 
+<<<<<<< HEAD
+=======
+
+template<typename Submit0, typename... SubmitInfos>
+requires requires(Submit0 s0) { s0.submit_info; }
+void Instance::submit(VkQueue q, VkFence fnc, Submit0 &&s0, SubmitInfos &&... submit_infos)
+{
+  std::array<VkSubmitInfo2, sizeof...(SubmitInfos)> si{{s0.submit_info(), submit_infos.submit_info()...}};
+
+  vk_check(vkQueueSubmit2(q, uint32_t(si.size()), si.data(), fnc));
+}
+
+>>>>>>> ff3976e (object and submit tweaks)
 } // namespace Vroum3d::Core
 
 #endif
