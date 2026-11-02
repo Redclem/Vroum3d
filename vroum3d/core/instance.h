@@ -364,9 +364,6 @@ void Instance::choose_pdev(InstanceInfo &info)
   m_pdev = best_pdev;
 }
 
-<<<<<<< HEAD
-=======
-
 template<typename Submit0, typename... SubmitInfos>
 requires requires(Submit0 s0) { s0.submit_info; }
 void Instance::submit(VkQueue q, VkFence fnc, Submit0 &&s0, SubmitInfos &&... submit_infos)
@@ -376,7 +373,6 @@ void Instance::submit(VkQueue q, VkFence fnc, Submit0 &&s0, SubmitInfos &&... su
   vk_check(vkQueueSubmit2(q, uint32_t(si.size()), si.data(), fnc));
 }
 
->>>>>>> ff3976e (object and submit tweaks)
 } // namespace Vroum3d::Core
 
 #endif
