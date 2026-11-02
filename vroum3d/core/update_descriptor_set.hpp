@@ -3,10 +3,9 @@
 
 #include "../volk_wrapper.h"
 
-#include <initializer_list>
 #include <iterator>
-#include <type_traits>
 #include <utility>
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
 namespace Vroum3d::Core::UpdateDescriptorSet
@@ -35,7 +34,7 @@ struct SetLocation
 struct DescriptorWriteBase
 {};
 
-template<typename BuffersStorage = std::initializer_list<VkDescriptorBufferInfo>>
+template<typename BuffersStorage = std::vector<VkDescriptorBufferInfo>>
 struct WriteBuffers : public DescriptorWriteBase
 {
   WriteBuffers(SetLocation location, VkDescriptorType buffer_type, BuffersStorage &&from) :
@@ -78,7 +77,7 @@ struct DescriptorImageInfo : VkDescriptorImageInfo
 
 static_assert(sizeof(DescriptorImageInfo) == sizeof(VkDescriptorImageInfo), "Error with DescriptorImageInfo structure layout");
 
-template<typename ImagesStorage = std::initializer_list<DescriptorImageInfo>>
+template<typename ImagesStorage = std::vector<DescriptorImageInfo>>
 struct WriteImages
 {
   SetLocation m_location;
@@ -96,7 +95,7 @@ struct WriteImages
   }
 };
 
-template<typename AcsStorage = std::initializer_list<VkAccelerationStructureKHR>>
+template<typename AcsStorage = std::vector<VkAccelerationStructureKHR>>
 struct WriteAccelerationStructure
 {
   WriteAccelerationStructure(SetLocation location, AcsStorage &&acc_structs) :
@@ -121,7 +120,9 @@ struct WriteAccelerationStructure
 
 template<typename Write>
 void assemble_writes(VkWriteDescriptorSet* wds, Write &&write)
-{ *wds = write.export_write(); }
+{
+  *wds = write.export_write();
+}
 
 template<typename Write0, typename... Writes>
 void assemble_writes(VkWriteDescriptorSet* wds, Write0 &&write0, Writes &&... writes)

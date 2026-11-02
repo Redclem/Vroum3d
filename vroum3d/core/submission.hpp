@@ -3,9 +3,7 @@
 
 #include "../volk_wrapper.h"
 
-#include <initializer_list>
 #include <iterator>
-#include <type_traits>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -24,8 +22,8 @@ public:
   CommandBufferSubmitInfo(VkCommandBuffer cmdb) : VkCommandBufferSubmitInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, nullptr, cmdb, 0} {}
 };
 
-template<typename WaitSemInfos = std::initializer_list<SemaphoreSubmitInfo>, typename CommandBufferInfos = std::initializer_list<CommandBufferSubmitInfo>,
-         typename SignalSemInfos = std::initializer_list<SemaphoreSubmitInfo>>
+template<typename WaitSemInfos = std::vector<SemaphoreSubmitInfo>, typename CommandBufferInfos = std::vector<CommandBufferSubmitInfo>,
+         typename SignalSemInfos = std::vector<SemaphoreSubmitInfo>>
 class SubmitInfo {
 public:
   SubmitInfo(WaitSemInfos &&wsi, CommandBufferInfos &&cmdi, SignalSemInfos &&ssi) :
