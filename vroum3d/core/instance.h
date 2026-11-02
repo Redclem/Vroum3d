@@ -7,6 +7,7 @@
 #include "allocator.h"
 #include "display.hpp"
 #include "instance_info.hpp"
+#include "submission.hpp"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
@@ -135,6 +136,9 @@ public:
    * VK_NULL_HANDLE
    */
   void quick_submit(VkCommandBuffer cmd_buf, VkQueue queue = VK_NULL_HANDLE);
+
+  template<typename... SubmitInfos>
+  void submit(VkQueue q, VkFence fnc, SubmitInfos &&... submit_infos);
 
 private:
   void create_instance(ExtensionsLayers &&el, void* instance_pnext = nullptr);
@@ -348,6 +352,14 @@ void Instance::choose_pdev(InstanceInfo &info)
   if(best_score < 0) throw std::runtime_error("No compatible physical device found.");
 
   m_pdev = best_pdev;
+}
+
+template<typename... SubmitInfos>
+void Instance::submit(VkQueue q, VkFence fnc, SubmitInfos &&... submit_infos)
+{
+  std::array<VkSubmitInfo2, sizeof...(SubmitInfos)> si{{{submit_infos.submit_info()...}}};
+
+  vk_check(vkQueueSubmit2(q, uint32_t(si.size()), si.data(), fnc));
 }
 
 } // namespace Vroum3d::Core

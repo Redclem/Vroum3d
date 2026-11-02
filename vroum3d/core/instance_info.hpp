@@ -57,8 +57,7 @@ struct InstanceInfoDebug<true>
 
   void* instance_pnext()
   {
-    if constexpr(c_layer_settings.size() > 0)
-      dbi.pNext = &lays_s;
+    if constexpr(c_layer_settings.size() > 0) dbi.pNext = &lays_s;
     return reinterpret_cast<void*>(&dbi);
   }
 
@@ -91,7 +90,7 @@ protected:
   VkPhysicalDeviceFeatures2 m_Features2;
   VkPhysicalDeviceProperties m_PhysicalDeviceProperties{};
 
-  bool m_dynamicRendering : 1, m_synchronization2 : 1, m_runtimeDescriptorArray : 1;
+  bool m_dynamicRendering : 1, m_synchronization2 : 1, m_runtimeDescriptorArray : 1, m_timelineSemaphore : 1;
 
 private:
   void* m_device_pnext = nullptr;
@@ -154,12 +153,10 @@ public:
     add_device_pnext(&m_Vulkan12Features);
     add_device_pnext(&m_Vulkan13Features);
 
-    if(m_synchronization2)
-      m_Vulkan13Features.synchronization2 = VK_TRUE;
-    if(m_dynamicRendering)
-      m_Vulkan13Features.dynamicRendering = VK_TRUE;
-    if(m_runtimeDescriptorArray)
-      m_Vulkan12Features.runtimeDescriptorArray = VK_TRUE;
+    if(m_synchronization2) m_Vulkan13Features.synchronization2 = VK_TRUE;
+    if(m_dynamicRendering) m_Vulkan13Features.dynamicRendering = VK_TRUE;
+    if(m_runtimeDescriptorArray) m_Vulkan12Features.runtimeDescriptorArray = VK_TRUE;
+    if(m_timelineSemaphore) m_Vulkan12Features.timelineSemaphore = VK_TRUE;
   }
 
   std::vector<std::string> &dev_exts() { return m_extensions; }
@@ -171,8 +168,7 @@ public:
   template<typename NewStr>
   static void check_add_string(std::vector<std::string> &strings, NewStr &&str)
   {
-    if(std::find(strings.begin(), strings.end(), str) == strings.end())
-      strings.push_back(std::forward<NewStr>(str));
+    if(std::find(strings.begin(), strings.end(), str) == strings.end()) strings.push_back(std::forward<NewStr>(str));
   }
 
   /** Add structure to pNext chain of device create info.
@@ -204,8 +200,7 @@ public:
 
     for(auto &s: m_extensions)
     {
-      if(!std::any_of(dev_exts.begin(), dev_exts.end(), [&](const auto &ext) { return s == ext.extensionName; }))
-        return -1;
+      if(!std::any_of(dev_exts.begin(), dev_exts.end(), [&](const auto &ext) { return s == ext.extensionName; })) return -1;
     }
 
     vkGetPhysicalDeviceProperties(pdev, &m_PhysicalDeviceProperties);
@@ -236,6 +231,7 @@ public:
     m_synchronization2 = m_Vulkan13Features.synchronization2 == VK_TRUE;
 
     m_runtimeDescriptorArray = m_Vulkan12Features.runtimeDescriptorArray == VK_TRUE;
+    m_timelineSemaphore = m_Vulkan12Features.timelineSemaphore == VK_TRUE;
   }
 
   /**
@@ -274,8 +270,7 @@ struct DisplayInstanceInfo : public InstanceInfo
 
     for(auto elem = exts, end = exts + n_exts; elem != end; ++elem)
     {
-      if(!std::any_of(el.exts.begin(), el.exts.end(), [elem](const std::string &s) { return s == *elem; }))
-        el.exts.emplace_back(*elem);
+      if(!std::any_of(el.exts.begin(), el.exts.end(), [elem](const std::string &s) { return s == *elem; })) el.exts.emplace_back(*elem);
     }
     return el;
   }
@@ -293,8 +288,7 @@ struct DisplayInstanceInfo : public InstanceInfo
   {
     auto score = InstanceInfo::rate_physical_device(pdev, pNext);
 
-    if(this->m_Vulkan13Features.dynamicRendering != VK_TRUE)
-      return -1;
+    if(this->m_Vulkan13Features.dynamicRendering != VK_TRUE) return -1;
 
     uint32_t n_q_props;
     vkGetPhysicalDeviceQueueFamilyProperties(pdev, &n_q_props, nullptr);
@@ -304,12 +298,10 @@ struct DisplayInstanceInfo : public InstanceInfo
     for(uint32_t queue_index(0); queue_index != n_q_props; queue_index++)
     {
       vkGetPhysicalDeviceSurfaceSupportKHR(pdev, queue_index, m_surf, &supp);
-      if(supp == VK_TRUE)
-        break;
+      if(supp == VK_TRUE) break;
     }
 
-    if(supp != VK_TRUE)
-      return -1;
+    if(supp != VK_TRUE) return -1;
 
     return score;
   }

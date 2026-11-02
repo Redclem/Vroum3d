@@ -12,6 +12,10 @@ enable_testing()
 set(SPIRV_REFLECT_EXECUTABLE OFF)
 set(SPIRV_REFLECT_STATIC_LIB ON)
 
+if(NOT DEFINED KTX_FEATURE_TESTS)
+  set(KTX_FEATURE_TESTS OFF)
+endif()
+
 FetchContent_Declare(
   spirv_reflect
   GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Reflect
@@ -24,10 +28,6 @@ FetchContent_Declare(
 	GIT_REPOSITORY https://github.com/khronosgroup/ktx-software
 	GIT_TAG main
 )
-
-if(NOT DEFINED KTX_FEATURE_TESTS)
-  set(KTX_FEATURE_TESTS OFF)
-endif()
 
 FetchContent_MakeAvailable(spirv_reflect)
 FetchContent_MakeAvailable(ktx_software)
@@ -186,6 +186,7 @@ if(VROUM3D_TESTS)
   add_exec_test(descriptor_sets)
   add_exec_test(compute_pipeline)
   add_exec_test(large_buffers)
+  add_exec_test(submit_semaphore)
 
   set(VROUM3D_SHADERS ON)
 endif()

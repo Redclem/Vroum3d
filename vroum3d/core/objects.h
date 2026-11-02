@@ -28,8 +28,7 @@ public:
 
   void destroy()
   {
-    if(m_allocator)
-      m_allocator->free(m_mem);
+    if(m_allocator) m_allocator->free(m_mem);
   }
 
   VkDevice device() const { return m_allocator->device(); }
@@ -445,12 +444,17 @@ private:
 
 class Semaphore {
 public:
-  Semaphore(Instance &inst) : m_device(inst.device()) { create_semaphore(); }
+  Semaphore(Instance &inst, bool timeline = false, uint64_t init_value = 0) : m_device(inst.device()) { create_semaphore(timeline, init_value); }
 
   void destroy()
   {
     m_semaphore.destroy_with([&](auto) { vkDestroySemaphore(m_device, m_semaphore, nullptr); });
   }
+
+  ~Semaphore() { destroy(); }
+
+  Semaphore(Semaphore &&) = default;
+  Semaphore &operator=(Semaphore &&) = default;
 
   void create_semaphore(bool timeline = false, uint64_t initial_value = 0)
   {
@@ -458,10 +462,7 @@ public:
 
     VkSemaphoreCreateInfo si{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, timeline ? &tci : nullptr, 0};
 
-    if(timeline)
-    {
-      tci = {VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO, nullptr, VK_SEMAPHORE_TYPE_TIMELINE, initial_value};
-    }
+    if(timeline) { tci = {VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO, nullptr, VK_SEMAPHORE_TYPE_TIMELINE, initial_value}; }
 
     vkCreateSemaphore(m_device, &si, nullptr, &m_semaphore);
   }
@@ -491,6 +492,10 @@ public:
 
     return res == VK_TIMEOUT ? false : (vk_check(res), true);
   }
+
+  VkSemaphore semaphore() const { return m_semaphore; }
+
+  operator VkSemaphore() const { return semaphore(); }
 
 private:
   VkDevice m_device;
