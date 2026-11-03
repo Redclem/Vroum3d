@@ -159,6 +159,16 @@ if(VROUM3D_EXAMPLES)
   set(VROUM3D_SHADERS ON)
 endif()
 
+find_package(Doxygen)
+if (DOXYGEN_FOUND)
+  doxygen_add_docs(
+    docs
+    vroum3d/
+    CONFIG_FILE ${CMAKE_SOURCE_DIR}/docs/Doxyfile.in
+  )
+endif()
+
+
 function(add_exec_test test_name)
 
 	add_executable(test_${test_name} "tests/${test_name}.cpp")
