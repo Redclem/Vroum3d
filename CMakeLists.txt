@@ -9,6 +9,8 @@ include(CTest)
 
 enable_testing()
 
+option(VROUM3D_DOCS "Generate vroum3d doxygen documentation" ON)
+
 set(SPIRV_REFLECT_EXECUTABLE OFF)
 set(SPIRV_REFLECT_STATIC_LIB ON)
 
@@ -160,11 +162,11 @@ if(VROUM3D_EXAMPLES)
 endif()
 
 find_package(Doxygen)
-if (DOXYGEN_FOUND)
+if (DOXYGEN_FOUND AND VROUM3D_DOCS)
   doxygen_add_docs(
     docs
     vroum3d/
-    CONFIG_FILE ${CMAKE_SOURCE_DIR}/docs/Doxyfile.in
+    CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/docs/Doxyfile.in
   )
 endif()
 
