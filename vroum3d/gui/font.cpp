@@ -3,14 +3,19 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <format>
 #include <fstream>
 #include <memory>
+#include <stdexcept>
 
 using namespace Vroum3d::Gui;
 
 void Vroum3d::Gui::Font::open(const char* pth)
 {
   std::ifstream file(pth, std::ios::binary | std::ios::ate);
+  if(!file.is_open()) throw std::runtime_error(std::format("Could not open font file {}", pth));
+
+
   std::size_t size = file.tellg();
 
   m_buffer = std::make_unique<char[]>(size);
@@ -103,8 +108,7 @@ std::size_t Vroum3d::Gui::Font::GlyphAtlas::glyph_count(std::string_view str) co
   std::size_t res(0);
 
   auto fun = [&](char32_t out) {
-    if(auto iter = find(out); iter != end())
-      res++;
+    if(auto iter = find(out); iter != end()) res++;
   };
 
   iterate_unicode_points(str, fun);

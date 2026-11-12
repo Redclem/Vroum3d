@@ -192,7 +192,6 @@ private:
 
   void require_immutable_samplers(std::size_t n_samplers);
 
-  static constexpr const char* c_immutable_samplers_name = "u_immutable_samplers";
   static constexpr std::array<VkSamplerCreateInfo, c_n_immutable_samplers> c_immutable_sampler_info = {
     {{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO, nullptr, 0, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
       VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0.0f, VK_FALSE, 0.0f, VK_FALSE, VK_COMPARE_OP_EQUAL, 0.0f, 0.0f,

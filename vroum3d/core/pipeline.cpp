@@ -40,26 +40,21 @@ void PipelineResource::init_cache()
 
 void PipelineResource::write_cache()
 {
-  if(!m_cache)
-    return;
+  if(!m_cache) return;
 
   size_t cache_size;
 
-  if(VK_SUCCESS != vkGetPipelineCacheData(m_device, m_cache, &cache_size, nullptr))
-    return;
+  if(VK_SUCCESS != vkGetPipelineCacheData(m_device, m_cache, &cache_size, nullptr)) return;
 
-  if(cache_size == 0)
-    return;
+  if(cache_size == 0) return;
 
   std::ofstream cache_file(cache_pth, std::ios::binary);
 
-  if(!cache_file.is_open())
-    return;
+  if(!cache_file.is_open()) return;
 
   std::vector<char> cache_data(cache_size);
 
-  if(VK_SUCCESS != vkGetPipelineCacheData(m_device, m_cache, &cache_size, cache_data.data()))
-    return;
+  if(VK_SUCCESS != vkGetPipelineCacheData(m_device, m_cache, &cache_size, cache_data.data())) return;
 
   cache_file.write(cache_data.data(), cache_data.size());
 }
@@ -68,21 +63,18 @@ const PipelineResource::ShaderModule &PipelineResource::require_shader(std::stri
 {
   auto [iter, ins] = m_shaders.emplace(path, shader_module_t{});
 
-  if(!ins)
-    return iter->second;
+  if(!ins) return iter->second;
 
   std::string pth("shaders/");
   pth += path;
 
   std::ifstream sh_file(pth.c_str(), std::ios::ate | std::ios::binary);
-  if(!sh_file.is_open())
-    throw std::runtime_error("Could not open shader file : " + pth);
+  if(!sh_file.is_open()) throw std::runtime_error("Could not open shader file : " + pth);
 
   std::size_t shader_size = sh_file.tellg();
   std::vector<std::uint32_t> shader_data((shader_size + 3) / 4);
 
-  if(shader_data.empty())
-    throw std::runtime_error("Empty shader file " + pth);
+  if(shader_data.empty()) throw std::runtime_error("Empty shader file " + pth);
   shader_data.back() = 0;
 
   sh_file.seekg(0, std::ios::beg);
@@ -103,8 +95,7 @@ VkDescriptorSetLayout PipelineResource::get_descriptor_set_layout(DescriptorSetD
 {
   auto [iter, ins] = m_descriptor_set_layouts.emplace(std::move(des), VK_NULL_HANDLE);
 
-  if(!ins)
-    return iter->second;
+  if(!ins) return iter->second;
 
   auto &des_ref = iter->first;
 
@@ -114,10 +105,7 @@ VkDescriptorSetLayout PipelineResource::get_descriptor_set_layout(DescriptorSetD
     VkDescriptorSetLayoutBinding res{bind_info.first, bind_info.second.descriptorType, bind_info.second.descriptorCount, bind_info.second.stageFlags,
                                      bind_info.second.immusamp ? &m_immutable_samplers[0] : nullptr};
 
-    if(res.pImmutableSamplers)
-    {
-      require_immutable_samplers(bind_info.second.descriptorCount);
-    }
+    if(res.pImmutableSamplers) { require_immutable_samplers(bind_info.second.descriptorCount); }
 
     return res;
   });
@@ -153,8 +141,9 @@ void PipelineResource::DescriptorSetDescription::load_descriptor_set(const SpvRe
   {
     auto &ds_binding = **ds_iter;
 
-    auto [iter, ins] = bindings.emplace(ds_binding.binding, BindingInfo{static_cast<VkDescriptorType>(ds_binding.descriptor_type), ds_binding.count, stage,
-                                                                        std::strcmp(ds_binding.name, c_immutable_samplers_name) == 0});
+    bool is_immusamp = ds_binding.set == 0 && ds_binding.binding == 0 && ds_binding.count != 0 && ds_binding.descriptor_type == SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER;
+
+    auto [iter, ins] = bindings.emplace(ds_binding.binding, BindingInfo{static_cast<VkDescriptorType>(ds_binding.descriptor_type), ds_binding.count, stage, is_immusamp});
     if(!ins)
     {
       auto &di = iter->second;
@@ -167,13 +156,11 @@ void PipelineResource::DescriptorSetDescription::load_descriptor_set(const SpvRe
 
 void PipelineResource::require_immutable_samplers(std::size_t n_samplers)
 {
-  if(n_samplers > c_n_immutable_samplers)
-    throw std::runtime_error("Required more immutable samplers than available");
+  if(n_samplers > c_n_immutable_samplers) throw std::runtime_error("Required more immutable samplers than available");
 
   for(std::size_t sampler(0); sampler != n_samplers; ++sampler)
   {
-    if(m_immutable_samplers[sampler] != VK_NULL_HANDLE)
-      continue;
+    if(m_immutable_samplers[sampler] != VK_NULL_HANDLE) continue;
 
     vk_check(vkCreateSampler(device(), &c_immutable_sampler_info[sampler], nullptr, &m_immutable_samplers[sampler]));
   }
