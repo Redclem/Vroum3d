@@ -6,6 +6,7 @@
 #include "volk_wrapper.h"
 
 #include <cstdint>
+#include <vulkan/vulkan_core.h>
 
 namespace Vroum3d::Version
 {

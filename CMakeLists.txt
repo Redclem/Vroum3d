@@ -110,7 +110,7 @@ function (add_shader sh)
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(GLSLC_FLAGS "-g")
   else()
-    set(GLSLC_FLAGS "-g")
+    set(GLSLC_FLAGS "-O")
   endif()
 
 	get_filename_component(sh_name_we ${sh} NAME_WE)

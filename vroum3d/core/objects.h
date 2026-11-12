@@ -53,8 +53,8 @@ protected:
 };
 
 /** Class for a simple buffer, owns the buffer */
-class Buffer : public MemoryBackedObject,
-               public AssignDestroy<Buffer> {
+class Buffer : public AssignDestroy<Buffer>,
+               public MemoryBackedObject {
 
   static constexpr VkDeviceSize c_max_atom_size = 256;
 
@@ -117,8 +117,8 @@ private:
   VkHandle<VkBuffer> m_buffer;
 };
 
-class Image : public MemoryBackedObject,
-              public AssignDestroy<Image> {
+class Image : public AssignDestroy<Image>,
+              public MemoryBackedObject {
 public:
   Image(Image &&) = default;
   Image &operator=(Image &&) = default;
@@ -158,11 +158,17 @@ private:
   VkHandle<VkImage> m_image;
 };
 
-class ImageAndView : public Image,
-                     public AssignDestroy<ImageAndView> {
+class ImageAndView : public AssignDestroy<ImageAndView>,
+                     public Image {
 public:
   ImageAndView(ImageAndView &&) = default;
-  ImageAndView &operator=(ImageAndView &&) = default;
+
+  ImageAndView &operator=(ImageAndView &&from)
+  {
+    Image::operator=(std::move(from));
+    m_view = std::move(from.m_view);
+    return *this;
+  }
 
   ImageAndView(Allocator alloc, VkImageType type, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkMemoryPropertyFlags mem_props, uint32_t miplevels = 1,
                uint32_t arraylayers = 1, const VkComponentMapping &mapping = vkutil::components_id,

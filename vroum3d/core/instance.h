@@ -276,6 +276,7 @@ public:
 
   std::uint32_t next_frame() { return m_next_frame; }
 
+  /** Submit a command buffer with render commands and submit subsequent present with required sync primitives. next_frame is incremented here. */
   void submit_render_present(VkCommandBuffer cmd_buf);
 
   bool render_done() const

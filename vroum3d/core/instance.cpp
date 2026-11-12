@@ -20,8 +20,7 @@ using namespace Vroum3d::Core;
 
 void DisplayInstance::destroy()
 {
-  if(m_dev != VK_NULL_HANDLE)
-    vkDeviceWaitIdle(m_dev);
+  if(m_dev != VK_NULL_HANDLE) vkDeviceWaitIdle(m_dev);
 
   for(auto &frame_sync: m_frame_sync)
   {
@@ -46,8 +45,7 @@ void DisplayInstance::destroy()
 
 void Instance::destroy()
 {
-  if(m_dev != VK_NULL_HANDLE)
-    vkDeviceWaitIdle(m_dev);
+  if(m_dev != VK_NULL_HANDLE) vkDeviceWaitIdle(m_dev);
 
   m_transfer_pool.destroy_with([&](auto pl) { vkDestroyCommandPool(m_dev, pl, nullptr); });
   Allocator::destroy();
@@ -72,8 +70,7 @@ void Instance::create_instance(ExtensionsLayers &&el, void* instance_pnext)
     auto lay_exts = wrap_enumerate(vkEnumerateInstanceExtensionProperties, elem);
 
     for(const auto &ext: lay_exts)
-      if(!std::any_of(el.exts.begin(), el.exts.end(), [ext](const std::string &s) { return s == ext.extensionName; }))
-        el.exts.emplace_back(ext.extensionName);
+      if(!std::any_of(el.exts.begin(), el.exts.end(), [ext](const std::string &s) { return s == ext.extensionName; })) el.exts.emplace_back(ext.extensionName);
   };
 
   for(auto elem: el.lays) proc_lay(elem.c_str());
@@ -114,49 +111,39 @@ void Instance::create_device(const std::vector<std::string> &exts, VkSurfaceKHR 
     int idx = 0;
     for(const auto &elem: queues)
     {
-      if((elem.queueFlags & VK_QUEUE_TRANSFER_BIT && it == -1) || elem.queueFlags == VK_QUEUE_TRANSFER_BIT)
-        it = idx;
-      if((elem.queueFlags & VK_QUEUE_GRAPHICS_BIT && ig == -1) || elem.queueFlags == VK_QUEUE_GRAPHICS_BIT)
-        ig = idx;
-      if((elem.queueFlags & VK_QUEUE_COMPUTE_BIT && ic == -1) || elem.queueFlags == VK_QUEUE_COMPUTE_BIT)
-        ic = idx;
+      if((elem.queueFlags & VK_QUEUE_TRANSFER_BIT && it == -1) || elem.queueFlags == VK_QUEUE_TRANSFER_BIT) it = idx;
+      if((elem.queueFlags & VK_QUEUE_GRAPHICS_BIT && ig == -1) || elem.queueFlags == VK_QUEUE_GRAPHICS_BIT) ig = idx;
+      if((elem.queueFlags & VK_QUEUE_COMPUTE_BIT && ic == -1) || elem.queueFlags == VK_QUEUE_COMPUTE_BIT) ic = idx;
 
       if(surf != VK_NULL_HANDLE)
       {
         VkBool32 supp;
         vk_check(vkGetPhysicalDeviceSurfaceSupportKHR(m_pdev, idx, surf, &supp));
 
-        if(supp && ip == -1)
-          ip = idx;
+        if(supp && ip == -1) ip = idx;
       }
 
       ++idx;
     }
   }
 
-  if(it == -1 || ig == -1)
-    throw std::runtime_error("missing queue");
+  if(it == -1 || ig == -1) throw std::runtime_error("missing queue");
 
   std::vector<VkDeviceQueueCreateInfo> dqis;
 
   {
     std::vector<std::uint32_t> idxes;
     auto ens_idx = [&](std::uint32_t idx) {
-      if(idxes.end() == std::find(idxes.begin(), idxes.end(), idx))
-        idxes.push_back(idx);
+      if(idxes.end() == std::find(idxes.begin(), idxes.end(), idx)) idxes.push_back(idx);
     };
 
-    if(it != -1)
-      ens_idx(it);
+    if(it != -1) ens_idx(it);
 
-    if(surf != VK_NULL_HANDLE && ip != -1)
-      ens_idx(ip);
+    if(surf != VK_NULL_HANDLE && ip != -1) ens_idx(ip);
 
-    if(ig != -1)
-      ens_idx(ig);
+    if(ig != -1) ens_idx(ig);
 
-    if(ip != -1)
-      ens_idx(ip);
+    if(ip != -1) ens_idx(ip);
 
     dqis.resize(idxes.size());
 
@@ -174,8 +161,7 @@ void Instance::create_device(const std::vector<std::string> &exts, VkSurfaceKHR 
   std::vector<const char*> exts_c_str;
 
   auto proc_ext = [&](const char* ext_name) {
-    if(std::any_of(exts_c_str.begin(), exts_c_str.end(), [&](const char* name) { return strcmp(ext_name, name) == 0; }))
-      return;
+    if(std::any_of(exts_c_str.begin(), exts_c_str.end(), [&](const char* name) { return strcmp(ext_name, name) == 0; })) return;
 
     exts_c_str.push_back(ext_name);
 
@@ -194,14 +180,11 @@ void Instance::create_device(const std::vector<std::string> &exts, VkSurfaceKHR 
   vk_check(vkCreateDevice(m_pdev, &di, nullptr, &m_dev));
   volkLoadDevice(m_dev);
 
-  if(it != -1)
-    vkGetDeviceQueue(m_dev, it, 0, &m_tq);
+  if(it != -1) vkGetDeviceQueue(m_dev, it, 0, &m_tq);
 
-  if(ig != -1)
-    vkGetDeviceQueue(m_dev, ig, 0, &m_gq);
+  if(ig != -1) vkGetDeviceQueue(m_dev, ig, 0, &m_gq);
 
-  if(ic != -1)
-    vkGetDeviceQueue(m_dev, ic, 0, &m_cq);
+  if(ic != -1) vkGetDeviceQueue(m_dev, ic, 0, &m_cq);
 
   m_ti = it;
   m_gi = ig;
@@ -398,8 +381,7 @@ void Instance::quick_submit(VkCommandBuffer cmd_buf, VkQueue queue)
 
   VkSubmitInfo2 si{VK_STRUCTURE_TYPE_SUBMIT_INFO_2, nullptr, 0, 0, nullptr, 1, &cbi, 0, nullptr};
 
-  if(queue == VK_NULL_HANDLE)
-    queue = m_gq;
+  if(queue == VK_NULL_HANDLE) queue = m_gq;
 
   vk_check(vkQueueSubmit2(queue, 1, &si, fnc));
 
@@ -509,13 +491,11 @@ void DisplayInstance::get_present_queue()
       VkBool32 supp;
       vk_check(vkGetPhysicalDeviceSurfaceSupportKHR(m_pdev, idx, m_surf, &supp));
 
-      if(supp && ip == -1)
-        ip = idx;
+      if(supp && ip == -1) ip = idx;
     }
   }
 
-  if(ip == -1)
-    throw std::runtime_error("No present support!");
+  if(ip == -1) throw std::runtime_error("No present support!");
 
   vkGetDeviceQueue(device(), ip, 0, &m_pq);
 }

@@ -39,6 +39,7 @@ public:
  *  - During the move assignment operator of this class.
  *
  *  @warning You still need to call destroy in your destructor!
+ *  @warning Always use a first base of your function! Otherwise destroy will be called after move of other bases was already performed!
  *
  */
 template<typename T>
