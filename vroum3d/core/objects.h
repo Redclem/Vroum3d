@@ -170,7 +170,7 @@ public:
     return *this;
   }
 
-  ImageAndView(Allocator alloc, VkImageType type, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkMemoryPropertyFlags mem_props, uint32_t miplevels = 1,
+  ImageAndView(Allocator &alloc, VkImageType type, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkMemoryPropertyFlags mem_props, uint32_t miplevels = 1,
                uint32_t arraylayers = 1, const VkComponentMapping &mapping = vkutil::components_id,
                const VkImageSubresourceRange &subresrange = vkutil::color_subres_plain, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL,
                VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT, VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED) :
