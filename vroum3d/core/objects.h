@@ -71,7 +71,9 @@ public:
    */
 
   Buffer(Allocator &alloc, VkDeviceSize bs, VkBufferUsageFlags use, VkMemoryPropertyFlags mp, VkDeviceSize alignment = 0) : MemoryBackedObject(alloc)
-  { create_buffer(bs, use, mp, alignment); }
+  {
+    create_buffer(bs, use, mp, alignment);
+  }
 
   using MemoryBackedObject::MemoryBackedObject;
 
@@ -126,16 +128,18 @@ public:
   using MemoryBackedObject::MemoryBackedObject;
 
   Image(Allocator &alloc, VkImageType type, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkMemoryPropertyFlags mem_props, uint32_t miplevels = 1,
-        uint32_t arraylayers = 1, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL, VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT,
-        VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED) : MemoryBackedObject(alloc)
-  { create_image(type, format, extent, usage, mem_props, miplevels, arraylayers, tiling, sample_count, init_layout); }
+        uint32_t arraylayers = 1, VkImageCreateFlags im_cr_flags = 0, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL,
+        VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT, VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED) : MemoryBackedObject(alloc)
+  {
+    create_image(type, format, extent, usage, mem_props, miplevels, arraylayers, im_cr_flags, tiling, sample_count, init_layout);
+  }
 
   void create_image(VkImageType type, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkMemoryPropertyFlags mem_props, uint32_t miplevels = 1,
-                    uint32_t arraylayers = 1, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL, VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT,
-                    VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED)
+                    uint32_t arraylayers = 1, VkImageCreateFlags create_flags = 0, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL,
+                    VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT, VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED)
   {
-    VkImageCreateInfo ici{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, nullptr, 0,       type,       format, extent, miplevels, arraylayers, sample_count, tiling, usage,
-                          VK_SHARING_MODE_EXCLUSIVE,           0,       nullptr, init_layout};
+    VkImageCreateInfo ici{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, nullptr, create_flags, type,       format, extent, miplevels, arraylayers, sample_count, tiling, usage,
+                          VK_SHARING_MODE_EXCLUSIVE,           0,       nullptr,      init_layout};
 
     vk_check(vkCreateImage(m_allocator->device(), &ici, nullptr, &m_image));
 
@@ -171,11 +175,13 @@ public:
   }
 
   ImageAndView(Allocator &alloc, VkImageType type, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkMemoryPropertyFlags mem_props, uint32_t miplevels = 1,
-               uint32_t arraylayers = 1, const VkComponentMapping &mapping = vkutil::components_id,
+               uint32_t arraylayers = 1, VkImageCreateFlags im_cr_flags = 0, const VkComponentMapping &mapping = vkutil::components_id,
                const VkImageSubresourceRange &subresrange = vkutil::color_subres_plain, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL,
                VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT, VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED) :
-    Image(alloc, type, format, extent, usage, mem_props, miplevels, arraylayers, tiling, sample_count, init_layout)
-  { create_view(vkutil::view_type_from_image_type(type), format, mapping, subresrange); }
+    Image(alloc, type, format, extent, usage, mem_props, miplevels, arraylayers, im_cr_flags, tiling, sample_count, init_layout)
+  {
+    create_view(vkutil::view_type_from_image_type(type), format, mapping, subresrange);
+  }
 
   ImageAndView(Allocator &alloc) : Image(alloc) {}
 
@@ -198,11 +204,11 @@ public:
   }
 
   void create_image_and_view(VkImageType type, VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkMemoryPropertyFlags mem_props, uint32_t miplevels = 1,
-                             uint32_t arraylayers = 1, const VkComponentMapping &mapping = vkutil::components_id,
+                             uint32_t arraylayers = 1, VkImageCreateFlags im_cr_flags = 0, const VkComponentMapping &mapping = vkutil::components_id,
                              const VkImageSubresourceRange &subresrange = vkutil::color_subres_plain, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL,
                              VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT, VkImageLayout init_layout = VK_IMAGE_LAYOUT_UNDEFINED)
   {
-    create_image(type, format, extent, usage, mem_props, miplevels, arraylayers, tiling, sample_count, init_layout);
+    create_image(type, format, extent, usage, mem_props, miplevels, arraylayers, im_cr_flags, tiling, sample_count, init_layout);
     create_view(vkutil::view_type_from_image_type(type), format, mapping, subresrange);
   }
 
@@ -250,7 +256,9 @@ public:
 
   template<typename CmdFun, typename... Args>
   void cmd(CmdFun cf, Args &&... ags)
-  { cf(m_cmd_buf, std::forward<Args>(ags)...); }
+  {
+    cf(m_cmd_buf, std::forward<Args>(ags)...);
+  }
 
   const VkCommandBuffer &cmd_buf() const { return m_cmd_buf; }
 
@@ -315,7 +323,9 @@ public:
   CommandBufferVector() = default;
 
   CommandBufferVector(const Instance &inst, VkCommandPool cmd_pool, uint32_t n_buffer, bool primary = true) : m_dev(inst.device()), m_cmd_pool(cmd_pool)
-  { allocate_command_buffers(n_buffer, primary); }
+  {
+    allocate_command_buffers(n_buffer, primary);
+  }
 
   void destroy()
   {
