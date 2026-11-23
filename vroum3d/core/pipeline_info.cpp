@@ -14,8 +14,7 @@ void GraphicsPipelineInformation::build_input_attachments(const std::vector<Bind
   std::uint32_t cnt;
   spvr_check(spvReflectEnumerateInputVariables(&m_vs.spv_module, &cnt, nullptr));
 
-  if(!cnt)
-    return;
+  if(!cnt) return;
   std::vector<SpvReflectInterfaceVariable*> variables(cnt);
   spvr_check(spvReflectEnumerateInputVariables(&m_vs.spv_module, &cnt, variables.data()));
 
@@ -35,19 +34,18 @@ void GraphicsPipelineInformation::build_input_attachments(const std::vector<Bind
 
   for(auto* itf_var: variables)
   {
-    if(itf_var->location == std::numeric_limits<decltype(itf_var->location)>::max())
-      continue;
+    if(itf_var->location == std::numeric_limits<decltype(itf_var->location)>::max()) continue;
     m_attributes[itf_var->location].format = static_cast<VkFormat>(itf_var->format);
   }
 }
 
 std::vector<VkPipelineShaderStageCreateInfo> RenderPipelineInformation::build_stages() const
 {
-  return {{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT, m_vs.vk_mod, "main", nullptr},
-          {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, m_fs.vk_mod, "main", nullptr}};
+  return {{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT, m_vs.vk_mod, "main", spec_info()},
+          {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, m_fs.vk_mod, "main", spec_info()}};
 }
 
 std::vector<VkPipelineShaderStageCreateInfo> GraphicsPipelineInformation::build_stages() const
 {
-  return {{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT, m_vs.vk_mod, "main", nullptr}};
+  return {{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT, m_vs.vk_mod, "main", spec_info()}};
 }

@@ -2,6 +2,7 @@
 #define VROUM3D_RAYTRACING_PIPELINE_H_INCLUDED
 
 #include "../core/pipeline.h"
+#include "../core/pipeline_info.h"
 #include "../volk_wrapper.h"
 
 #include <vulkan/vulkan_core.h>
@@ -9,7 +10,7 @@
 namespace Vroum3d::Raytracing
 {
 
-class BasePipelineInformation {
+class BasePipelineInformation : public Core::BasePipelineInfo {
 public:
   using PipelineResource = Core::PipelineResource;
 
@@ -19,7 +20,7 @@ public:
     VkShaderStageFlagBits stage;
   };
 
-  BasePipelineInformation(PipelineResource &pr) : m_pr(pr) {}
+  BasePipelineInformation(PipelineResource &pr) : Core::BasePipelineInfo(pr) {}
 
   VkDeferredOperationKHR deferred_op() const { return VK_NULL_HANDLE; }
 
@@ -42,8 +43,6 @@ public:
   std::int32_t base_pipeline_index() const { return 0; }
 
 protected:
-  PipelineResource &m_pr;
-
   mutable std::vector<VkPipelineShaderStageCreateInfo> m_stages;
 };
 
