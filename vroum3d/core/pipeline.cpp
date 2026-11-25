@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <format>
 #include <fstream>
 #include <spirv_reflect.h>
 #include <stdexcept>
@@ -147,7 +148,8 @@ void PipelineResource::DescriptorSetDescription::load_descriptor_set(const SpvRe
     if(!ins)
     {
       auto &di = iter->second;
-      check(ds_binding.count == di.descriptorCount && static_cast<VkDescriptorType>(ds_binding.descriptor_type) == di.descriptorType);
+      if(!(ds_binding.count == di.descriptorCount && static_cast<VkDescriptorType>(ds_binding.descriptor_type) == di.descriptorType))
+        throw std::runtime_error(std::format("Incompatible descriptor set bindings between shaders of a same pipeline. (binding {})", ds_binding.binding));
 
       di.stageFlags |= stage;
     }

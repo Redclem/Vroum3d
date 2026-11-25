@@ -189,19 +189,19 @@ public:
    */
   int64_t rate_physical_device(VkPhysicalDevice pdev, void* pNext = nullptr)
   {
-    m_Features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    m_Features2.pNext = &m_Vulkan12Features;
-    m_Vulkan12Features.pNext = &m_Vulkan13Features;
-    m_Vulkan13Features.pNext = pNext;
-
-    vkGetPhysicalDeviceFeatures2(pdev, &m_Features2);
-
     auto dev_exts = wrap_enumerate(vkEnumerateDeviceExtensionProperties, pdev, nullptr);
 
     for(auto &s: m_extensions)
     {
       if(!std::any_of(dev_exts.begin(), dev_exts.end(), [&](const auto &ext) { return s == ext.extensionName; })) return -1;
     }
+
+    m_Features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    m_Features2.pNext = &m_Vulkan12Features;
+    m_Vulkan12Features.pNext = &m_Vulkan13Features;
+    m_Vulkan13Features.pNext = pNext;
+
+    vkGetPhysicalDeviceFeatures2(pdev, &m_Features2);
 
     vkGetPhysicalDeviceProperties(pdev, &m_PhysicalDeviceProperties);
 
@@ -243,9 +243,7 @@ public:
    */
   template<typename String>
   void add_required_extension(String &&s)
-  {
-    check_add_string(m_extensions, std::forward<String>(s));
-  }
+  { check_add_string(m_extensions, std::forward<String>(s)); }
 };
 
 template<typename InstanceInfo = DefaultInstanceInfo>
