@@ -28,7 +28,7 @@ public:
    *
    * Cam Space -> World Space
    * */
-  mat4 get_inv_matrix() const { return scale(vec4(-1.0, -1.0, 1.0, 1.0)) * translate(m_position) * mat4(rotate<1>(-m_yaw) * rotate<0>(-m_pitch)); }
+  mat4 get_inv_matrix() const { return translate(m_position) * mat4(rotate<1>(-m_yaw) * rotate<0>(-m_pitch)) * scale(vec4(-1.0, -1.0, 1.0, 1.0)); }
 
   mat3 get_inv_matrix_orient_only() const { return rotate<1>(-m_yaw) * rotate<0>(-m_pitch); }
 

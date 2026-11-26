@@ -103,35 +103,44 @@ target_compile_options(vroum3d PRIVATE ${VROUM3D_CXXFLAGS})
 target_link_libraries(vroum3d PUBLIC SDL3::SDL3  spirv-reflect-static volk::volk)
 target_include_directories(vroum3d INTERFACE vroum3d ext)
 
+find_package(Vulkan REQUIRED COMPONENTS glslc)
+
 add_library(vroum3d_shaders INTERFACE)
 
-function (add_shader sh)
-
+function(add_shader sh)
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(GLSLC_FLAGS "-g")
   else()
     set(GLSLC_FLAGS "-O")
   endif()
 
-	get_filename_component(sh_name_we ${sh} NAME_WE)
-	get_filename_component(sh_ext ${sh} LAST_EXT)
+  set(SHADERS_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
+  set(SHADERS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 
-  set(SHADERS_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders/")
-  set(SHADERS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders/")
+  set(SH_SRC "${SHADERS_SOURCE_DIR}/${sh}")
+  set(SH_SPV "${SHADERS_BINARY_DIR}/${sh}.spv")
+  set(SH_DEP "${SH_SPV}.d")
 
-  make_directory(${SHADERS_BINARY_DIR})
+  file(MAKE_DIRECTORY "${SHADERS_BINARY_DIR}")
 
-	add_custom_command(OUTPUT "${SHADERS_BINARY_DIR}/${sh}.spv"
-    COMMAND "glslc" "--target-env=vulkan1.4" "${SHADERS_SOURCE_DIR}/${sh}" "-o" "${SHADERS_BINARY_DIR}/${sh}.spv" "${GLSLC_FLAGS}"
-		DEPENDS "${SHADERS_SOURCE_DIR}/${sh}"
-	)
+  add_custom_command(
+    OUTPUT "${SH_SPV}"
+    COMMAND "glslc"
+            "--target-env=vulkan1.4"
+            "${GLSLC_FLAGS}"
+            "-MD" "-MF" "${SH_DEP}"
+            "${SH_SRC}"
+            "-o" "${SH_SPV}"
+    DEPENDS "${SH_SRC}"
+    DEPFILE "${SH_DEP}"
+    VERBATIM
+  )
 
-	add_custom_target(shader_${sh} ALL
-		DEPENDS "${SHADERS_BINARY_DIR}/${sh}.spv"
-	)
+  add_custom_target("shader_${sh}" ALL
+    DEPENDS "${SH_SPV}"
+  )
 
-  add_dependencies(vroum3d_shaders shader_${sh})
-
+  add_dependencies(vroum3d_shaders "shader_${sh}")
 endfunction()
 
 function(add_example ex_name)
